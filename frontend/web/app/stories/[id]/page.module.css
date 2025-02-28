@@ -1,0 +1,203 @@
+.main {
+  padding-top: 140px; /* 与首页保持一致 */
+  min-height: calc(100vh - 118px);
+  background: #f8f9fa;
+  position: relative;
+  overflow: hidden;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.header {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+
+.coverWrapper {
+  flex-shrink: 0;
+  width: 300px;
+  height: 400px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.info {
+  flex: 1;
+  min-width: 0; /* 防止flex子元素溢出 */
+  padding: 1rem;
+}
+
+.title {
+  font-size: 2rem; /* 减小字体大小 */
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  line-height: 1.2; /* 调整行高 */
+  word-wrap: break-word; /* 允许长单词换行 */
+  background: linear-gradient(135deg, #1a1a1a 0%, #4a4a4a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap; /* 允许换行 */
+  gap: 1.5rem;
+  color: #666;
+  margin-bottom: 2rem;
+}
+
+.stats {
+  display: flex;
+  gap: 3rem;
+  margin-bottom: 2rem;
+}
+
+.rating, .reads, .collections {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.score {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.maxScore {
+  color: #666;
+}
+
+.number {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.label {
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.description {
+  color: #4b5563;
+  line-height: 1.75;
+  margin-bottom: 2rem;
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.readButton {
+  padding: 0.75rem 2rem;
+  background: #7877C6;
+  color: white;
+  border-radius: 12px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.readButton:hover {
+  background: #6665b5;
+  transform: translateY(-2px);
+}
+
+.chapterButton {
+  padding: 0.75rem 2rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.chapterButton:hover {
+  background: #f9fafb;
+  transform: translateY(-2px);
+}
+
+.nftInfo {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 3rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.nftTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+}
+
+.nftGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.nftItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 12px;
+}
+
+.nftItem .label {
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.nftItem .value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+@media (max-width: 768px) {
+  .main {
+    padding-top: 70px;
+  }
+  
+  .header {
+    flex-direction: column;
+  }
+  
+  .coverWrapper {
+    width: 100%;
+    height: 300px;
+  }
+  
+  .stats {
+    gap: 2rem;
+  }
+  
+  .nftGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .title {
+    font-size: 1.75rem; /* 移动端进一步减小字体 */
+  }
+  
+  .meta {
+    gap: 1rem;
+  }
+}

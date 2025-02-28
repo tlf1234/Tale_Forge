@@ -1,0 +1,267 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 用户模型
+model User {
+  id            String    @id @default(cuid())
+  address       String    @unique // 钱包地址
+  type          UserType  @default(READER) // 用户类型
+  nickname      String?   // 昵称
+  avatar        String?   // 头像
+  bio           String?   // 简介
+  authorName    String?   @unique // 作者笔名
+  isAuthor      Boolean   @default(false)
+  email         String?   // 电子邮箱
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 关联
+  stories       Story[]   // 创作的故事
+  comments      Comment[] // 发表的评论
+  likes         Like[]    // 点赞记录
+  favorites     Favorite[] // 收藏记录
+  transactions  Transaction[] // 交易记录
+  commentLikes  CommentLike[] // 评论点赞记录
+  collections   Collection[] // 收藏的故事集
+
+  // 关注关系
+  followers     Follow[] @relation("FollowedBy")
+  following     Follow[] @relation("Following")
+}
+
+// 故事模型
+model Story {
+  id            String    @id @default(cuid())
+  title         String    // 标题
+  description   String    // 描述
+  cover         String?   // 封面图片
+  contentCID    String    // IPFS内容ID
+  wordCount     Int       @default(0) // 字数
+  targetWordCount Int     @default(10000) // 目标字数
+  status        StoryStatus @default(DRAFT) // 状态
+  category      String    // 分类
+  tags          String[]  // 标签
+  isNFT         Boolean   @default(false) // 是否已铸造NFT
+  nftAddress    String?   // NFT合约地址
+  published     Boolean   @default(false) // 是否已发布
+  authorId      String
+  author        User      @relation(fields: [authorId], references: [id])
+  chapters      Chapter[] // 章节
+  comments      Comment[] // 评论
+  likes         Like[]    // 点赞
+  favorites     Favorite[] // 收藏
+  transactions  Transaction[] // 交易记录
+  collections   Collection[] // 所属故事集
+  createdAt     DateTime  @default(now()) // 创建时间
+  updatedAt     DateTime  @updatedAt // 更新时间
+
+  @@index([authorId])
+}
+
+// 章节模型
+model Chapter {
+  id            String    @id @default(cuid())
+  title         String    // 标题
+  contentCID    String    // IPFS内容ID
+  wordCount     Int       @default(0) // 字数
+  order         Int       // 章节顺序
+  status        ChapterStatus @default(DRAFT) // 状态
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 关联
+  storyId       String
+  story         Story     @relation(fields: [storyId], references: [id])
+  comments      Comment[] // 评论
+  illustrations Illustration[] // 插画
+
+  @@index([storyId])
+}
+
+// 插画模型
+model Illustration {
+  id            String    @id @default(cuid())
+  imageCID      String    // IPFS图片ID
+  description   String    // 描述
+  createdAt     DateTime  @default(now())
+
+  // 关联
+  chapterId     String
+  chapter       Chapter   @relation(fields: [chapterId], references: [id])
+
+  @@index([chapterId])
+}
+
+// 评论模型
+model Comment {
+  id            String    @id @default(cuid())
+  content       String    // 评论内容
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 关联
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  storyId       String?
+  story         Story?    @relation(fields: [storyId], references: [id])
+  chapterId     String?
+  chapter       Chapter?  @relation(fields: [chapterId], references: [id])
+
+  // 回复关联
+  parentId      String?
+  parent        Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies       Comment[] @relation("CommentReplies")
+
+  // 点赞关联
+  likes         CommentLike[]
+
+  @@index([userId])
+  @@index([storyId])
+  @@index([chapterId])
+  @@index([parentId])
+}
+
+// 关注模型
+model Follow {
+  id            String    @id @default(cuid())
+  createdAt     DateTime  @default(now())
+
+  // 关联
+  followerId    String    // 关注者ID
+  follower      User      @relation("Following", fields: [followerId], references: [id])
+  followingId   String    // 被关注者ID
+  following     User      @relation("FollowedBy", fields: [followingId], references: [id])
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+// 评论点赞模型
+model CommentLike {
+  id            String    @id @default(cuid())
+  createdAt     DateTime  @default(now())
+
+  // 关联
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  commentId     String
+  comment       Comment   @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
+  @@index([userId])
+  @@index([commentId])
+}
+
+// 点赞模型
+model Like {
+  id            String    @id @default(cuid())
+  createdAt     DateTime  @default(now())
+
+  // 关联
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  storyId       String
+  story         Story     @relation(fields: [storyId], references: [id])
+
+  @@unique([userId, storyId])
+  @@index([userId])
+  @@index([storyId])
+}
+
+// 收藏模型
+model Favorite {
+  id            String    @id @default(cuid())
+  createdAt     DateTime  @default(now())
+
+  // 关联
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  storyId       String
+  story         Story     @relation(fields: [storyId], references: [id])
+
+  @@unique([userId, storyId])
+  @@index([userId])
+  @@index([storyId])
+}
+
+// 交易模型
+model Transaction {
+  id            String    @id @default(cuid())
+  type          TransactionType // 交易类型
+  amount        String    // 交易金额
+  txHash        String    // 交易哈希
+  status        TransactionStatus @default(PENDING) // 交易状态
+  createdAt     DateTime  @default(now())
+
+  // 关联
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  storyId       String
+  story         Story     @relation(fields: [storyId], references: [id])
+
+  @@index([userId])
+  @@index([storyId])
+  @@index([txHash])
+}
+
+// 同步状态
+model SyncState {
+  type          String    @id // 同步类型，如 'story', 'chapter' 等
+  blockNumber   Int       // 最后同步的区块号
+  updatedAt     DateTime  @updatedAt
+}
+
+// 故事集模型
+model Collection {
+  id        String   @id @default(cuid())
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  stories   Story[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 用户类型枚举
+enum UserType {
+  READER    // 普通读者
+  AUTHOR    // 作者
+  PUBLISHER // 出版方
+  ADMIN     // 管理员
+}
+
+// 枚举类型
+enum StoryStatus {
+  DRAFT       // 草稿
+  PUBLISHED   // 已发布
+  COMPLETED   // 已完结
+  SUSPENDED   // 已暂停
+}
+
+enum ChapterStatus {
+  DRAFT       // 草稿
+  PUBLISHED   // 已发布
+}
+
+enum TransactionType {
+  REWARD      // 打赏
+  NFT_MINT    // NFT铸造
+  NFT_TRADE   // NFT交易
+}
+
+enum TransactionStatus {
+  PENDING     // 待处理
+  COMPLETED   // 已完成
+  FAILED      // 失败
+}

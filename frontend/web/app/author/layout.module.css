@@ -1,0 +1,116 @@
+.layout {
+  display: flex;
+  min-height: 100vh;
+  padding-top: 118px;
+  background-color: #f8fafc;
+}
+
+.sidebar {
+  width: 240px;
+  background: white;
+  border-right: 1px solid #e5e7eb;
+  height: calc(100vh - 118px);
+  position: fixed;
+  top: 118px;
+  left: 0;
+  overflow-y: auto;
+  box-shadow: 1px 0 2px rgba(0, 0, 0, 0.05);
+}
+
+.nav {
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  padding: 0.875rem 1.25rem;
+  color: #4b5563;
+  text-decoration: none;
+  border-radius: 0.75rem;
+  transition: all 0.2s ease-in-out;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  position: relative;
+  overflow: hidden;
+}
+
+.navLink:hover {
+  background: #f3f4f6;
+  color: #2563eb;
+  transform: translateX(2px);
+}
+
+.navLink.active {
+  background: #eef2ff;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.navLink.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 24px;
+  background: #2563eb;
+  border-radius: 0 4px 4px 0;
+}
+
+.main {
+  flex: 1;
+  margin-left: 240px;
+  min-height: calc(100vh - 118px);
+  padding: 2rem;
+  background: #f8fafc;
+}
+
+/* 深色模式 */
+@media (prefers-color-scheme: dark) {
+  .sidebar {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  .navLink {
+    color: #94a3b8;
+  }
+
+  .navLink:hover {
+    background: #334155;
+    color: #e2e8f0;
+  }
+
+  .main {
+    background: #0f172a;
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .layout {
+    padding-top: 70px;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: static;
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .main {
+    margin-left: 0;
+    padding: 1rem;
+  }
+
+  .layout {
+    flex-direction: column;
+  }
+}
