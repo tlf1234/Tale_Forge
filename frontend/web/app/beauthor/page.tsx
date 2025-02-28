@@ -77,6 +77,126 @@ export default function BeAuthor() {
   const [originalAuthorInfo, setOriginalAuthorInfo] = useState<AuthorInfo | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
+
+  // 提交表单(注册及更新)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    const error = validateForm()
+    if (error) {
+      toast.error(error)
+      return
+    }
+
+    if (isExistingAuthor) {
+      // 如果修改了笔名，显示确认对话框
+      if (authorInfo.penName !== originalAuthorInfo?.penName) {
+        setShowConfirmDialog(true)
+      } else {
+        // 直接更新信息
+        await updateAuthorInfo()
+      }
+    } else {
+      // 新作者注册
+      register?.()
+    }
+  }
+
+  // 合约注册作者
+  const { write: register } = useContractWrite({
+    address: authorManagerAddress,
+    abi: CONTRACT_ABIS.AuthorManager,
+    functionName: 'registerAuthor',
+    args: [authorInfo.penName],
+    onSuccess: async (data) => {
+      try {
+        // 等待交易确认
+        await publicClient.waitForTransactionReceipt({
+          hash: data.hash,
+          confirmations: 1,
+        })
+        
+        // 调用后端注册 API
+        await registerAuthorToServer()
+        
+        toast.success('注册成功！')
+        router.push('/author/write')
+      } catch (error) {
+        console.error('注册作者失败:', error)
+        toast.error('注册失败：' + (error as Error).message)
+      }
+    },
+    onError: (error) => {
+      console.error('注册作者失败:', error)
+      if (error.message.includes('Author already registered')) {
+        toast.error('您已经是作者了')
+        router.push('/author/write')
+      } else {
+        toast.error('注册失败：' + error.message)
+      }
+    }
+  })
+
+  // 调用后端注册 API
+  const registerAuthorToServer = async () => {
+    try {
+      const response = await fetch('/api/authors/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...authorInfo,
+          address
+        })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to register author')
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Register to server failed:', error)
+      throw error
+    }
+  }
+
+
+  // 合约检查笔名是否已被使用
+  const { data: isPenNameTaken, isLoading: isPenNameCheckLoading } = useContractRead({
+    address: authorManagerAddress,
+    abi: CONTRACT_ABIS.AuthorManager,
+    functionName: 'isPenNameTaken',
+    args: [authorInfo.penName],
+    enabled: authorInfo.penName.length > 0 && authorInfo.penName !== (isExistingAuthor ? authorInfo.penName : ''),
+  })
+
+  // 验证笔名
+  useEffect(() => {
+    const error = validatePenName()
+    setPenNameError(error)
+  }, [authorInfo.penName, isPenNameTaken, isExistingAuthor])
+
+  // 验证笔名
+  const validatePenName = () => {
+    if (!authorInfo.penName) {
+      return '笔名不能为空'
+    }
+    if (authorInfo.penName.length < PEN_NAME_RULES.minLength) {
+      return `笔名至少需要 ${PEN_NAME_RULES.minLength} 个字符`
+    }
+    if (authorInfo.penName.length > PEN_NAME_RULES.maxLength) {
+      return `笔名最多 ${PEN_NAME_RULES.maxLength} 个字符`
+    }
+    if (!PEN_NAME_RULES.pattern.test(authorInfo.penName)) {
+      return '笔名只能包含字母、数字、中文、下划线和连字符'
+    }
+    if (isPenNameTaken && !isExistingAuthor) {
+      return '该笔名已被使用'
+    }
+    return ''
+  }
+
   // 从合约获取作者信息
   const { data: authorData } = useContractRead({
     address: authorManagerAddress,
@@ -96,22 +216,7 @@ export default function BeAuthor() {
     }
   })
 
-  // 检查笔名是否已被使用
-  const { data: isPenNameTaken, isLoading: isPenNameCheckLoading } = useContractRead({
-    address: authorManagerAddress,
-    abi: CONTRACT_ABIS.AuthorManager,
-    functionName: 'isPenNameTaken',
-    args: [authorInfo.penName],
-    enabled: authorInfo.penName.length > 0 && authorInfo.penName !== (isExistingAuthor ? authorInfo.penName : ''),
-  })
-
-  // 合约写入函数
-  const { writeAsync: updatePenName } = useContractWrite({
-    address: authorManagerAddress,
-    abi: CONTRACT_ABIS.AuthorManager,
-    functionName: 'updatePenName',
-  })
-
+  // 获取用户信息
   useEffect(() => {
     const fetchAuthorInfo = async () => {
       if (!address) return
@@ -163,7 +268,7 @@ export default function BeAuthor() {
           }
         }
 
-        // 从数据库获取扩展信息
+        // 获取指定作者信息
         const response = await fetch(`/api/authors/${address}`)
         if (response.ok) {
           const data = await response.json()
@@ -190,56 +295,17 @@ export default function BeAuthor() {
     fetchAuthorInfo()
   }, [address, authorData])
 
-  // 验证笔名
-  useEffect(() => {
-    const error = validatePenName()
-    setPenNameError(error)
-  }, [authorInfo.penName, isPenNameTaken, isExistingAuthor])
 
-  // 注册作者
-  const { write: register } = useContractWrite({
-    address: authorManagerAddress,
-    abi: CONTRACT_ABIS.AuthorManager,
-    functionName: 'registerAuthor',
-    onSuccess: async (data) => {
-      try {
-        // 等待交易确认
-        await publicClient.waitForTransactionReceipt({
-          hash: data.hash,
-          confirmations: 1,
-        })
-        
-        // 保存扩展信息到服务器
-        await saveAuthorDataToServer({
-          ...authorInfo,
-          walletAddress: address
-        })
-        
-        toast.success('注册成功！')
-        router.push('/author/write')
-      } catch (error) {
-        console.error('保存作者信息失败:', error)
-        toast.error('保存作者信息失败：' + (error as Error).message)
-      }
-    },
-    onError: (error) => {
-      console.error('注册作者失败:', error)
-      if (error.message.includes('Author already registered')) {
-        toast.error('您已经是作者了')
-        router.push('/author/write')
-      } else {
-        toast.error('注册失败：' + error.message)
-      }
-    }
-  })
 
   // 更新作者信息
   const updateAuthorInfo = async () => {
     if (!address) return
+    setIsLoading(true)
 
     try {
       // 如果笔名被修改了，需要先调用合约更新笔名
       if (authorInfo.penName !== originalAuthorInfo?.penName) {
+        console.log('更新笔名:', authorInfo.penName)
         const { hash } = await updatePenName({
           args: [authorInfo.penName]
         })
@@ -249,13 +315,13 @@ export default function BeAuthor() {
           hash,
           confirmations: 1,
         })
-
-        toast.success('笔名更新成功')
+        console.log('笔名更新成功，交易hash:', hash)
       }
 
-      // 更新数据库中的其他信息
-      const response = await fetch('/api/authors', {
-        method: 'POST',
+      // 更新数据库中的信息
+      console.log('更新数据库信息:', authorInfo)
+      const response = await fetch(`/api/users/${address}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -263,92 +329,52 @@ export default function BeAuthor() {
           penName: authorInfo.penName,
           bio: authorInfo.bio,
           avatar: authorInfo.avatar,
-          email: authorInfo.email,
-          walletAddress: address
+          email: authorInfo.email
         }),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to update author info')
+        throw new Error(errorData.error || '更新失败')
       }
 
       const data = await response.json()
-      console.log('Updated author data:', data)
+      console.log('更新成功:', data)
 
       toast.success('作者信息更新成功')
       setShowConfirmDialog(false)
-      
-      // 更新成功后刷新页面
-      router.refresh()
+      router.push('/author/write')
     } catch (error) {
-      console.error('Failed to update author info:', error)
+      console.error('更新失败:', error)
       toast.error('更新失败：' + (error as Error).message)
-      throw error
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  // 保存作者信息到服务器
-  const saveAuthorDataToServer = async (data: AuthorInfo & { walletAddress?: string }) => {
-    try {
-      const response = await fetch('/api/authors', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to save author data')
-      }
-    } catch (error) {
-      console.error('Server error:', error)
-      throw error
+  // 合约写入函数
+  const { writeAsync: updatePenName } = useContractWrite({
+    address: authorManagerAddress,
+    abi: CONTRACT_ABIS.AuthorManager,
+    functionName: 'updatePenName',
+  })
+
+
+  // 前端只保留基础的表单验证
+  const validateForm = () => {
+    if (!authorInfo.penName) {
+      return '笔名不能为空'
     }
-  }
-  // 验证笔名
-  const validatePenName = () => {
-    if (authorInfo.penName.length < PEN_NAME_RULES.minLength) {
-      return `笔名至少需要 ${PEN_NAME_RULES.minLength} 个字符`
+    if (!authorInfo.email) {
+      return '邮箱不能为空'
     }
-    if (authorInfo.penName.length > PEN_NAME_RULES.maxLength) {
-      return `笔名最多 ${PEN_NAME_RULES.maxLength} 个字符`
-    }
-    if (!PEN_NAME_RULES.pattern.test(authorInfo.penName)) {
-      return '笔名只能包含字母、数字、中文、下划线和连字符'
-    }
-    if (isPenNameTaken && !isExistingAuthor) {
-      return '该笔名已被使用'
+    // 只做基本格式验证
+    if (!/^[a-zA-Z0-9\u4e00-\u9fa5_-]{2,20}$/.test(authorInfo.penName)) {
+      return '笔名格式不正确'
     }
     return ''
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (penNameError) {
-      toast.error(penNameError)
-      return
-    }
-
-    if (isExistingAuthor) {
-      setShowConfirmDialog(true)
-    } else {
-      setIsLoading(true)
-      try {
-        register?.({
-          args: [authorInfo.penName],
-        })
-      } catch (error) {
-        console.error('注册失败:', error)
-        toast.error('注册失败：' + (error as Error).message)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-  }
 
   return (
     <div className="pt-16">
