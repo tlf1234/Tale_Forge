@@ -172,6 +172,7 @@ npm run db:generate
 
 # 执行数据库迁移
 cd backend
+
 npx prisma migrate dev
 ```
 
