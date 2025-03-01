@@ -5,28 +5,44 @@ import type { StoryStatus } from '@prisma/client'
 const app = express();
 app.use(express.json());
 
-// 用户相关路由
-app.get('/api/users/:address', async (req, res) => {
-  try {
-    const { address } = req.params;
-    const user = await userService.getUser(address);
-    res.json(user);
-  } catch (error: any) {
-    res.status(500).json({ error: error?.message });
-  }
-});
-
-// 用户相关路由
+// POST - 创建新用户
 app.post('/api/users', async (req, res) => {
   try {
+    console.log('[POST /api/users] 收到创建请求:', {
+      body: req.body
+    })
+    
     const user = await userService.getOrCreateUser(req.body.address);
+    
+    console.log('[POST /api/users] 创建成功:', user)
     res.json(user);
   } catch (error: any) {
+    console.error('[POST /api/users] 创建失败:', error)
     res.status(500).json({ error: error?.message });
   }
 });
 
-// 更新用户信息
+// 用户相关路由
+// GET - 获取用户信息
+app.get('/api/users/:address', async (req, res) => {
+  try {
+    console.log('[GET /api/users/:address] 收到查询请求:', {
+      address: req.params.address
+    })
+    
+    const { address } = req.params;
+    const user = await userService.getUser(address);
+    
+    console.log('[GET /api/users/:address] 查询成功:', user)
+    res.json(user);
+  } catch (error: any) {
+    console.error('[GET /api/users/:address] 查询失败:', error)
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+
+// PUT - 更新用户信息（主要是作者信息）
 app.put('/api/users/:address', async (req, res) => {
   try {
     console.log('[PUT /api/users/:address] 收到更新请求:', {
@@ -44,6 +60,115 @@ app.put('/api/users/:address', async (req, res) => {
     res.status(500).json({ error: error?.message })
   }
 })
+
+
+// 作者相关路由
+// POST - 注册新作者
+app.post('/api/authors/register', async (req, res) => {
+  try {
+    console.log('[POST /api/authors/register] 收到注册请求:', {
+      body: req.body
+    })
+    
+    const author = await userService.registerAuthor(req.body);
+    
+    console.log('[POST /api/authors/register] 注册成功:', author)
+    res.json(author);
+  } catch (error: any) {
+    console.error('[POST /api/authors/register] 注册失败:', error)
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// GET - 获取作者信息
+app.get('/api/authors/:address', async (req, res) => {
+  try {
+    console.log('[GET /api/authors/:address] 收到查询请求:', {
+      address: req.params.address
+    })
+    
+    const { address } = req.params;
+    const author = await userService.getAuthorByAddress(address);
+    
+    console.log('[GET /api/authors/:address] 查询成功:', author)
+    res.json(author);
+  } catch (error: any) {
+    console.error('[GET /api/authors/:address] 查询失败:', error)
+    if (error.message === 'Author not found') {
+      res.status(404).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
+
+// POST - 验证作者身份
+app.post('/api/authors/verify', async (req, res) => {
+  console.log('[POST /api/authors/verify] 收到验证请求:', {
+    body: req.body
+  })
+  // 处理验证
+})
+
+// 关注相关路由
+// GET - 获取关注列表
+app.get('/api/authors/:address/follows', async (req, res) => {
+  try {
+    console.log('[GET /api/authors/:address/follows] 收到查询关注列表请求:', {
+      address: req.params.address
+    })
+    
+    const { address } = req.params;
+    const follows = await userService.getAuthorFollows(address);
+    
+    console.log('[GET /api/authors/:address/follows] 查询成功:', follows)
+    res.json(follows);
+  } catch (error: any) {
+    console.error('[GET /api/authors/:address/follows] 查询失败:', error)
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// POST - 创建新的关注关系
+app.post('/api/authors/:address/follows', async (req, res) => {
+  try {
+    console.log('[POST /api/authors/:address/follows] 收到关注请求:', {
+      address: req.params.address,
+      followerAddress: req.body.followerAddress
+    })
+    
+    const { address } = req.params;
+    const { followerAddress } = req.body;
+    const follow = await userService.followAuthor(address, followerAddress);
+    
+    console.log('[POST /api/authors/:address/follows] 关注成功:', follow)
+    res.json(follow);
+  } catch (error: any) {
+    console.error('[POST /api/authors/:address/follows] 关注失败:', error)
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// DELETE - 删除关注关系
+app.delete('/api/authors/:address/follows', async (req, res) => {
+  try {
+    console.log('[DELETE /api/authors/:address/follows] 收到取消关注请求:', {
+      address: req.params.address,
+      followerAddress: req.body.followerAddress
+    })
+    
+    const { address } = req.params;
+    const { followerAddress } = req.body;
+    await userService.unfollowAuthor(address, followerAddress);
+    
+    console.log('[DELETE /api/authors/:address/follows] 取消关注成功')
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('[DELETE /api/authors/:address/follows] 取消关注失败:', error)
+    res.status(500).json({ error: error?.message });
+  }
+});
+
 
 // 故事相关路由
 app.get('/api/stories', async (req, res) => {
@@ -114,73 +239,6 @@ app.post('/api/comments', async (req, res) => {
   try {
     const comment = await commentService.createComment(req.body);
     res.json(comment);
-  } catch (error: any) {
-    res.status(500).json({ error: error?.message });
-  }
-});
-
-// 作者相关路由
-app.post('/api/authors/register', async (req, res) => {
-  try {
-    const author = await userService.registerAuthor(req.body);
-    res.json(author);
-  } catch (error: any) {
-    res.status(500).json({ error: error?.message });
-  }
-});
-
-// 获取作者信息
-app.get('/api/authors/:address', async (req, res) => {
-  try {
-    const { address } = req.params;
-    const author = await userService.getAuthorByAddress(address);
-    res.json(author);
-  } catch (error: any) {
-    if (error.message === 'Author not found') {
-      res.status(404).json({ error: error.message });
-    } else {
-      res.status(500).json({ error: error.message });
-    }
-  }
-});
-
-
-app.post('/api/authors/update', async (req, res) => {
-  // 处理更新
-})
-
-app.post('/api/authors/verify', async (req, res) => {
-  // 处理验证
-})
-
-// 关注相关路由
-app.get('/api/authors/:address/follows', async (req, res) => {
-  try {
-    const { address } = req.params;
-    const follows = await userService.getAuthorFollows(address);
-    res.json(follows);
-  } catch (error: any) {
-    res.status(500).json({ error: error?.message });
-  }
-});
-
-app.post('/api/authors/:address/follows', async (req, res) => {
-  try {
-    const { address } = req.params;
-    const { followerAddress } = req.body;
-    const follow = await userService.followAuthor(address, followerAddress);
-    res.json(follow);
-  } catch (error: any) {
-    res.status(500).json({ error: error?.message });
-  }
-});
-
-app.delete('/api/authors/:address/follows', async (req, res) => {
-  try {
-    const { address } = req.params;
-    const { followerAddress } = req.body;
-    await userService.unfollowAuthor(address, followerAddress);
-    res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error?.message });
   }

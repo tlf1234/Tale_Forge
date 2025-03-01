@@ -267,7 +267,7 @@ export default function BeAuthor() {
             })
           }
         }
-
+        console.log('/api/authors/:', address)
         // 获取指定作者信息
         const response = await fetch(`/api/authors/${address}`)
         if (response.ok) {
@@ -318,8 +318,32 @@ export default function BeAuthor() {
         console.log('笔名更新成功，交易hash:', hash)
       }
 
-      // 更新数据库中的信息
-      console.log('更新数据库信息:', authorInfo)
+      // 先检查用户是否存在，不存在则创建  实际上这个环节是不需要的。
+      // console.log('检查用户是否存在...')
+      // const checkResponse = await fetch(`/api/users/${address}`)
+      // if (!checkResponse.ok) {
+      //   console.log('用户不存在，先创建用户...')
+      //   const createResponse = await fetch('/api/authors/register', {
+      //     method: 'POST',
+      //     headers: {
+      //       'Content-Type': 'application/json',
+      //     },
+      //     body: JSON.stringify({
+      //       address,
+      //       penName: authorInfo.penName,
+      //       bio: authorInfo.bio,
+      //       email: authorInfo.email,
+      //       avatar: authorInfo.avatar
+      //     }),
+      //   })
+      //   if (!createResponse.ok) {
+      //     throw new Error('创建作者失败')
+      //   }
+      //   console.log('作者创建成功')
+      // }
+
+      // 更新服务器数据
+      console.log('更新服务器数据:', authorInfo)
       const response = await fetch(`/api/users/${address}`, {
         method: 'PUT',
         headers: {
@@ -328,8 +352,9 @@ export default function BeAuthor() {
         body: JSON.stringify({
           penName: authorInfo.penName,
           bio: authorInfo.bio,
+          email: authorInfo.email,
           avatar: authorInfo.avatar,
-          email: authorInfo.email
+          genres: authorInfo.genres
         }),
       })
 
@@ -338,12 +363,19 @@ export default function BeAuthor() {
         throw new Error(errorData.error || '更新失败')
       }
 
-      const data = await response.json()
-      console.log('更新成功:', data)
+      const updatedData = await response.json()
+      console.log('服务器更新成功:', updatedData)
+
+      // 更新本地状态
+      setOriginalAuthorInfo({
+        ...authorInfo,
+        agreement: true
+      })
 
       toast.success('作者信息更新成功')
       setShowConfirmDialog(false)
-      router.push('/author/write')
+      // router.push('/author/write')
+      router.refresh()
     } catch (error) {
       console.error('更新失败:', error)
       toast.error('更新失败：' + (error as Error).message)

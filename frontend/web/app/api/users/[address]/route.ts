@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+// 获取指定用户信息
 export async function GET(
   request: Request,
   { params }: { params: { address: string } }
@@ -14,6 +15,7 @@ export async function GET(
   }
 }
 
+// 更新指定用户信息
 export async function PUT(
   request: Request,
   { params }: { params: { address: string } }

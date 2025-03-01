@@ -11,6 +11,10 @@ export async function GET(
   { params }: { params: { address: string } }
 ) {
   try {
+    console.log('[GET /api/authors/:address] 收到请求:', {
+      url: request.url,
+      params: params
+    })
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/authors/${params.address}`
     )

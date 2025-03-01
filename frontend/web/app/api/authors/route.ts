@@ -6,6 +6,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
+    console.log('[GET /api/authors] 收到请求:', {
+      url: request.url,
+      searchParams: Object.fromEntries(searchParams.entries())
+    })
     const response = await fetch(`${API_BASE_URL}/api/authors?${searchParams}`)
     if (!response.ok) {
       const error = await response.json()
