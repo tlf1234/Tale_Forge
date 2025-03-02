@@ -32,6 +32,9 @@ import ImageCropper from '@/components/ImageCropper'
 import styles from './page.module.css'
 import Button from '@/components/ui/button'
 import { useAccount } from 'wagmi'
+import { ethers } from 'ethers'
+import { StoryManager__factory } from '@/blockchain'
+import { CONTRACT_ADDRESSES } from '@/constants/contracts'
 
 // 定义IconButton的类型
 interface IconButtonProps {
@@ -242,6 +245,7 @@ export default function AuthorWrite() {
   const [showStorySelector, setShowStorySelector] = useState(false)
   const [stories, setStories] = useState<Story[]>([])
   const [isLoadingStories, setIsLoadingStories] = useState(false)
+  const [message, setMessage] = useState('')
 
   // 简化的状态管理
   const [content, setContent] = useState('')
@@ -391,7 +395,7 @@ export default function AuthorWrite() {
       }
       
       console.log('开始加载作品列表，作者地址:', address)
-      const response = await fetch(`/api/works?authorAddress=${address}`)
+      const response = await fetch(`/api/authors/${address}/stories`)
       
       // 添加响应状态日志
       console.log('API响应状态:', response.status)
@@ -405,22 +409,22 @@ export default function AuthorWrite() {
       const data = await response.json()
       console.log('成功加载作品列表:', data)
       
-      if (Array.isArray(data.stories)) {
-        setStories(data.stories)
-        
-        // 如果有保存的作品ID，加载该作品
-        const savedStoryId = localStorage.getItem('currentStoryId')
-        if (savedStoryId) {
-          const story = data.stories.find((s: Story) => s.id === savedStoryId)
-          if (story) {
-            setCurrentStory(story)
-            await loadChapterList() // 加载章节列表
-          }
-        }
-      } else {
-        console.error('API返回的数据格式不正确:', data)
-        throw new Error('作品列表数据格式错误')
+      if (data.syncStatus === 'SYNCING') {
+        // 如果正在同步中，显示同步状态并定时重试
+        setStories([])
+        setMessage(data.message)
+        setTimeout(loadStories, 5000) // 5秒后重试
+        return
       }
+
+      if (data.stories.length === 0) {
+        setMessage(data.message || '暂无作品')
+        setStories([])
+        return
+      }
+
+      setStories(data.stories)
+      setMessage('')
     } catch (error) {
       console.error('加载作品列表失败:', error)
       showError(error, '加载作品列表失败')
@@ -516,7 +520,11 @@ export default function AuthorWrite() {
 
 
 
-  /**章节列表 */
+  /**章节列表 
+   * 对于章节我们是直接加载已经发布的，而不是本地编辑，因为我们主要的目的是发布作品。
+   * 并不是以写作为主的在线工具软件。要先明白这一原则，不要开发走偏了。
+   * 增加一个文件加载显示功能，以方便作者用其它写作软件写好文章后直接加载进来，方便发布。
+  */
   // 初始加载章节
   useEffect(() => {
     // 清理错误消息
@@ -943,31 +951,21 @@ const handleConfirmCreate = async () => {
     setIsCreating(true);
     setCreateProgress(0);
 
-    // 1. 上传封面
-    setCreateStatus(CreateStatus.UPLOADING_COVER);
-    setCreateProgress(20);
-
-    // 2. 准备提交数据
+    // 第一步：上传内容到IPFS
     setCreateStatus(CreateStatus.UPLOADING_CONTENT);
-    setCreateProgress(40);
+    setCreateProgress(20);
     
     const formData = {
       title: storyInfo.title,
       description: storyInfo.description,
-      content: content,
+      content: content || '', // 如果没有内容，传空字符串
       coverImage: storyInfo.coverImage || '', // 如果没有封面，传空字符串，让后端使用默认封面
       authorAddress: address,
-      targetWordCount: storyInfo.targetWordCount || 10000,
-      category: storyInfo.type,
-      price: storyInfo.isFree ? 0 : storyInfo.price,
-      isSerial: storyInfo.isSerial
+      type: storyInfo.type
     };
 
-    // 3. 提交到服务器创建故事
-    setCreateStatus(CreateStatus.CREATING_CONTRACT);
-    setCreateProgress(60);
-    
-    const response = await fetch('/api/stories/create', {
+    console.log('开始上传内容到IPFS...');
+    const ipfsResponse = await fetch('/api/stories/create', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -975,43 +973,153 @@ const handleConfirmCreate = async () => {
       body: JSON.stringify(formData)
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      // 处理不同类型的错误
-      if (errorData.code === 'INSUFFICIENT_FUNDS') {
-        throw new Error('平台钱包余额不足，请联系管理员');
-      } else if (errorData.code === 'NETWORK_ERROR') {
-        throw new Error('网络连接错误，请检查网络后重试');
-      } else if (errorData.code === 'CONTRACT_ERROR') {
-        throw new Error('合约调用失败，请稍后重试');
-      } else {
-        throw new Error(errorData.error || '创建作品失败');
-      }
+    if (!ipfsResponse.ok) {
+      const errorData = await ipfsResponse.json();
+      console.error('IPFS上传错误:', errorData);
+      throw new Error(errorData.error || '内容上传失败');
     }
 
-    const data = await response.json();
-    setCreateProgress(80);
-    setCreateStatus(CreateStatus.SAVING_DATABASE);
+    const ipfsData = await ipfsResponse.json();
+    console.log('内容上传成功:', ipfsData);
+    const { contentCid, coverCid } = ipfsData;
 
-    // 更新本地状态
-    setCurrentStory(data.story);
-    setCreateStatus(CreateStatus.COMPLETED);
-    setCreateProgress(100);
-    showSuccess('作品创建成功！');
-    setShowCreateConfirm(false);
+    // 第二步：用户钱包调用智能合约
+    setCreateStatus(CreateStatus.CREATING_CONTRACT);
+    setCreateProgress(40);
 
-    // 延迟跳转，让用户看到成功提示
-    setTimeout(() => {
-      router.push(`/author/works/${data.story.id}`);
-    }, 1500);
+    console.log('开始创建智能合约...');
+    try {
+      // 使用ethers.js来支持所有已连接的钱包
+      if (!window.ethereum) {
+        throw new Error('未检测到钱包，请确保您已安装并激活钱包插件');
+      }
+      
+      const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+      await provider.send("eth_requestAccounts", []);
+      
+      // 检查网络连接，但不限制具体网络
+      const network = await provider.getNetwork();
+      console.log('当前连接的网络:', network.name, '网络ID:', network.chainId);
+      
+      const signer = provider.getSigner();
+      const signerAddress = await signer.getAddress();
+
+      if (signerAddress.toLowerCase() !== address.toLowerCase()) {
+        throw new Error('钱包地址与当前登录地址不匹配，请使用正确的钱包');
+      }
+
+      // 连接合约 - 使用当前网络的合约地址
+      const contractAddress = CONTRACT_ADDRESSES.StoryManager;
+      console.log('使用合约地址:', contractAddress);
+      
+      const storyManager = new ethers.Contract(
+        contractAddress,
+        StoryManager__factory.abi,
+        signer
+      );
+
+      // 调用合约创建故事
+      const tx = await storyManager.createStory(
+        storyInfo.title,
+        storyInfo.description,
+        coverCid,
+        contentCid,
+        storyInfo.targetWordCount,
+        {
+          gasLimit: 3000000,
+        }
+      );
+      
+      console.log('创建故事交易已发送:', tx.hash);
+      setCreateProgress(60);
+      
+      // 等待交易确认
+      const receipt = await tx.wait();
+      console.log('交易已确认:', receipt);
+      
+      // 获取事件日志
+      const event = receipt.events?.find((e: any) => e.event === 'StoryCreated');
+      if (!event) {
+        throw new Error('未找到StoryCreated事件');
+      }
+      const storyId = event.args?.storyId.toString();
+      console.log('合约调用成功，故事ID:', storyId);
+      
+      // 第三步：保存到数据库
+      setCreateStatus(CreateStatus.SAVING_DATABASE);
+      setCreateProgress(80);
+      
+      console.log('开始保存到数据库...');
+      const dbSaveResponse = await fetch('/api/stories/create', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transactionHash: receipt.transactionHash,
+          blockNumber: receipt.blockNumber,
+          storyId: storyId,
+          title: storyInfo.title,
+          description: storyInfo.description,
+          contentCid,
+          coverCid,
+          authorAddress: address,
+          targetWordCount: storyInfo.targetWordCount,
+          isFree: storyInfo.isFree,
+          price: storyInfo.isFree ? 0 : storyInfo.price,
+          category: storyInfo.type
+        })
+      });
+
+      if (!dbSaveResponse.ok) {
+        const dbError = await dbSaveResponse.json();
+        console.warn('数据库保存警告:', dbError);
+        // 即使数据库保存有问题，我们仍然继续，因为合约创建已成功
+      }
+
+      const dbData = await dbSaveResponse.json();
+      console.log('数据库保存成功:', dbData);
+      
+      setCreateStatus(CreateStatus.COMPLETED);
+      setCreateProgress(100);
+      
+      showSuccess('作品创建成功！');
+      setShowCreateConfirm(false);
+
+      // 延迟跳转，让用户看到成功提示
+      setTimeout(() => {
+        router.push(`/author/works/${storyId}`);
+      }, 1500);
+
+    } catch (error: any) {
+      console.error('合约调用失败:', error);
+      let errorMessage = '创建作品失败';
+      
+      // 处理不同类型的合约错误
+      if (error.message.includes('execution reverted')) {
+        const reason = error.message.split('execution reverted:')[1]?.trim() || '未知原因';
+        errorMessage = `合约调用失败: ${reason}`;
+      } else if (error.message.includes('insufficient funds')) {
+        errorMessage = '钱包余额不足，无法支付交易费用';
+      } else if (error.message.includes('user rejected')) {
+        errorMessage = '您取消了交易';
+      } else if (error.message.includes('network')) {
+        errorMessage = '网络连接错误，请检查网络后重试';
+      } else if (error.message.includes('wallet')) {
+        errorMessage = '钱包连接错误：' + error.message;
+      } else {
+        errorMessage = error.message || '创建作品失败';
+      }
+      
+      throw new Error(errorMessage);
+    }
 
   } catch (error: any) {
-    // 错误提示根据当前网络环境显示
+    console.error('创建作品失败:', error);
     showError(error, error.message || '创建作品失败，请稍后重试');
+    setCreateStatus(null);
   } finally {
     setIsCreating(false);
-    setCreateStatus(null);
-    setCreateProgress(0);
   }
 };
 

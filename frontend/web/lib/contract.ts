@@ -1,5 +1,5 @@
 import { ethers } from 'ethers'
-import { ReaderActivity__factory } from '@/typechain'
+import { ReaderActivity__factory } from '@/blockchain'
 
 /***用途：提供合约交互的工具函数
     内容：包含 getProvider、getSigner、getContract 等工具函数

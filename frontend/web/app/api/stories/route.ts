@@ -19,6 +19,7 @@ interface Story {
   updatedAt: string;
 }
 
+// 获取故事列表
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)

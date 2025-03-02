@@ -140,12 +140,18 @@ export default function BeAuthor() {
   // 调用后端注册 API
   const registerAuthorToServer = async () => {
     try {
+      console.log('注册作者到服务器:', {
+        ...authorInfo,
+        address
+      })
+      
       const response = await fetch('/api/authors/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...authorInfo,
-          address
+          address,
+          avatar: authorInfo.avatar // 确保传递头像URL
         })
       })
 
@@ -272,16 +278,28 @@ export default function BeAuthor() {
         const response = await fetch(`/api/authors/${address}`)
         if (response.ok) {
           const data = await response.json()
+          console.log('获取到作者数据:', data)
+          
           if (data.isAuthor) {
             setIsExistingAuthor(true)
             setAuthorInfo(prev => ({
               ...prev,
               bio: data.bio || '',
               email: data.email || '',
-              genres: [],
-              agreement: true,
-              avatar: data.avatar
+              genres: data.genres || [],
+              avatar: data.avatar || '', // 确保设置头像URL
+              agreement: true
             }))
+            
+            // 更新原始数据
+            setOriginalAuthorInfo({
+              penName: data.authorName || '',
+              bio: data.bio || '',
+              email: data.email || '',
+              genres: data.genres || [],
+              avatar: data.avatar || '',
+              agreement: true
+            })
           }
         }
       } catch (error) {
@@ -318,32 +336,12 @@ export default function BeAuthor() {
         console.log('笔名更新成功，交易hash:', hash)
       }
 
-      // 先检查用户是否存在，不存在则创建  实际上这个环节是不需要的。
-      // console.log('检查用户是否存在...')
-      // const checkResponse = await fetch(`/api/users/${address}`)
-      // if (!checkResponse.ok) {
-      //   console.log('用户不存在，先创建用户...')
-      //   const createResponse = await fetch('/api/authors/register', {
-      //     method: 'POST',
-      //     headers: {
-      //       'Content-Type': 'application/json',
-      //     },
-      //     body: JSON.stringify({
-      //       address,
-      //       penName: authorInfo.penName,
-      //       bio: authorInfo.bio,
-      //       email: authorInfo.email,
-      //       avatar: authorInfo.avatar
-      //     }),
-      //   })
-      //   if (!createResponse.ok) {
-      //     throw new Error('创建作者失败')
-      //   }
-      //   console.log('作者创建成功')
-      // }
-
       // 更新服务器数据
-      console.log('更新服务器数据:', authorInfo)
+      console.log('更新服务器数据:', {
+        ...authorInfo,
+        avatar: authorInfo.avatar // 确保包含头像URL
+      })
+      
       const response = await fetch(`/api/users/${address}`, {
         method: 'PUT',
         headers: {
@@ -353,7 +351,7 @@ export default function BeAuthor() {
           penName: authorInfo.penName,
           bio: authorInfo.bio,
           email: authorInfo.email,
-          avatar: authorInfo.avatar,
+          avatar: authorInfo.avatar, // 确保包含头像URL
           genres: authorInfo.genres
         }),
       })
@@ -374,7 +372,6 @@ export default function BeAuthor() {
 
       toast.success('作者信息更新成功')
       setShowConfirmDialog(false)
-      // router.push('/author/write')
       router.refresh()
     } catch (error) {
       console.error('更新失败:', error)

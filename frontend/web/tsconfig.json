@@ -21,10 +21,12 @@
     ],
     "paths": {
       "@/*": ["./*"],
-      "@/typechain": ["../../packages/contracts/src/typechain"],
-      "@taleforge/database": ["../../packages/database/src"],
-      "@taleforge/database/*": ["../../packages/database/src/*"],
-      "@tale-forge/shared": ["../../shared/src"]
+      "@/backend/*": ["../../backend/src/*"],
+      "@/backend": ["../../backend/src"],
+      "@/blockchain/*": ["../../blockchain/*"],
+      "@/blockchain": ["../../blockchain"],
+      "@/shared/*": ["../../shared/src/*"],
+      "@/shared": ["../../shared/src"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "types/**/*.d.ts"],

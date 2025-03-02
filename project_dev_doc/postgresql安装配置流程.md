@@ -82,6 +82,7 @@ DATABASE_URL="postgresql://taleforge_user:your_password@localhost:5432/taleforge
 npm install prisma --save-dev
 ```
 
+（注意，如果修改了数据库中的表结构，执行下面两个指令重新生成就可以了，并且已有的数据项不会被清除。）
 2. 生成 Prisma Client：
 ```bash
 npx prisma generate

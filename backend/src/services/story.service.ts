@@ -1,12 +1,80 @@
 import { ethers } from 'ethers'
 import prisma from '../prisma'
-import { CONTRACT_ADDRESSES, ABIS } from '@tale-forge/shared'
 import { uploadToIPFS, getFromIPFS, uploadJSONToIPFS } from '../ipfs'
 import type { Story, Chapter, Prisma, StoryStatus } from '@prisma/client'
+import { syncService } from './sync.service'
 
 export class StoryService {
+  private provider: ethers.providers.JsonRpcProvider
+
   constructor() {
-    // 不再需要 provider 和合约初始化
+    this.provider = new ethers.providers.JsonRpcProvider(process.env.BSC_TESTNET_RPC_URL)
+  }
+
+  /**
+   * 获取作者作品列表
+   */
+  async getAuthorStories(authorId: string, params: {
+    status?: StoryStatus
+    skip?: number
+    take?: number
+  }) {
+    console.log('[StoryService.getAuthorStories] 开始获取作者作品:', {
+      authorId,
+      params
+    })
+
+    try {
+      // 1. 获取同步状态
+      const syncState = await syncService.getAuthorStoriesSyncState(authorId)
+      
+      // 2. 如果未同步或同步失败，触发同步
+      if (!syncState || syncState.syncStatus === 'FAILED') {
+        console.log('[StoryService.getAuthorStories] 触发同步')
+        await syncService.triggerStoriesSync(authorId)
+      }
+
+      // 3. 从数据库获取作品列表
+      const { status, skip = 0, take = 10 } = params
+      const where = {
+        authorId,
+        ...(status && { status })
+      }
+
+      const [total, stories] = await Promise.all([
+        prisma.story.count({ where }),
+        prisma.story.findMany({
+          where,
+          skip,
+          take,
+          include: {
+            _count: {
+              select: {
+                likes: true,
+                comments: true,
+                favorites: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
+        })
+      ])
+
+      console.log('[StoryService.getAuthorStories] 查询结果:', {
+        total,
+        storiesCount: stories.length,
+        syncStatus: syncState?.syncStatus
+      })
+
+      return { 
+        stories, 
+        total,
+        syncStatus: syncState?.syncStatus || 'PENDING'
+      }
+    } catch (error) {
+      console.error('[StoryService.getAuthorStories] 获取失败:', error)
+      throw error
+    }
   }
 
   // 验证故事内容
@@ -15,44 +83,63 @@ export class StoryService {
     return { isValid: true, ipfsHash: '' }
   }
 
-
-
-  // 其他数据库操作方法
-
-  // 创建故事
+  /**
+   * 创建故事
+   * 1. 验证数据
+   * 2. 上传内容到 IPFS
+   * 3. 返回上传结果供智能合约使用
+   */
   async createStory(data: {
     title: string
     description: string
     content: string
-    authorId: string
+    coverImage?: string
+    authorAddress: string
+    type: string
     category: string
-    targetWordCount: number
-    coverImage?: File
+    isFree: boolean
+    price?: string
+    tags?: string[]
   }) {
-    // 1. 上传内容到 IPFS
-    const contentCID = await uploadToIPFS(data.content)
-    
-    // 2. 上传封面到 IPFS (如果有)
-    let coverCID = ''
-    if (data.coverImage) {
-      const buffer = Buffer.from(await data.coverImage.arrayBuffer())
-      coverCID = await uploadToIPFS(buffer)
-    }
+    console.log('[StoryService.createStory] 开始创建故事:', {
+      title: data.title,
+      authorAddress: data.authorAddress
+    })
 
-    // 3. 保存到数据库
-    return await prisma.story.create({
-      data: {
+    try {
+      // 1. 验证必填字段
+      if (!data.title || !data.description || !data.content || !data.authorAddress) {
+        throw new Error('缺少必填字段')
+      }
+
+      // 2. 验证付费作品必须设置价格
+      if (!data.isFree && !data.price) {
+        throw new Error('付费作品必须设置价格')
+      }
+
+      // 3. 上传内容到 IPFS
+      const { contentCid, coverCid } = await syncService.prepareStoryCreation({
         title: data.title,
         description: data.description,
-        contentCID,
-        cover: coverCID,
-        authorId: data.authorId,
+        content: data.content,
+        coverImage: data.coverImage,
+        authorAddress: data.authorAddress
+      })
+
+      // 4. 返回上传结果供智能合约使用
+      return {
+        contentCid,  // 故事内容的 IPFS CID
+        coverCid,    // 封面图片的 IPFS CID
+        type: data.type,
         category: data.category,
-        targetWordCount: data.targetWordCount,
-        wordCount: data.content.length,
-        status: 'DRAFT' as const
+        isFree: data.isFree,
+        price: data.price || '0',
+        tags: data.tags || []
       }
-    })
+    } catch (error) {
+      console.error('[StoryService.createStory] 创建失败:', error)
+      throw error
+    }
   }
 
   // 更新故事
@@ -63,7 +150,7 @@ export class StoryService {
     category?: string
     targetWordCount?: number
     coverImage?: File
-    status?: 'DRAFT' | 'PUBLISHED' | 'COMPLETED' | 'SUSPENDED'
+    status?: StoryStatus
   }) {
     const updateData: Prisma.StoryUpdateInput = {}
 
@@ -106,7 +193,28 @@ export class StoryService {
         contentCID: true,
         cover: true,
         authorId: true,
-        // 不获取content
+        status: true,
+        category: true,
+        tags: true,
+        wordCount: true,
+        targetWordCount: true,
+        createdAt: true,
+        updatedAt: true,
+        author: {
+          select: {
+            id: true,
+            address: true,
+            authorName: true,
+            avatar: true
+          }
+        },
+        _count: {
+          select: {
+            likes: true,
+            comments: true,
+            favorites: true
+          }
+        }
       }
     })
 
@@ -236,38 +344,7 @@ export class StoryService {
     const content = await getFromIPFS(chapter.contentCID)
     return { ...chapter, content }
   }
+}
 
-  /**
-   * 保存故事到数据库
-   */
-  async saveStory(data: {
-    title: string
-    description: string
-    content: string
-    authorId: string
-    category: string
-    targetWordCount: number
-    coverImage?: File
-  }) {
-    // 1. 上传内容到 IPFS
-    const contentCID = await uploadToIPFS(data.content)
-    const coverCID = data.coverImage ? 
-      await uploadToIPFS(Buffer.from(await data.coverImage.arrayBuffer()))
-      : null
-
-    // 2. 数据库只存储CID和基本信息
-    return prisma.story.create({
-      data: {
-        title: data.title,
-        description: data.description,
-        contentCID,  // 存CID
-        cover: coverCID,
-        authorId: data.authorId,
-        category: data.category,
-        targetWordCount: data.targetWordCount,
-        wordCount: data.content.length,
-        status: 'DRAFT' as StoryStatus
-      }
-    })
-  }
-} 
+// 导出单例实例
+export const storyService = new StoryService() 

@@ -282,7 +282,7 @@ export class UserService {
     console.log('[unfollowAuthor] 删除关注关系成功')
   }
 
-  // 在 UserService 类中添加这个方法
+  // 获得作者信息
   async getAuthorByAddress(address: string) {
     console.log(`[getAuthorByAddress] 开始查询作者信息, 地址: ${address}`)
     
@@ -403,48 +403,6 @@ export class UserService {
     }
   }
 
-
-
-
-
-
-  /**
-   * 获取用户创作的故事
-   */
-  async getUserStories(userId: string, params: {
-    status?: 'DRAFT' | 'PUBLISHED' | 'COMPLETED' | 'SUSPENDED'
-    skip?: number
-    take?: number
-  }) {
-    const { status, skip = 0, take = 10 } = params
-
-    const where = {
-      authorId: userId,
-      ...(status && { status })
-    }
-
-    const [total, stories] = await Promise.all([
-      prisma.story.count({ where }),
-      prisma.story.findMany({
-        where,
-        skip,
-        take,
-        include: {
-          _count: {
-            select: {
-              likes: true,
-              comments: true,
-              favorites: true
-            }
-          }
-        },
-        orderBy: { createdAt: 'desc' }
-      })
-    ])
-
-    return { stories, total }
-  }
-
   /**
    * 获取用户收藏的故事
    */
@@ -535,13 +493,13 @@ export class UserService {
   async getUserTransactions(userId: string, params: {
     skip?: number
     take?: number
-    type?: 'REWARD' | 'NFT_MINT' | 'NFT_TRADE'
+    type?: 'PURCHASE' | 'REWARD' | 'WITHDRAW'
   }): Promise<{ total: number; transactions: (Transaction & { story: Story })[] }> {
     const { skip = 0, take = 10, type } = params
 
     const where = {
       userId,
-      ...(type && { type }),
+      ...(type && { type })
     }
 
     const [total, transactions] = await Promise.all([
@@ -623,12 +581,15 @@ export class UserService {
   async recordTransaction(data: {
     userId: string
     storyId: string
-    type: 'REWARD' | 'NFT_MINT' | 'NFT_TRADE'
+    type: 'PURCHASE' | 'REWARD' | 'WITHDRAW'
     amount: string
     txHash: string
   }): Promise<Transaction> {
     return prisma.transaction.create({
       data,
+      include: {
+        story: true
+      }
     })
   }
 

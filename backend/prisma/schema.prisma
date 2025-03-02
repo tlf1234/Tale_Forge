@@ -33,10 +33,11 @@ model User {
   transactions  Transaction[] // 交易记录
   commentLikes  CommentLike[] // 评论点赞记录
   collections   Collection[] // 收藏的故事集
+  storiesSync   AuthorStoriesSync?
 
   // 关注关系
-  followers     Follow[] @relation("FollowedBy")
-  following     Follow[] @relation("Following")
+  followers     Follow[]    @relation("FollowedBy")
+  following     Follow[]    @relation("Following")
 }
 
 // 故事模型
@@ -134,17 +135,15 @@ model Comment {
 // 关注模型
 model Follow {
   id            String    @id @default(cuid())
+  followerId    String    // 关注者ID
+  followingId   String    // 被关注者ID
   createdAt     DateTime  @default(now())
 
-  // 关联
-  followerId    String    // 关注者ID
   follower      User      @relation("Following", fields: [followerId], references: [id])
-  followingId   String    // 被关注者ID
   following     User      @relation("FollowedBy", fields: [followingId], references: [id])
 
   @@unique([followerId, followingId])
-  @@index([followerId])
-  @@index([followingId])
+  @@map("follows")
 }
 
 // 评论点赞模型
@@ -215,33 +214,47 @@ model Transaction {
   @@index([txHash])
 }
 
-// 同步状态
-model SyncState {
+// 同步状态枚举
+enum SyncStatus {
+  PENDING     // 待同步
+  SYNCING     // 同步中
+  COMPLETED   // 同步完成
+  FAILED      // 同步失败
+}
+
+// 区块链同步状态
+model ChainSyncState {
   type          String    @id // 同步类型，如 'story', 'chapter' 等
   blockNumber   Int       // 最后同步的区块号
   updatedAt     DateTime  @updatedAt
+
+  @@map("chain_sync_state")
 }
 
-// 故事集模型
-model Collection {
-  id        String   @id @default(cuid())
-  name      String
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  stories   Story[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// 作者作品同步状态
+model AuthorStoriesSync {
+  id           String      @id @default(cuid())
+  authorId     String      @unique
+  syncStatus   SyncStatus  @default(PENDING)
+  lastSynced   DateTime?
+  errorMessage String?
+  retryCount   Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  author       User       @relation(fields: [authorId], references: [id])
+
+  @@map("author_stories_sync")
 }
 
 // 用户类型枚举
 enum UserType {
-  READER    // 普通读者
-  AUTHOR    // 作者
-  PUBLISHER // 出版方
-  ADMIN     // 管理员
+  READER      // 读者
+  AUTHOR      // 作者
+  ADMIN       // 管理员
 }
 
-// 枚举类型
+// 故事状态枚举
 enum StoryStatus {
   DRAFT       // 草稿
   PUBLISHED   // 已发布
@@ -249,19 +262,39 @@ enum StoryStatus {
   SUSPENDED   // 已暂停
 }
 
+// 章节状态枚举
 enum ChapterStatus {
   DRAFT       // 草稿
   PUBLISHED   // 已发布
 }
 
+// 交易类型枚举
 enum TransactionType {
+  PURCHASE    // 购买
   REWARD      // 打赏
-  NFT_MINT    // NFT铸造
-  NFT_TRADE   // NFT交易
+  WITHDRAW    // 提现
 }
 
+// 交易状态枚举
 enum TransactionStatus {
   PENDING     // 待处理
   COMPLETED   // 已完成
   FAILED      // 失败
+}
+
+// 故事集模型
+model Collection {
+  id            String    @id @default(cuid())
+  title         String    // 标题
+  description   String    // 描述
+  cover         String?   // 封面图片
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 关联
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  stories       Story[]   // 收藏的故事
+
+  @@index([userId])
 }

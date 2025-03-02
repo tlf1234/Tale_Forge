@@ -110,6 +110,47 @@ app.post('/api/authors/verify', async (req, res) => {
   // 处理验证
 })
 
+// GET - 获取作者作品列表
+app.get('/api/authors/:address/stories', async (req, res) => {
+  try {
+    console.log('[GET /api/authors/:address/stories] 收到请求:', {
+      address: req.params.address,
+      query: req.query
+    })
+    
+    const { address } = req.params
+    const { skip, take, status } = req.query
+    
+    // 1. 首先获取作者信息
+    const author = await userService.getAuthorByAddress(address)
+    
+    if (!author) {
+      console.log('[GET /api/authors/:address/stories] 作者不存在:', address)
+      return res.status(404).json({ error: '作者不存在' })
+    }
+
+    // 2. 使用 StoryService 获取作品列表
+    const result = await storyService.getAuthorStories(author.id, {
+      status: status as StoryStatus,
+      skip: Number(skip) || 0,
+      take: Number(take) || 10
+    })
+    
+    console.log('[GET /api/authors/:address/stories] 返回结果:', {
+      syncStatus: result.syncStatus,
+      storiesCount: result.stories?.length || 0,
+      total: result.total || 0
+    })
+    
+    res.json(result)
+  } catch (error) {
+    console.error('[GET /api/authors/:address/stories] 处理请求失败:', error)
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : '获取作品列表失败' 
+    })
+  }
+})
+
 // 关注相关路由
 // GET - 获取关注列表
 app.get('/api/authors/:address/follows', async (req, res) => {
@@ -170,7 +211,23 @@ app.delete('/api/authors/:address/follows', async (req, res) => {
 });
 
 
-// 故事相关路由
+// 故事创建路由
+app.post('/api/stories/create', async (req, res) => {
+  try {
+    console.log('[POST /api/stories] 收到创建请求:', {
+      body: req.body
+    })
+    
+    const result = await storyService.createStory(req.body);
+    
+    console.log('[POST /api/stories] 创建成功:', result)
+    res.json(result);
+  } catch (error: any) {
+    console.error('[POST /api/stories] 创建失败:', error)
+    res.status(500).json({ error: error?.message });
+  }
+});
+
 app.get('/api/stories', async (req, res) => {
   try {
     const { category, authorId, status, skip, take, orderBy } = req.query;
@@ -209,14 +266,7 @@ app.post('/api/stories/validate', async (req, res) => {
   }
 });
 
-app.post('/api/stories', async (req, res) => {
-  try {
-    const story = await storyService.saveStory(req.body);
-    res.json(story);
-  } catch (error: any) {
-    res.status(500).json({ error: error?.message });
-  }
-});
+
 
 // 评论相关路由
 app.get('/api/stories/:storyId/comments', async (req, res) => {

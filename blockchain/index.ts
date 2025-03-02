@@ -1,13 +1,13 @@
 import { ethers } from 'ethers'
-import { StoryManager__factory } from './typechain'
-import type { StoryManager } from './typechain'
-import { AuthorManager__factory } from './typechain'
-import { NovelNFT__factory } from './typechain'
-import { TaforToken__factory } from './typechain'
-import { MiningPool__factory } from './typechain'
-import { ReaderActivity__factory } from './typechain'
-import { TippingSystem__factory } from './typechain'
-import { TreasuryManager__factory } from './typechain'
+import { StoryManager__factory } from './typechain-types'
+import type { StoryManager } from './typechain-types'
+import { AuthorManager__factory } from './typechain-types'
+import { NovelNFT__factory } from './typechain-types'
+import { TaforToken__factory } from './typechain-types'
+import { MiningPool__factory } from './typechain-types'
+import { ReaderActivity__factory } from './typechain-types'
+import { TippingSystem__factory } from './typechain-types'
+import { TreasuryManager__factory } from './typechain-types'
 
 import type { 
   AuthorManager,
@@ -17,7 +17,7 @@ import type {
   ReaderActivity,
   TippingSystem,
   TreasuryManager
-} from './typechain'
+} from './typechain-types'
 
 // 导出类型和工厂
 export type { 
