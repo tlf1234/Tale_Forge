@@ -33,17 +33,17 @@ export async function GET(request: Request) {
   }
 }
 
-// 创建新故事
-export async function POST(request: Request) {
-  try {
-    const data = await request.json()
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/stories`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    })
-    return NextResponse.json(await response.json())
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to create story' }, { status: 500 })
-  }
-}
+// // 创建新故事
+// export async function POST(request: Request) {
+//   try {
+//     const data = await request.json()
+//     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/stories`, {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify(data)
+//     })
+//     return NextResponse.json(await response.json())
+//   } catch (error) {
+//     return NextResponse.json({ error: 'Failed to create story' }, { status: 500 })
+//   }
+// }

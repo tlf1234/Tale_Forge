@@ -8,9 +8,6 @@ import { FiUser, FiBook, FiHeart } from 'react-icons/fi'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import Link from 'next/link'
-// import { AuthorManagerABI } from '@/config/contracts'
-
-// const AUTHOR_MANAGER_CONTRACT = process.env.NEXT_PUBLIC_AUTHOR_MANAGER_CONTRACT as `0x${string}`
 
 export default function AuthorPage({ params }: { params: { address: string } }) {
   const [isFollowing, setIsFollowing] = useState(false)

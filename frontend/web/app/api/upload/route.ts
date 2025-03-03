@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { writeFile } from 'fs/promises'
 import { join } from 'path'
 
+
+// 上传头像
 export async function POST(request: Request) {
   try {
     const formData = await request.formData()

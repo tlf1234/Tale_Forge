@@ -3,7 +3,9 @@ import { storyService, userService, commentService } from './services';
 import type { StoryStatus } from '@prisma/client'
 
 const app = express();
-app.use(express.json());
+// 增加请求体大小限制到 10MB
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // POST - 创建新用户
 app.post('/api/users', async (req, res) => {
@@ -212,18 +214,35 @@ app.delete('/api/authors/:address/follows', async (req, res) => {
 
 
 // 故事创建路由
-app.post('/api/stories/create', async (req, res) => {
+app.post('/api/stories/upload', async (req, res) => {
   try {
-    console.log('[POST /api/stories] 收到创建请求:', {
+    console.log('[POST /api/stories/upload] 收到创建请求:', {
       body: req.body
     })
     
-    const result = await storyService.createStory(req.body);
+    const result = await storyService.uploadStory(req.body);
     
-    console.log('[POST /api/stories] 创建成功:', result)
+    console.log('[POST /api/stories/upload] 创建成功:', result)
     res.json(result);
   } catch (error: any) {
-    console.error('[POST /api/stories] 创建失败:', error)
+    console.error('[POST /api/stories/upload] 创建失败:', error)
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// 故事保存路由
+app.post('/api/stories/save', async (req, res) => {
+  try {
+    console.log('[POST /api/stories/save] 收到保存请求:', {
+      body: req.body
+    })
+
+    const result = await storyService.saveStory(req.body);
+
+    console.log('[POST /api/stories/save] 保存成功:', result)
+    res.json(result);
+  } catch (error: any) {
+    console.error('[POST /api/stories/save] 保存失败:', error)
     res.status(500).json({ error: error?.message });
   }
 });

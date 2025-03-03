@@ -6,12 +6,10 @@ import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
 import Link from 'next/link'
 import WalletRequired from '@/components/web3/WalletRequired'
-import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '@/constants/abi'
+import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '@/constants/contracts'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { ethers } from 'ethers'
-
-const AUTHOR_MANAGER_CONTRACT = process.env.NEXT_PUBLIC_AUTHOR_MANAGER_CONTRACT as `0x${string}`
 
 interface Author {
   authorAddress: string

@@ -87,9 +87,10 @@ export class StoryService {
    * 创建故事
    * 1. 验证数据
    * 2. 上传内容到 IPFS
+   * 3、todo接上AI实现内容合规审查（作品创建环节应该不需要，内容提交是需要的）
    * 3. 返回上传结果供智能合约使用
    */
-  async createStory(data: {
+  async uploadStory(data: {
     title: string
     description: string
     content: string
@@ -97,11 +98,9 @@ export class StoryService {
     authorAddress: string
     type: string
     category: string
-    isFree: boolean
-    price?: string
     tags?: string[]
   }) {
-    console.log('[StoryService.createStory] 开始创建故事:', {
+    console.log('[StoryService.uploadStory] 开始上传故事:', {
       title: data.title,
       authorAddress: data.authorAddress
     })
@@ -112,12 +111,7 @@ export class StoryService {
         throw new Error('缺少必填字段')
       }
 
-      // 2. 验证付费作品必须设置价格
-      if (!data.isFree && !data.price) {
-        throw new Error('付费作品必须设置价格')
-      }
-
-      // 3. 上传内容到 IPFS
+      // 2. 上传内容到 IPFS
       const { contentCid, coverCid } = await syncService.prepareStoryCreation({
         title: data.title,
         description: data.description,
@@ -126,18 +120,87 @@ export class StoryService {
         authorAddress: data.authorAddress
       })
 
-      // 4. 返回上传结果供智能合约使用
+      // 3. 返回上传结果供智能合约使用
       return {
         contentCid,  // 故事内容的 IPFS CID
         coverCid,    // 封面图片的 IPFS CID
         type: data.type,
         category: data.category,
-        isFree: data.isFree,
-        price: data.price || '0',
         tags: data.tags || []
       }
     } catch (error) {
       console.error('[StoryService.createStory] 创建失败:', error)
+      throw error
+    }
+  }
+
+
+
+  // 保存故事
+  async saveStory(data: {
+    title: string
+    description: string
+    content: string
+    coverImage?: string
+    authorAddress: string
+    contentCid: string
+    coverCid: string
+    category: string
+    tags?: string[]
+    targetWordCount: number
+  }) {
+    console.log('[StoryService.saveStory] 开始保存故事:', {
+      title: data.title,
+      authorAddress: data.authorAddress
+    })
+
+    try {
+      // 1. 验证必填字段
+      if (!data.title || !data.description || !data.content || !data.authorAddress) {
+        throw new Error('缺少必填字段')
+      }
+
+      // 2. 查找作者ID
+      const author = await prisma.user.findUnique({
+        where: { address: data.authorAddress },
+        select: { id: true }
+      })
+
+      if (!author) {
+        throw new Error('作者不存在')
+      }
+
+      // 3. 保存故事到数据库
+      const story = await prisma.story.create({
+        data: {
+          title: data.title,
+          description: data.description,
+          contentCID: data.contentCid,
+          cover: data.coverCid,
+          authorId: author.id,
+          category: data.category,
+          tags: data.tags || [],
+          status: 'DRAFT',
+          wordCount: data.content.length,
+          targetWordCount: data.targetWordCount,
+          isNFT: false,
+          published: false
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              address: true,
+              authorName: true,
+              avatar: true
+            }
+          }
+        }
+      })
+
+      return story
+    } catch (error) {
+      console.error('[StoryService.saveStory] 保存失败:', error)
       throw error
     }
   }

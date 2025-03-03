@@ -1,5 +1,6 @@
 import { ethers } from 'ethers'
 import { ReaderActivity__factory } from '@/blockchain'
+import { CONTRACT_ADDRESSES } from '@/constants/contracts'
 
 /***用途：提供合约交互的工具函数
     内容：包含 getProvider、getSigner、getContract 等工具函数
@@ -7,10 +8,11 @@ import { ReaderActivity__factory } from '@/blockchain'
 
 
 
-// 合约地址配置
-const CONTRACT_ADDRESSES = {
-  ReaderActivity: process.env.NEXT_PUBLIC_READER_ACTIVITY_CONTRACT || '',
-  StoryManager: process.env.NEXT_PUBLIC_STORY_MANAGER_CONTRACT || '',
+// 使用网络切换机制的合约地址
+export const CONTRACT_ADDRESSES_MAP = {
+  ReaderActivity: CONTRACT_ADDRESSES.ReaderActivityAddress,
+  StoryManager: CONTRACT_ADDRESSES.StoryManager,
+  // ... 其他合约地址
 }
 
 // 获取Provider
@@ -36,7 +38,7 @@ export const getContract = async <T extends { connect: any }>(
   factory: { connect: (address: string, signerOrProvider: any) => T; name: string },
   useSigner = true
 ) => {
-  const contractAddress = CONTRACT_ADDRESSES[factory.name.replace('__factory', '') as keyof typeof CONTRACT_ADDRESSES]
+  const contractAddress = CONTRACT_ADDRESSES_MAP[factory.name.replace('__factory', '') as keyof typeof CONTRACT_ADDRESSES_MAP]
   if (!contractAddress) {
     throw new Error(`Contract address not found for ${factory.name}`)
   }

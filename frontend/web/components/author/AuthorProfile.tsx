@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useAccount, useContractRead, useContractWrite, usePrepareContractWrite } from 'wagmi'
 import { FiEdit2, FiAward, FiBook, FiDollarSign, FiClock } from 'react-icons/fi'
 import { toast } from 'react-hot-toast'
-import { AuthorManagerABI } from '@/contracts/AuthorManager'
+import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '@/constants/contracts'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 
@@ -29,8 +29,8 @@ export function AuthorProfile() {
 
   // 读取作者信息
   const { data: authorData, isError, isLoading } = useContractRead({
-    address: process.env.NEXT_PUBLIC_AUTHOR_MANAGER_CONTRACT as `0x${string}`,
-    abi: AuthorManagerABI,
+    address: CONTRACT_ADDRESSES.AuthorManager as `0x${string}`,
+    abi: CONTRACT_ABIS.AuthorManager,
     functionName: 'authors',
     args: [address],
     watch: true,
@@ -38,8 +38,8 @@ export function AuthorProfile() {
 
   // 准备更新笔名的合约调用
   const { config: updateConfig } = usePrepareContractWrite({
-    address: process.env.NEXT_PUBLIC_AUTHOR_MANAGER_CONTRACT as `0x${string}`,
-    abi: AuthorManagerABI,
+    address: CONTRACT_ADDRESSES.AuthorManager as `0x${string}`,
+    abi: CONTRACT_ABIS.AuthorManager,
     functionName: 'updatePenName',
     args: [newPenName],
     enabled: newPenName.length > 0,

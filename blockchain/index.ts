@@ -8,6 +8,7 @@ import { MiningPool__factory } from './typechain-types'
 import { ReaderActivity__factory } from './typechain-types'
 import { TippingSystem__factory } from './typechain-types'
 import { TreasuryManager__factory } from './typechain-types'
+import { CONTRACT_ADDRESSES } from '../frontend/web/constants/contracts'
 
 import type { 
   AuthorManager,
@@ -61,42 +62,42 @@ export class TaleForgeSDK {
     
     // 初始化合约
     this.storyManager = StoryManager__factory.connect(
-      process.env.NEXT_PUBLIC_STORY_MANAGER_CONTRACT!,
+      CONTRACT_ADDRESSES.StoryManager,
       this.signer || this.provider
     )
     
     this.authorManager = AuthorManager__factory.connect(
-      process.env.NEXT_PUBLIC_AUTHOR_MANAGER_CONTRACT!,
+      CONTRACT_ADDRESSES.AuthorManager,
       this.signer || this.provider
     )
     
     this.novelNFT = NovelNFT__factory.connect(
-      process.env.NEXT_PUBLIC_NOVEL_NFT_CONTRACT!,
+      CONTRACT_ADDRESSES.NovelNFT,
       this.signer || this.provider
     )
     
     this.taforToken = TaforToken__factory.connect(
-      process.env.NEXT_PUBLIC_TAFOR_TOKEN_CONTRACT!,
+      CONTRACT_ADDRESSES.TaforToken,
       this.signer || this.provider
     )
     
     this.miningPool = MiningPool__factory.connect(
-      process.env.NEXT_PUBLIC_MINING_POOL_CONTRACT!,
+      CONTRACT_ADDRESSES.MiningPool,
       this.signer || this.provider
     )
     
     this.readerActivity = ReaderActivity__factory.connect(
-      process.env.NEXT_PUBLIC_READER_ACTIVITY_CONTRACT!,
+      CONTRACT_ADDRESSES.ReaderActivityAddress,
       this.signer || this.provider
     )
     
     this.tippingSystem = TippingSystem__factory.connect(
-      process.env.NEXT_PUBLIC_TIPPING_SYSTEM_CONTRACT!,
+      CONTRACT_ADDRESSES.TippingSystemAddress,
       this.signer || this.provider
     )
     
     this.treasuryManager = TreasuryManager__factory.connect(
-      process.env.NEXT_PUBLIC_TREASURY_MANAGER_CONTRACT!,
+      CONTRACT_ADDRESSES.TreasuryManager,
       this.signer || this.provider
     )
   }

@@ -2,17 +2,24 @@
 
 import { useState, useEffect } from 'react'
 import { useAccount, useContractRead, useContractWrite, useWaitForTransaction } from 'wagmi'
-import { AuthorManagerABI } from '@/contracts/abis/AuthorManager'
+
 import { toast } from 'react-hot-toast'
 import styles from './AuthorManager.module.css'
+import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '@/constants/contracts'
 
-const AUTHOR_MANAGER_CONTRACT = process.env.NEXT_PUBLIC_AUTHOR_MANAGER_CONTRACT as `0x${string}`
-
+// 使用网络切换机制的合约地址
+const authorManagerAddress = CONTRACT_ADDRESSES.AuthorManager
+const AuthorManagerABI = CONTRACT_ABIS.AuthorManager
 // 笔名验证规则
 const PEN_NAME_RULES = {
   minLength: 2,
   maxLength: 20,
   pattern: /^[a-zA-Z0-9\u4e00-\u9fa5_-]+$/,
+}
+
+interface Author {
+  penName: string;
+  isActive: boolean;
 }
 
 export default function AuthorManager() {
@@ -21,19 +28,30 @@ export default function AuthorManager() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  const [author, setAuthor] = useState<Author | null>(null)
 
   // 获取作者信息
   const { data: authorData, refetch: refetchAuthor } = useContractRead({
-    address: AUTHOR_MANAGER_CONTRACT,
+    address: authorManagerAddress as `0x${string}`,
     abi: AuthorManagerABI,
     functionName: 'getAuthor',
     args: [address!],
     enabled: isConnected && !!address,
   })
 
+  // 处理作者数据
+  useEffect(() => {
+    if (authorData && Array.isArray(authorData)) {
+      setAuthor({
+        penName: authorData[1],
+        isActive: authorData[9]
+      });
+    }
+  }, [authorData]);
+
   // 检查笔名是否已被使用
   const { data: isPenNameTaken, refetch: refetchPenNameTaken } = useContractRead({
-    address: AUTHOR_MANAGER_CONTRACT,
+    address: authorManagerAddress as `0x${string}`,
     abi: AuthorManagerABI,
     functionName: 'isPenNameTaken',
     args: [penName],
@@ -42,14 +60,14 @@ export default function AuthorManager() {
 
   // 注册作者
   const { write: register, data: registerData } = useContractWrite({
-    address: AUTHOR_MANAGER_CONTRACT,
+    address: authorManagerAddress as `0x${string}`,
     abi: AuthorManagerABI,
     functionName: 'registerAuthor',
   })
 
   // 更新笔名
   const { write: update, data: updateData } = useContractWrite({
-    address: AUTHOR_MANAGER_CONTRACT,
+    address: authorManagerAddress as `0x${string}`,
     abi: AuthorManagerABI,
     functionName: 'updatePenName',
   })
@@ -123,7 +141,7 @@ export default function AuthorManager() {
     }
 
     // 如果是编辑模式，检查新笔名是否与当前笔名相同
-    if (authorData && isEditing && authorData.penName === penName) {
+    if (author && isEditing && author.penName === penName) {
       toast.error('新笔名与当前笔名相同')
       return
     }
@@ -136,7 +154,7 @@ export default function AuthorManager() {
 
     setIsLoading(true)
     try {
-      if (authorData && isEditing) {
+      if (author && isEditing) {
         update?.({
           args: [penName],
         })
@@ -154,7 +172,7 @@ export default function AuthorManager() {
   // 开始编辑笔名
   const handleEdit = () => {
     setIsEditing(true)
-    setPenName(authorData?.penName || '')
+    setPenName(author?.penName || '')
   }
 
   // 取消编辑
@@ -174,7 +192,7 @@ export default function AuthorManager() {
 
   return (
     <div className={styles.container}>
-      {authorData && !isEditing ? (
+      {author && !isEditing ? (
         // 显示作者信息
         <div className={styles.authorInfo}>
           <h2 className={styles.title}>作者信息</h2>
@@ -184,7 +202,7 @@ export default function AuthorManager() {
           </div>
           <div className={styles.infoItem}>
             <span className={styles.label}>笔名:</span>
-            <span className={styles.value}>{authorData.penName}</span>
+            <span className={styles.value}>{author.penName}</span>
           </div>
           <button
             onClick={handleEdit}
@@ -219,7 +237,7 @@ export default function AuthorManager() {
           <div className={styles.buttonGroup}>
             <button
               type="submit"
-              disabled={!!error || isLoading || isRegistering || isUpdating || !penName || (isEditing && authorData?.penName === penName)}
+              disabled={!!error || isLoading || isRegistering || isUpdating || !penName || (isEditing && author?.penName === penName)}
               className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading || isRegistering || isUpdating ? '处理中...' : (isEditing ? '更新' : '注册')}

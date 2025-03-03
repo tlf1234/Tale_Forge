@@ -33,8 +33,8 @@ import styles from './page.module.css'
 import Button from '@/components/ui/button'
 import { useAccount } from 'wagmi'
 import { ethers } from 'ethers'
-import { StoryManager__factory } from '@/blockchain'
-import { CONTRACT_ADDRESSES } from '@/constants/contracts'
+
+import { CONTRACT_ADDRESSES,CONTRACT_ABIS } from '@/constants/contracts'
 
 // 定义IconButton的类型
 interface IconButtonProps {
@@ -955,163 +955,133 @@ const handleConfirmCreate = async () => {
     setCreateStatus(CreateStatus.UPLOADING_CONTENT);
     setCreateProgress(20);
     
-    const formData = {
-      title: storyInfo.title,
-      description: storyInfo.description,
-      content: content || '', // 如果没有内容，传空字符串
-      coverImage: storyInfo.coverImage || '', // 如果没有封面，传空字符串，让后端使用默认封面
-      authorAddress: address,
-      type: storyInfo.type
-    };
-
     console.log('开始上传内容到IPFS...');
-    const ipfsResponse = await fetch('/api/stories/create', {
+    const ipfsResponse = await fetch('/api/stories/upload', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(formData)
+      body: JSON.stringify({
+        title: storyInfo.title,
+        description: storyInfo.description,
+        content: content,
+        coverImage: storyInfo.coverImage,
+        authorAddress: address,
+        category: storyInfo.type,
+        tags: storyInfo.tags
+      })
     });
 
-    if (!ipfsResponse.ok) {
-      const errorData = await ipfsResponse.json();
-      console.error('IPFS上传错误:', errorData);
-      throw new Error(errorData.error || '内容上传失败');
+    let ipfsData;
+    try {
+      ipfsData = await ipfsResponse.json();
+    } catch (error) {
+      console.error('解析API响应失败:', error);
+      throw new Error('内容上传失败: 无法解析服务器响应');
     }
 
-    const ipfsData = await ipfsResponse.json();
-    console.log('内容上传成功:', ipfsData);
+    if (!ipfsData.success) {
+      console.error('上传失败:', ipfsData);
+      throw new Error(ipfsData.message || '内容上传失败');
+    }
+
+    if (!ipfsData.contentCid || !ipfsData.coverCid) {
+      console.error('API响应格式错误:', ipfsData);
+      throw new Error('内容上传失败: 服务器返回的数据格式不正确');
+    }
+
+    console.log('IPFS上传成功:', ipfsData);
+
+    // 准备智能合约调用参数
     const { contentCid, coverCid } = ipfsData;
+    if (!contentCid || !coverCid) {
+      throw new Error('IPFS上传返回的CID无效');
+    }
 
-    // 第二步：用户钱包调用智能合约
-    setCreateStatus(CreateStatus.CREATING_CONTRACT);
-    setCreateProgress(40);
-
-    console.log('开始创建智能合约...');
+    // 调用智能合约创建故事
+    console.log('开始调用智能合约创建故事...');
     try {
-      // 使用ethers.js来支持所有已连接的钱包
+      // 确保已连接钱包
       if (!window.ethereum) {
-        throw new Error('未检测到钱包，请确保您已安装并激活钱包插件');
+        throw new Error('未检测到钱包');
       }
-      
-      const provider = new ethers.providers.Web3Provider(window.ethereum as any);
-      await provider.send("eth_requestAccounts", []);
-      
-      // 检查网络连接，但不限制具体网络
-      const network = await provider.getNetwork();
-      console.log('当前连接的网络:', network.name, '网络ID:', network.chainId);
-      
+
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
-      const signerAddress = await signer.getAddress();
-
-      if (signerAddress.toLowerCase() !== address.toLowerCase()) {
-        throw new Error('钱包地址与当前登录地址不匹配，请使用正确的钱包');
-      }
-
-      // 连接合约 - 使用当前网络的合约地址
-      const contractAddress = CONTRACT_ADDRESSES.StoryManager;
-      console.log('使用合约地址:', contractAddress);
       
-      const storyManager = new ethers.Contract(
-        contractAddress,
-        StoryManager__factory.abi,
+      // 创建合约实例
+      const storyManagerContract = new ethers.Contract(
+        CONTRACT_ADDRESSES.StoryManager,
+        CONTRACT_ABIS.StoryManager,
         signer
       );
 
-      // 调用合约创建故事
-      const tx = await storyManager.createStory(
+      const tx = await storyManagerContract.createStory(
         storyInfo.title,
         storyInfo.description,
         coverCid,
         contentCid,
-        storyInfo.targetWordCount,
-        {
-          gasLimit: 3000000,
-        }
+        storyInfo.targetWordCount
       );
       
-      console.log('创建故事交易已发送:', tx.hash);
-      setCreateProgress(60);
-      
-      // 等待交易确认
+      console.log('等待交易确认...');
       const receipt = await tx.wait();
-      console.log('交易已确认:', receipt);
-      
-      // 获取事件日志
-      const event = receipt.events?.find((e: any) => e.event === 'StoryCreated');
-      if (!event) {
-        throw new Error('未找到StoryCreated事件');
-      }
-      const storyId = event.args?.storyId.toString();
-      console.log('合约调用成功，故事ID:', storyId);
-      
-      // 第三步：保存到数据库
-      setCreateStatus(CreateStatus.SAVING_DATABASE);
-      setCreateProgress(80);
-      
-      console.log('开始保存到数据库...');
-      const dbSaveResponse = await fetch('/api/stories/create', {
-        method: 'PUT',
+      console.log('故事创建成功！交易收据:', receipt);
+
+      // 保存到数据库
+      console.log('开始保存到数据库，发送数据:', {
+        title: storyInfo.title,
+        description: storyInfo.description,
+        content: content,
+        coverImage: storyInfo.coverImage,
+        authorAddress: address,
+        contentCid,
+        coverCid,
+        category: storyInfo.type,
+        tags: storyInfo.tags,
+        targetWordCount: storyInfo.targetWordCount
+      });
+
+      const saveResponse = await fetch('/api/stories/save', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          transactionHash: receipt.transactionHash,
-          blockNumber: receipt.blockNumber,
-          storyId: storyId,
           title: storyInfo.title,
           description: storyInfo.description,
+          content: content,
+          coverImage: storyInfo.coverImage,
+          authorAddress: address,
           contentCid,
           coverCid,
-          authorAddress: address,
-          targetWordCount: storyInfo.targetWordCount,
-          isFree: storyInfo.isFree,
-          price: storyInfo.isFree ? 0 : storyInfo.price,
-          category: storyInfo.type
+          category: storyInfo.type,
+          tags: storyInfo.tags,
+          targetWordCount: storyInfo.targetWordCount
         })
       });
 
-      if (!dbSaveResponse.ok) {
-        const dbError = await dbSaveResponse.json();
-        console.warn('数据库保存警告:', dbError);
-        // 即使数据库保存有问题，我们仍然继续，因为合约创建已成功
+      let saveData;
+      try {
+        saveData = await saveResponse.json();
+        console.log('数据库保存响应:', saveData);
+        
+        if (!saveResponse.ok) {
+          console.error('保存失败，HTTP状态:', saveResponse.status);
+          throw new Error(saveData.message || '保存失败');
+        }
+      } catch (error) {
+        console.error('保存到数据库失败:', error);
+        throw new Error(error.message || '保存失败');
       }
 
-      const dbData = await dbSaveResponse.json();
-      console.log('数据库保存成功:', dbData);
+      const story = saveData.data;
+      console.log('保存到数据库成功:', story);
       
-      setCreateStatus(CreateStatus.COMPLETED);
-      setCreateProgress(100);
-      
-      showSuccess('作品创建成功！');
-      setShowCreateConfirm(false);
-
-      // 延迟跳转，让用户看到成功提示
-      setTimeout(() => {
-        router.push(`/author/works/${storyId}`);
-      }, 1500);
-
-    } catch (error: any) {
-      console.error('合约调用失败:', error);
-      let errorMessage = '创建作品失败';
-      
-      // 处理不同类型的合约错误
-      if (error.message.includes('execution reverted')) {
-        const reason = error.message.split('execution reverted:')[1]?.trim() || '未知原因';
-        errorMessage = `合约调用失败: ${reason}`;
-      } else if (error.message.includes('insufficient funds')) {
-        errorMessage = '钱包余额不足，无法支付交易费用';
-      } else if (error.message.includes('user rejected')) {
-        errorMessage = '您取消了交易';
-      } else if (error.message.includes('network')) {
-        errorMessage = '网络连接错误，请检查网络后重试';
-      } else if (error.message.includes('wallet')) {
-        errorMessage = '钱包连接错误：' + error.message;
-      } else {
-        errorMessage = error.message || '创建作品失败';
-      }
-      
-      throw new Error(errorMessage);
+      return story;
+    } catch (error) {
+      console.error('创建故事失败:', error);
+      throw error;
     }
 
   } catch (error: any) {

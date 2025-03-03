@@ -164,9 +164,7 @@
         
         5、更新前端配置
         // 在apps/web/.env中更新合约地址
-        NEXT_PUBLIC_AUTHOR_MANAGER_CONTRACT=已部署的AuthorManager地址
-        NEXT_PUBLIC_STORY_MANAGER_CONTRACT=已部署的StoryManager地址
-        NEXT_PUBLIC_NOVEL_NFT_CONTRACT=已部署的NovelNFT地址
+     
 
         // 确保前端配置使用了BSC测试网
         // 检查 apps/web/config/chains.ts 中是否正确配置了BSC测试网
