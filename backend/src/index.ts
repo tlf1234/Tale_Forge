@@ -112,6 +112,42 @@ app.post('/api/authors/verify', async (req, res) => {
   // 处理验证
 })
 
+
+// 故事创建路由
+app.post('/api/stories/upload', async (req, res) => {
+  try {
+    console.log('[POST /api/stories/upload] 收到创建请求:', {
+      body: req.body
+    })
+    
+    const result = await storyService.uploadStory(req.body);
+    
+    console.log('[POST /api/stories/upload] 创建成功:', result)
+    res.json(result);
+  } catch (error: any) {
+    console.error('[POST /api/stories/upload] 创建失败:', error)
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// 故事保存路由
+app.post('/api/stories/save', async (req, res) => {
+  try {
+    console.log('[POST /api/stories/save] 收到保存请求:', {
+      body: req.body
+    })
+
+    const result = await storyService.saveStory(req.body);
+
+    console.log('[POST /api/stories/save] 保存成功:', result)
+    res.json(result);
+  } catch (error: any) {
+    console.error('[POST /api/stories/save] 保存失败:', error)
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+
 // GET - 获取作者作品列表
 app.get('/api/authors/:address/stories', async (req, res) => {
   try {
@@ -152,6 +188,49 @@ app.get('/api/authors/:address/stories', async (req, res) => {
     })
   }
 })
+
+
+// 获取故事列表路由
+app.get('/api/stories', async (req, res) => {
+  try {
+    const { category, authorId, status, skip, take, orderBy } = req.query;
+    const stories = await storyService.getStories({
+      category: category as string,
+      authorId: authorId as string,
+      status: status as StoryStatus,
+      skip: Number(skip),
+      take: Number(take),
+      orderBy: orderBy as string
+    });
+    console.log('Sending response:', stories) // 调试用
+    res.json(stories);
+  } catch (error: any) {
+    console.error('Error:', error)
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// 获取故事详情路由
+app.get('/api/stories/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const story = await storyService.getStory(id);
+    res.json(story);
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// 验证故事路由
+app.post('/api/stories/validate', async (req, res) => {
+  try {
+    const result = await storyService.validateStory(req.body);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message });
+  }
+});
+
 
 // 关注相关路由
 // GET - 获取关注列表
@@ -211,81 +290,6 @@ app.delete('/api/authors/:address/follows', async (req, res) => {
     res.status(500).json({ error: error?.message });
   }
 });
-
-
-// 故事创建路由
-app.post('/api/stories/upload', async (req, res) => {
-  try {
-    console.log('[POST /api/stories/upload] 收到创建请求:', {
-      body: req.body
-    })
-    
-    const result = await storyService.uploadStory(req.body);
-    
-    console.log('[POST /api/stories/upload] 创建成功:', result)
-    res.json(result);
-  } catch (error: any) {
-    console.error('[POST /api/stories/upload] 创建失败:', error)
-    res.status(500).json({ error: error?.message });
-  }
-});
-
-// 故事保存路由
-app.post('/api/stories/save', async (req, res) => {
-  try {
-    console.log('[POST /api/stories/save] 收到保存请求:', {
-      body: req.body
-    })
-
-    const result = await storyService.saveStory(req.body);
-
-    console.log('[POST /api/stories/save] 保存成功:', result)
-    res.json(result);
-  } catch (error: any) {
-    console.error('[POST /api/stories/save] 保存失败:', error)
-    res.status(500).json({ error: error?.message });
-  }
-});
-
-app.get('/api/stories', async (req, res) => {
-  try {
-    const { category, authorId, status, skip, take, orderBy } = req.query;
-    const stories = await storyService.getStories({
-      category: category as string,
-      authorId: authorId as string,
-      status: status as StoryStatus,
-      skip: Number(skip),
-      take: Number(take),
-      orderBy: orderBy as string
-    });
-    console.log('Sending response:', stories) // 调试用
-    res.json(stories);
-  } catch (error: any) {
-    console.error('Error:', error)
-    res.status(500).json({ error: error?.message });
-  }
-});
-
-app.get('/api/stories/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const story = await storyService.getStory(id);
-    res.json(story);
-  } catch (error: any) {
-    res.status(500).json({ error: error?.message });
-  }
-});
-
-app.post('/api/stories/validate', async (req, res) => {
-  try {
-    const result = await storyService.validateStory(req.body);
-    res.json(result);
-  } catch (error: any) {
-    res.status(500).json({ error: error?.message });
-  }
-});
-
-
 
 // 评论相关路由
 app.get('/api/stories/:storyId/comments', async (req, res) => {

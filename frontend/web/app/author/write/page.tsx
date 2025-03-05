@@ -159,11 +159,12 @@ const STORY_TAGS = [
 
 // 添加创建状态类型
 const enum CreateStatus {
-  UPLOADING_COVER = 'UPLOADING_COVER',
-  UPLOADING_CONTENT = 'UPLOADING_CONTENT',
+  IDLE = 'IDLE',
+  UPLOADING = 'UPLOADING',
   CREATING_CONTRACT = 'CREATING_CONTRACT',
   SAVING_DATABASE = 'SAVING_DATABASE',
-  COMPLETED = 'COMPLETED'
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED'
 }
 
 // 错误提示组件
@@ -397,9 +398,6 @@ export default function AuthorWrite() {
       console.log('开始加载作品列表，作者地址:', address)
       const response = await fetch(`/api/authors/${address}/stories`)
       
-      // 添加响应状态日志
-      console.log('API响应状态:', response.status)
-      
       if (!response.ok) {
         const errorData = await response.json()
         console.error('API错误响应:', errorData)
@@ -408,23 +406,25 @@ export default function AuthorWrite() {
       
       const data = await response.json()
       console.log('成功加载作品列表:', data)
-      
-      if (data.syncStatus === 'SYNCING') {
-        // 如果正在同步中，显示同步状态并定时重试
-        setStories([])
+
+      // 显示同步状态或错误信息
+      if (data.message) {
         setMessage(data.message)
-        setTimeout(loadStories, 5000) // 5秒后重试
-        return
+      } else if (data.error) {
+        setMessage(data.error)
+      } else {
+        setMessage('')
       }
-
-      if (data.stories.length === 0) {
-        setMessage(data.message || '暂无作品')
+      
+      // 如果有作品列表则显示
+      if (data.stories.length > 0) {
+        setStories(data.stories)
+      } else {
         setStories([])
-        return
+        if (!data.message && !data.error) {
+          setMessage('暂无作品')
+        }
       }
-
-      setStories(data.stories)
-      setMessage('')
     } catch (error) {
       console.error('加载作品列表失败:', error)
       showError(error, '加载作品列表失败')
@@ -952,7 +952,7 @@ const handleConfirmCreate = async () => {
     setCreateProgress(0);
 
     // 第一步：上传内容到IPFS
-    setCreateStatus(CreateStatus.UPLOADING_CONTENT);
+    setCreateStatus(CreateStatus.UPLOADING);
     setCreateProgress(20);
     
     console.log('开始上传内容到IPFS...');
@@ -1070,9 +1070,23 @@ const handleConfirmCreate = async () => {
           console.error('保存失败，HTTP状态:', saveResponse.status);
           throw new Error(saveData.message || '保存失败');
         }
-      } catch (error) {
+
+        if (saveData.success) {
+          setCreateStatus(CreateStatus.COMPLETED);
+          setCreateProgress(100);
+          
+          // 显示成功提示
+          toast.success('作品创建成功！');
+          
+          // 关闭弹窗
+          setShowCreateConfirm(false);
+          
+          // 跳转到作品详情页
+          router.push(`/author/stories/${saveData.data.id}`);
+        }
+      } catch (error: unknown) {
         console.error('保存到数据库失败:', error);
-        throw new Error(error.message || '保存失败');
+        throw new Error(typeof error === 'object' && error && 'message' in error ? (error.message as string) : '保存失败');
       }
 
       const story = saveData.data;
@@ -1990,8 +2004,8 @@ return () => {
                           />
                         </div>
                         <div className={styles.progressStatus}>
-                          {createStatus === CreateStatus.UPLOADING_COVER && '正在上传封面...'}
-                          {createStatus === CreateStatus.UPLOADING_CONTENT && '正在上传内容...'}
+                          {createStatus === CreateStatus.UPLOADING && '正在上传封面...'}
+                          {createStatus === CreateStatus.UPLOADING && '正在上传内容...'}
                           {createStatus === CreateStatus.CREATING_CONTRACT && '正在创建合约...'}
                           {createStatus === CreateStatus.SAVING_DATABASE && '正在保存数据...'}
                           {createStatus === CreateStatus.COMPLETED && '创建完成！'}

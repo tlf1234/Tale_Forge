@@ -2,15 +2,10 @@ import { ethers } from 'ethers'
 import prisma from '../prisma'
 import { uploadToIPFS, getFromIPFS, uploadJSONToIPFS } from '../ipfs'
 import type { Story, Chapter, Prisma, StoryStatus } from '@prisma/client'
+import { SyncStatus } from '@prisma/client'
 import { syncService } from './sync.service'
 
 export class StoryService {
-  private provider: ethers.providers.JsonRpcProvider
-
-  constructor() {
-    this.provider = new ethers.providers.JsonRpcProvider(process.env.BSC_TESTNET_RPC_URL)
-  }
-
   /**
    * 获取作者作品列表
    */
@@ -27,11 +22,24 @@ export class StoryService {
     try {
       // 1. 获取同步状态
       const syncState = await syncService.getAuthorStoriesSyncState(authorId)
+      console.log('[StoryService.getAuthorStories] 同步状态:', syncState)
       
-      // 2. 如果未同步或同步失败，触发同步
-      if (!syncState || syncState.syncStatus === 'FAILED') {
-        console.log('[StoryService.getAuthorStories] 触发同步')
-        await syncService.triggerStoriesSync(authorId)
+      // 2. 触发同步的条件：
+      // - 首次加载（没有同步记录）
+      // - 同步状态不是 COMPLETED
+      // PENDING（待同步）
+      // SYNCING（同步中）
+      // COMPLETED（同步完成）
+      // FAILED（同步失败）
+      const needsSync = !syncState || !['COMPLETED'].includes(syncState.syncStatus)
+      
+      // 如果需要同步，触发一次同步（异步执行，不等待结果）
+      if (needsSync) {
+        console.log('[StoryService.getAuthorStories] 触发同步，原因:', !syncState ? '首次加载' : `状态为 ${syncState.syncStatus}`)
+        // 异步触发同步，不等待结果
+        syncService.triggerStoriesSync(authorId).catch(error => {
+          console.error('[StoryService.getAuthorStories] 触发同步失败:', error)
+        })
       }
 
       // 3. 从数据库获取作品列表
@@ -66,10 +74,13 @@ export class StoryService {
         syncStatus: syncState?.syncStatus
       })
 
+      // 返回数据库当前的数据，同时返回同步状态供前端展示
       return { 
         stories, 
         total,
-        syncStatus: syncState?.syncStatus || 'PENDING'
+        syncStatus: syncState?.syncStatus || 'PENDING',
+        message: needsSync ? '正在同步区块链数据，稍后刷新页面查看最新数据' : undefined,
+        error: syncState?.syncStatus === 'FAILED' ? '同步失败，请稍后重试' : undefined
       }
     } catch (error) {
       console.error('[StoryService.getAuthorStories] 获取失败:', error)
@@ -133,8 +144,6 @@ export class StoryService {
       throw error
     }
   }
-
-
 
   // 保存故事
   async saveStory(data: {

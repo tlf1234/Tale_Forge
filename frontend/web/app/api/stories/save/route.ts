@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   
       console.log('保存数据到数据库...')
       // 调用数据库保存API
-      const finalizeResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/stories/finalize`, {
+      const saveResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/stories/save`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -46,20 +46,20 @@ export async function POST(req: NextRequest) {
         })
       })
   
-      if (!finalizeResponse.ok) {
-        const finalizeError = await finalizeResponse.json()
+      if (!saveResponse.ok) {
+        const saveError = await saveResponse.json()
         return NextResponse.json({ 
-          error: finalizeError.message || '数据库保存失败',
-          details: finalizeError
-        }, { status: finalizeResponse.status })
+          error: saveError.message || '数据库保存失败',
+          details: saveError
+        }, { status: saveResponse.status })
       }
   
-      const finalizeData = await finalizeResponse.json()
+      const saveData = await saveResponse.json()
       console.log('保存数据成功')
   
       return NextResponse.json({ 
         success: true,
-        story: finalizeData.story
+        story: saveData.story
       })
   
     } catch (error: any) {

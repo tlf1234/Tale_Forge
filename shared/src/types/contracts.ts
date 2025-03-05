@@ -8,6 +8,7 @@ export interface ContractAddresses {
   NovelNFT: string
   ReaderActivityAddress: string
   TippingSystemAddress: string
+  MiningPool: string
 }
 
 export interface ContractAbis {
@@ -18,6 +19,7 @@ export interface ContractAbis {
   NovelNFT: any[]
   ReaderActivityAddress: any[]
   TippingSystemAddress: any[]
+  MiningPool: any[]
 }
 
 export interface Contracts {

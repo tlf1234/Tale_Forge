@@ -1,15 +1,29 @@
 import prisma from '../prisma'
-import { uploadToIPFS, getFromIPFS } from '../ipfs'
-import { ethers } from 'ethers'
-import { CONTRACT_ADDRESSES, ABIS } from '@tale-forge/shared'
+import { uploadToIPFS, getJSONFromIPFS, uploadJSONToIPFS, getFromIPFS } from '../ipfs'
+import { JsonRpcProvider } from '@ethersproject/providers'
+import { Contract } from '@ethersproject/contracts'
+import { formatEther } from '@ethersproject/units'
+import { CONTRACT_ADDRESS, CONTRACT_ABI, getProvider } from '../config/contract'
 import type { StoryStatus } from '@prisma/client'
 import type { SyncStatus } from '@prisma/client'
 
 export class SyncService {
-  private provider: ethers.providers.JsonRpcProvider
+  private provider: JsonRpcProvider | null = null
 
   constructor() {
-    this.provider = new ethers.providers.JsonRpcProvider(process.env.BSC_TESTNET_RPC_URL)
+    // 初始化 provider
+    this.initProvider()
+  }
+
+  private async initProvider() {
+    this.provider = await getProvider()
+  }
+
+  private async ensureProvider() {
+    if (!this.provider) {
+      this.provider = await getProvider()
+    }
+    return this.provider
   }
 
   /**
@@ -73,10 +87,15 @@ export class SyncService {
     console.log('[SyncService.getAuthorStoriesFromChain] 开始从链上获取作品:', authorAddress)
     
     try {
-      const contract = new ethers.Contract(
-        CONTRACT_ADDRESSES.StoryManager,
-        ABIS.StoryManager,
-        this.provider
+      const provider = await this.ensureProvider()
+      if (!provider) {
+        throw new Error('无法获取 provider')
+      }
+
+      const contract = new Contract(
+        CONTRACT_ADDRESS.StoryManager,
+        CONTRACT_ABI.StoryManager,
+        provider
       )
       
       const stories = await contract.getAuthorStories(authorAddress)
@@ -132,7 +151,8 @@ export class SyncService {
     
     try {
       // 1. 从IPFS获取作品内容
-      const content = await this.getContentFromIPFS(storyData.contentHash)
+      const rawContent = await getFromIPFS(storyData.contentHash)
+      const content = JSON.parse(rawContent)
       
       // 2. 保存到数据库
       const story = await prisma.story.upsert({
@@ -143,7 +163,7 @@ export class SyncService {
           title: storyData.title,
           description: content.description,
           contentCID: storyData.contentHash,
-          cover: content.coverImage,
+          cover: storyData.coverCid,
           status: this.mapChainStatusToDBStatus(storyData.status),
           updatedAt: new Date(Number(storyData.lastUpdate) * 1000)
         },
@@ -152,7 +172,7 @@ export class SyncService {
           title: storyData.title,
           description: content.description,
           contentCID: storyData.contentHash,
-          cover: content.coverImage,
+          cover: storyData.coverCid,
           authorId: storyData.authorId,
           category: content.category || 'GENERAL',
           tags: content.tags || [],
@@ -197,9 +217,10 @@ export class SyncService {
   }
 
   /**
-   * 异步同步作者作品
+   * 从链上获取作者作品列表并同步到数据库
    */
   private async syncAuthorStoriesAsync(authorId: string) {
+    let rawContent: string | null = null;
     try {
       console.log('[SyncService.syncAuthorStoriesAsync] 开始异步同步:', authorId)
 
@@ -213,27 +234,137 @@ export class SyncService {
       }
 
       // 2. 从链上获取作品列表
-      const onchainStories = await this.getAuthorStoriesFromChain(author.address)
-      console.log('[SyncService.syncAuthorStoriesAsync] 从链上获取到作品:', {
-        count: onchainStories.length
-      })
+      const provider = await this.ensureProvider()
+      if (!provider) {
+        throw new Error('无法获取 provider')
+      }
+
+      const storyManager = new Contract(
+        CONTRACT_ADDRESS.StoryManager,
+        CONTRACT_ABI.StoryManager,
+        provider
+      )
+      
+      const onchainStoryIds = await storyManager.getAuthorStories(author.address)
+      console.log('[SyncService.syncAuthorStoriesAsync] 从链上获取到作品 IDs:', onchainStoryIds)
 
       // 3. 同步每个作品
-      for (const story of onchainStories) {
-        await this.syncStoryFromChain(story)
+      for (const storyId of onchainStoryIds) {
+        try {
+          // 获取链上作品详情
+          const story = await storyManager.stories(storyId)
+          console.log(`[SyncService.syncAuthorStoriesAsync] 作品 ID ${storyId} 链上数据:`, story)
+
+          // 安全地处理数据（）
+          const storyData = {
+            id: storyId.toString(),
+            title: story.title || '',
+            authorId: story.author || '',
+            contentHash: story.contentCid || '',
+            coverCid: story.coverCid || 'https://tale-forge.com/images/story-default-cover.jpg',
+            status: this.mapChainStatusToDBStatus(Number(story.status || 0)),
+            createdAt: story.createdAt ? new Date(story.createdAt.toNumber() * 1000) : new Date(),
+            updatedAt: story.lastUpdate ? new Date(story.lastUpdate.toNumber() * 1000) : new Date()
+          }
+
+          console.log(`[SyncService.syncAuthorStoriesAsync] 作品 ID ${storyId} 的 contentHash:`, storyData.contentHash);
+          // 从 IPFS 获取内容
+          const response = await getFromIPFS(storyData.contentHash);
+
+          if (!response) {
+            throw new Error('无法获取IPFS内容')
+          }
+
+          // 确保 response 是字符串
+          rawContent = response;
+          if (typeof response === 'object') {
+            rawContent = JSON.stringify(response);
+          }
+
+          console.log(`[SyncService.syncAuthorStoriesAsync] 作品 ID ${storyId} IPFS原始内容:`, rawContent)
+          
+          let content;
+          try {
+            content = JSON.parse(rawContent)
+            console.log(`[SyncService.syncAuthorStoriesAsync] 作品 ID ${storyId} JSON解析成功:`, content)
+          } catch (parseError) {
+            console.error(`[SyncService.syncAuthorStoriesAsync] 作品 ID ${storyId} JSON解析失败，使用原始内容:`, parseError)
+            // 如果不是JSON格式，使用原始内容构建一个基本的内容对象
+            const description = typeof rawContent === 'string' 
+              ? rawContent.slice(0, 200)  // 如果是字符串，取前200个字符
+              : String(rawContent).slice(0, 200);  // 如果不是字符串，先转换成字符串
+            
+            content = {
+              content: rawContent,
+              description: description,
+              timestamp: new Date().toISOString(),
+              version: '1.0'
+            }
+          }
+          
+          // 保存到数据库
+          await prisma.story.upsert({
+            where: { 
+              id: storyData.id 
+            },
+            update: {
+              title: storyData.title,
+              description: content.description || '',
+              contentCID: storyData.contentHash,
+              cover: storyData.coverCid,
+              status: storyData.status,
+              updatedAt: storyData.updatedAt
+            },
+            create: {
+              id: storyData.id,
+              title: storyData.title,
+              description: content.description || '',
+              contentCID: storyData.contentHash,
+              cover: storyData.coverCid,
+              authorId: author.id,
+              category: content.category || 'GENERAL',
+              tags: content.tags || [],
+              status: storyData.status,
+              createdAt: storyData.createdAt,
+              updatedAt: storyData.updatedAt,
+              wordCount: 0,
+              targetWordCount: 10000
+            }
+          })
+
+          console.log(`[SyncService.syncAuthorStoriesAsync] 作品 ID ${storyId} 同步完成`)
+        } catch (error) {
+          console.error(`[SyncService.syncAuthorStoriesAsync] 作品 ID ${storyId} 同步失败:`, error)
+          // 继续同步其他作品
+          continue
+        }
       }
 
       // 4. 更新同步状态为完成
-      await prisma.authorStoriesSync.update({
-        where: { authorId },
-        data: {
-          syncStatus: 'COMPLETED',
-          lastSynced: new Date(),
-          errorMessage: null
-        }
-      })
-
-      console.log('[SyncService.syncAuthorStoriesAsync] 同步完成:', authorId)
+      if (rawContent) {
+        await prisma.authorStoriesSync.update({
+          where: { authorId },
+          data: {
+            syncStatus: 'COMPLETED',
+            lastSynced: new Date(),
+            errorMessage: null
+          }
+        });
+        console.log('[SyncService.syncAuthorStoriesAsync] 同步完成:', authorId);
+      } else {
+        // 如果获取失败，更新状态为失败
+        await prisma.authorStoriesSync.update({
+          where: { authorId },
+          data: {
+            syncStatus: 'FAILED',
+            errorMessage: '无法获取IPFS内容',
+            retryCount: {
+              increment: 1
+            }
+          }
+        });
+        console.error('[SyncService.syncAuthorStoriesAsync] 同步失败: 无法获取IPFS内容');
+      }
     } catch (error) {
       console.error('[SyncService.syncAuthorStoriesAsync] 同步失败:', error)
 
@@ -254,28 +385,6 @@ export class SyncService {
   }
 
   /**
-   * 从IPFS获取内容
-   */
-  private async getContentFromIPFS(contentHash: string) {
-    console.log('[SyncService.getContentFromIPFS] 开始获取IPFS内容:', contentHash)
-    
-    try {
-      const response = await fetch(`${process.env.IPFS_GATEWAY}${contentHash}`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch content from IPFS')
-      }
-      
-      const content = await response.json()
-      console.log('[SyncService.getContentFromIPFS] 获取成功')
-      
-      return content
-    } catch (error) {
-      console.error('[SyncService.getContentFromIPFS] 获取失败:', error)
-      throw error
-    }
-  }
-
-  /**
    * 将链上状态映射为数据库状态
    */
   private mapChainStatusToDBStatus(chainStatus: number): 'DRAFT' | 'PUBLISHED' | 'COMPLETED' | 'SUSPENDED' {
@@ -290,4 +399,4 @@ export class SyncService {
 }
 
 // 导出单例实例
-export const syncService = new SyncService() 
+export const syncService = new SyncService()
