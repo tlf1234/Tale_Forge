@@ -612,6 +612,28 @@
   margin-bottom: 0.5rem;
 }
 
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 16px;
+  color: #666;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.inputWrapper:focus-within .inputIcon {
+  color: #4f46e5;
+}
+
 .input,
 .textarea {
   width: 100%;
@@ -1992,4 +2014,197 @@
   .wordCountHint {
     color: #60a5fa;
   }
+}
+
+/* 现代化弹窗样式 */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modernModal {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  width: 480px;
+  max-width: 90vw;
+  overflow: hidden;
+  animation: modalFadeIn 0.3s ease-out;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modernModalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.modernModalHeader h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.modernCloseButton {
+  background: transparent;
+  border: none;
+  color: #666;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.modernCloseButton:hover {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.modernModalBody {
+  padding: 24px;
+}
+
+.modernFormGroup {
+  margin-bottom: 20px;
+}
+
+.modernLabel {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.inputWrapper {
+  position: relative;
+}
+
+.modernInput {
+  width: 100%;
+  padding: 12px 16px 12px 42px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.2s;
+  box-sizing: border-box;
+  background-color: #f9f9f9;
+  text-indent: 4px;
+  letter-spacing: 0.3px;
+  line-height: 1.5;
+  -webkit-text-fill-color: #333;
+}
+
+.modernInput:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  background-color: white;
+}
+
+.modernInput:focus + .inputIcon,
+.inputWrapper:focus-within .inputIcon {
+  color: #4f46e5;
+}
+
+.inputHint {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: #666;
+  line-height: 1.4;
+}
+
+.modernModalFooter {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 24px 24px;
+  gap: 12px;
+}
+
+.modernCancelButton {
+  padding: 10px 16px;
+  background-color: transparent;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  color: #666;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modernCancelButton:hover {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.modernConfirmButton {
+  padding: 10px 20px;
+  background-color: #4f46e5;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modernConfirmButton:hover {
+  background-color: #4338ca;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.buttonIcon {
+  font-size: 0.85rem;
+}
+
+/* 禁用拼写检查样式 */
+.modernInput::-webkit-spelling-error {
+  text-decoration: none !important;
+}
+
+.modernInput::-webkit-grammar-error {
+  text-decoration: none !important;
+}
+
+.modernInput::-ms-clear {
+  display: none;
+}
+
+/* 禁用输入法下划线 */
+.modernInput::selection {
+  background-color: rgba(79, 70, 229, 0.2);
 }

@@ -278,7 +278,8 @@ contract StoryManager is Ownable, ReentrancyGuard {
     }
 
 
-    // 更新章节（这个需要我们平台调用，防止作弊）
+    // 更新章节（这个需要我们平台调用，防止作弊,不存在作弊可能，web项目都是在后端）
+    //这里少了一个插图参数Cid参数，而且是数组，可以多张。
     function updateChapter(
         uint256 storyId,
         uint32 chapterNumber,

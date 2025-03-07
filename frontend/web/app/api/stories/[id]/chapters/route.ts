@@ -3,6 +3,47 @@ import fs from 'fs/promises';
 import path from 'path';
 import { Chapter } from '@/types/story';
 
+
+// 获取章节列表
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id: storyId } = params;
+    const chapters = await getChapterList(storyId);
+    return NextResponse.json(chapters);
+  } catch (error) {
+    console.error('获取章节列表失败:', error);
+    return NextResponse.json(
+      { error: '获取章节列表失败' },
+      { status: 500 }
+    );
+  }
+}
+
+// 创建新章节
+export async function POST(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id: storyId } = params;
+    const chapterData = await request.json();
+    
+    const chapter = await createChapter(storyId, chapterData);
+    return NextResponse.json(chapter);
+  } catch (error) {
+    console.error('创建章节失败:', error);
+    return NextResponse.json(
+      { error: '创建章节失败' },
+      { status: 500 }
+    );
+  }
+}
+
+
+
 // 确保数据目录存在
 async function ensureDir(storyId: string) {
   const dataDir = path.join(process.cwd(), 'data', 'stories', storyId, 'chapters');
@@ -115,40 +156,4 @@ async function createChapter(storyId: string, chapter: Partial<Chapter>): Promis
   return newChapter;
 }
 
-// 获取章节列表
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const { id: storyId } = params;
-    const chapters = await getChapterList(storyId);
-    return NextResponse.json(chapters);
-  } catch (error) {
-    console.error('获取章节列表失败:', error);
-    return NextResponse.json(
-      { error: '获取章节列表失败' },
-      { status: 500 }
-    );
-  }
-}
 
-// 创建新章节
-export async function POST(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const { id: storyId } = params;
-    const chapterData = await request.json();
-    
-    const chapter = await createChapter(storyId, chapterData);
-    return NextResponse.json(chapter);
-  } catch (error) {
-    console.error('创建章节失败:', error);
-    return NextResponse.json(
-      { error: '创建章节失败' },
-      { status: 500 }
-    );
-  }
-}

@@ -23,7 +23,8 @@ import {
   FaBook,
   FaMoneyBill,
   FaInfoCircle,
-  FaCheck
+  FaCheck,
+  FaHeading
 } from 'react-icons/fa'
 import { toast } from 'react-hot-toast'
 import { Eye as EyeIcon, EyeOff as EyeOffIcon, FileText, BarChart2 } from 'lucide-react'
@@ -248,15 +249,19 @@ export default function AuthorWrite() {
   const [isLoadingStories, setIsLoadingStories] = useState(false)
   const [message, setMessage] = useState('')
 
+  
+  
+  // 章节管理
+  const [chapters, setChapters] = useState<Chapter[]>([])
+  const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null)
+  // 章节加载状态
+  const [isChapterLoading, setIsChapterLoading] = useState(true);
+
   // 简化的状态管理
   const [content, setContent] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [currentChapterId, setCurrentChapterId] = useState<string | null>(null)
   const [hasContentChanged, setHasContentChanged] = useState(false) // 添加内容变更标记
-  
-  // 章节管理
-  const [chapters, setChapters] = useState<Chapter[]>([])
-  const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null)
   
   // 界面状态
   const [showSettings, setShowSettings] = useState(false)
@@ -293,8 +298,7 @@ export default function AuthorWrite() {
   const [lastSavedContent, setLastSavedContent] = useState('');
   const [lastSavedTitle, setLastSavedTitle] = useState('');
 
-  // 加载状态
-  const [isLoading, setIsLoading] = useState(true);
+
 
   // 添加编辑状态管理
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
@@ -321,6 +325,10 @@ export default function AuthorWrite() {
   const [createStatus, setCreateStatus] = useState<CreateStatus | null>(null)
   const [createProgress, setCreateProgress] = useState(0)
 
+  // 在状态定义部分添加新的状态
+  const [showCreateChapterDialog, setShowCreateChapterDialog] = useState(false);
+  const [newChapterTitle, setNewChapterTitle] = useState('');
+
   // 错误提示函数
   const showError = (error: unknown, defaultMessage: string) => {
     console.error(error);
@@ -330,10 +338,8 @@ export default function AuthorWrite() {
     } else if (typeof error === 'string') {
       message = error;
     }
-    // 只在非页面初始化错误时显示错误提示
-    if (!isLoading) {
-      setErrorMessage(message);
-    }
+    // 使用toast显示错误，而不是设置errorMessage
+    toast.error(message);
   };
 
   // 成功提示函数
@@ -365,15 +371,14 @@ export default function AuthorWrite() {
   };
 
   
-  /**作品列表 */
-    // 添加日志查看地址是否获取到
-    useEffect(() => {
-      console.log('当前钱包地址:', address)
-    }, [address])
-    
-
+  /**
+   * 作品创建及加载相关 
+   * 
+  */
   // 修改加载时机
   useEffect(() => {
+    // 清理错误消息
+    setErrorMessage(null);
     console.log('检查钱包地址:', address)
     if (address) {
       console.log('准备加载作品列表...')
@@ -459,6 +464,258 @@ export default function AuthorWrite() {
     }
   }
 
+  /**作品创建 */
+  // 创建作品
+  const handleCreateStory = async () => {
+    try {
+      // 验证必填字段
+      const validationErrors = [];
+      if (!storyInfo.title.trim()) {
+        validationErrors.push('作品标题不能为空');
+      }
+      if (!storyInfo.type) {
+        validationErrors.push('请选择作品类型');
+      }
+      if (!storyInfo.description.trim()) {
+        validationErrors.push('作品简介不能为空');
+      }
+      if (!storyInfo.targetWordCount || storyInfo.targetWordCount < 100000) {
+        validationErrors.push('目标字数不能少于10万字。原因：较低的目标字数可能影响作品质量评估和NFT价值，同时不利于读者对作品完整度的判断。');
+      }
+      if (!storyInfo.isFree && (!storyInfo.price || storyInfo.price <= 0)) {
+        validationErrors.push('付费作品必须设置价格');
+      }
+
+      // 如果有验证错误，显示错误信息并返回
+      if (validationErrors.length > 0) {
+        showError(validationErrors.join('\n\n'), '创建失败');
+        return;
+      }
+
+      setShowCreateConfirm(true);
+    } catch (error) {
+      showError(error, '创建作品失败');
+    }
+  }
+
+  // 修改handleConfirmCreate函数
+  const handleConfirmCreate = async () => {
+    try {
+      // 验证必填字段
+      const validationErrors = [];
+      if (!storyInfo.title.trim()) {
+        validationErrors.push('作品标题不能为空');
+      }
+      if (!storyInfo.type) {
+        validationErrors.push('请选择作品类型');
+      }
+      if (!storyInfo.description.trim()) {
+        validationErrors.push('作品简介不能为空');
+      }
+      if (!storyInfo.targetWordCount || storyInfo.targetWordCount < 100000) {
+        validationErrors.push('目标字数不能少于10万字。原因：较低的目标字数可能影响作品质量评估和NFT价值，同时不利于读者对作品完整度的判断。');
+      }
+      if (!storyInfo.isFree && (!storyInfo.price || storyInfo.price <= 0)) {
+        validationErrors.push('付费作品必须设置价格');
+      }
+
+      if (validationErrors.length > 0) {
+        showError(validationErrors.join('\n\n'), '请完善作品信息');
+        return;
+      }
+
+      // 检查钱包连接
+      if (!address) {
+        showError('请先连接钱包', '钱包未连接');
+        return;
+      }
+
+      setIsCreating(true);
+      setCreateProgress(0);
+
+      // 第一步：上传内容到IPFS
+      setCreateStatus(CreateStatus.UPLOADING);
+      setCreateProgress(20);
+      
+      console.log('开始上传内容到IPFS...');
+      const ipfsResponse = await fetch('/api/stories/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: storyInfo.title,
+          description: storyInfo.description,
+          content: content,
+          coverImage: storyInfo.coverImage,
+          authorAddress: address,
+          category: storyInfo.type,
+          tags: storyInfo.tags
+        })
+      });
+
+      let ipfsData;
+      try {
+        ipfsData = await ipfsResponse.json();
+      } catch (error) {
+        console.error('解析API响应失败:', error);
+        throw new Error('内容上传失败: 无法解析服务器响应');
+      }
+
+      if (!ipfsData.success) {
+        console.error('上传失败:', ipfsData);
+        throw new Error(ipfsData.message || '内容上传失败');
+      }
+
+      if (!ipfsData.contentCid || !ipfsData.coverCid) {
+        console.error('API响应格式错误:', ipfsData);
+        throw new Error('内容上传失败: 服务器返回的数据格式不正确');
+      }
+
+      console.log('IPFS上传成功:', ipfsData);
+
+      // 准备智能合约调用参数
+      const { contentCid, coverCid } = ipfsData;
+      if (!contentCid || !coverCid) {
+        throw new Error('IPFS上传返回的CID无效');
+      }
+
+      // 调用智能合约创建故事
+      console.log('开始调用智能合约创建故事...');
+      try {
+        // 确保已连接钱包
+        if (!window.ethereum) {
+          throw new Error('未检测到钱包');
+        }
+
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        
+        // 创建合约实例
+        const storyManagerContract = new ethers.Contract(
+          CONTRACT_ADDRESSES.StoryManager,
+          CONTRACT_ABIS.StoryManager,
+          signer
+        );
+
+        const tx = await storyManagerContract.createStory(
+          storyInfo.title,
+          storyInfo.description,
+          coverCid,
+          contentCid,
+          storyInfo.targetWordCount
+        );
+        
+        console.log('等待交易确认...');
+        const receipt = await tx.wait();
+        console.log('故事创建成功！交易收据:', receipt);
+
+        // 保存到数据库
+        console.log('开始保存到数据库，发送数据:', {
+          title: storyInfo.title,
+          description: storyInfo.description,
+          content: content,
+          coverImage: storyInfo.coverImage,
+          authorAddress: address,
+          contentCid,
+          coverCid,
+          category: storyInfo.type,
+          tags: storyInfo.tags,
+          targetWordCount: storyInfo.targetWordCount
+        });
+
+        const saveResponse = await fetch('/api/stories/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: storyInfo.title,
+            description: storyInfo.description,
+            content: content,
+            coverImage: storyInfo.coverImage,
+            authorAddress: address,
+            contentCid,
+            coverCid,
+            category: storyInfo.type,
+            tags: storyInfo.tags,
+            targetWordCount: storyInfo.targetWordCount
+          })
+        });
+
+        let saveData;
+        try {
+          saveData = await saveResponse.json();
+          console.log('数据库保存响应:', saveData);
+          
+          if (!saveResponse.ok) {
+            console.error('保存失败，HTTP状态:', saveResponse.status);
+            throw new Error(saveData.message || '保存失败');
+          }
+
+          if (saveData.success) {
+            setCreateStatus(CreateStatus.COMPLETED);
+            setCreateProgress(100);
+            
+            // 显示成功提示
+            toast.success('作品创建成功！');
+            
+            // 关闭弹窗
+            setShowCreateConfirm(false);
+            
+            // 跳转到作品详情页
+            router.push(`/author/stories/${saveData.data.id}`);
+          }
+        } catch (error: unknown) {
+          console.error('保存到数据库失败:', error);
+          throw new Error(typeof error === 'object' && error && 'message' in error ? (error.message as string) : '保存失败');
+        }
+
+        const story = saveData.data;
+        console.log('保存到数据库成功:', story);
+        
+        return story;
+      } catch (error) {
+        console.error('创建故事失败:', error);
+        throw error;
+      }
+
+    } catch (error: any) {
+      console.error('创建作品失败:', error);
+      showError(error, error.message || '创建作品失败，请稍后重试');
+      setCreateStatus(null);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  // 添加封面处理函数
+  const handleCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          setSelectedCoverFile(file);
+          setShowCoverCropper(true);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // 添加封面裁剪处理函数
+  const handleCropComplete = async (croppedImage: string) => {
+    try {
+      // 直接使用裁剪后的base64图片URL
+      handleInfoChange('coverImage', croppedImage);
+      setShowCoverCropper(false);
+      setSelectedCoverFile(null);
+      showSuccess('封面上传成功');
+    } catch (error) {
+      showError(error, '封面上传失败');
+    }
+  };
 
   // 处理作品信息更新
   const handleInfoChange = (field: keyof typeof storyInfo, value: any) => {
@@ -468,118 +725,46 @@ export default function AuthorWrite() {
     }));
   };
 
-// 保存作品信息
-// const handleSaveStoryInfo = async () => {
-//   try {
-//     if (!currentStory) return;
-
-//     // 更新作品信息
-//     const response = await fetch(`/api/stories/${currentStory.id}`, {
-//       method: 'PUT',
-//       headers: {
-//         'Content-Type': 'application/json',
-//       },
-//       body: JSON.stringify(storyInfo),
-//     });
-
-//     if (!response.ok) {
-//       throw new Error('Failed to update story info');
-//     }
-
-//     // 更新成功提示
-//     toast.success('作品设置已保存');
-    
-//     // 关闭设置面板
-//     setShowSettings(false);
-    
-//     // 更新当前作品信息
-//     const updatedStory = await response.json();
-//     setCurrentStory(updatedStory);
-    
-//     // 更新作品列表中的信息
-//     setStories(stories.map(story => 
-//       story.id === updatedStory.id ? updatedStory : story
-//     ));
-
-//   } catch (error) {
-//     console.error('Error saving story info:', error);
-//     toast.error('保存失败，请重试');
-//   }
-// };
 
 
-  // 处理作品标签更新
-  // const handleTagChange = (tag: string) => {
-  //   setStoryInfo(prev => {
-  //     const tags = prev.tags.includes(tag)
-  //       ? prev.tags.filter(t => t !== tag)
-  //       : [...prev.tags, tag]
-  //     return { ...prev, tags }
-  //   })
-  // }
-
-
-
-  /**章节列表 
+  /**章节列表创建及加载相关
    * 对于章节我们是直接加载已经发布的，而不是本地编辑，因为我们主要的目的是发布作品。
    * 并不是以写作为主的在线工具软件。要先明白这一原则，不要开发走偏了。
    * 增加一个文件加载显示功能，以方便作者用其它写作软件写好文章后直接加载进来，方便发布。
   */
-  // 初始加载章节
-  useEffect(() => {
-    // 清理错误消息
-    setErrorMessage(null);
-    console.log('组件挂载，准备加载章节列表...');
-    loadChapterList();
-  }, []);
 
+ 
   // 加载章节列表的函数
   const loadChapterList = async () => {
     try {
-      setIsLoading(true);
+      setIsChapterLoading(true);
       console.log('开始加载章节列表...');
       
       const storyId = localStorage.getItem('currentStoryId');
       if (!storyId) {
-        throw new Error('未找到当前故事');
+        console.log('未找到当前故事ID，跳过加载章节');
+        setIsChapterLoading(false);
+        return;
       }
-
+      console.log('当前故事ID:', storyId);
       const response = await fetch(`/api/stories/${storyId}/chapters`);
       if (!response.ok) {
         throw new Error('获取章节列表失败');
       }
 
       const data = await response.json();
+      console.log('获取到章节列表:', data);
+      
       const sortedChapters = data.sort((a: Chapter, b: Chapter) => a.order - b.order);
       setChapters(sortedChapters);
 
       if (sortedChapters.length === 0) {
-        console.log('没有找到章节，创建新章节...');
-        const createResponse = await fetch(`/api/stories/${storyId}/chapters`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            title: '第1章',
-          }),
-        });
-
-        if (!createResponse.ok) {
-          const error = await createResponse.json();
-          throw new Error(error.error || '创建章节失败');
-        }
-        
-        const newChapter = await createResponse.json();
-        console.log('创建新章节成功:', newChapter);
-
-        // 立即更新章节列表
-        const updatedChapters = await updateChapterList();
-        if (updatedChapters) {
-          // 加载新创建的章节
-          await loadChapter(newChapter.id);
-          showSuccess('创建章节成功');
-        }
+        console.log('没有找到章节，等待用户创建...');
+        // 不自动创建章节，等待用户手动创建
+        setContent('');
+        setCurrentChapterId(null);
+        setCurrentChapter(null);
+        showSuccess('请点击"+ 新建"按钮创建第一个章节');
       } else {
         console.log('找到现有章节，加载第一个章节...');
         // 确保第一个章节存在且有 id
@@ -593,13 +778,13 @@ export default function AuthorWrite() {
     } catch (error: any) {
       console.error('加载章节列表失败:', error);
       showError(error, '加载章节列表失败，请稍后重试');
-      // 设置一个空的章节列表，这样用户仍然可以看到界面
+      // 设置一个空的章节列表
       setChapters([]);
       setContent('');
       setCurrentChapterId(null);
       setCurrentChapter(null);
     } finally {
-      setIsLoading(false);
+      setIsChapterLoading(false);
     }
   };
 
@@ -710,23 +895,33 @@ export default function AuthorWrite() {
 
   // 修改更新章节列表函数
   const updateChapterList = async () => {
-    if (!currentStory?.id) return null;
+    const storyId = localStorage.getItem('currentStoryId');
+    if (!storyId) return null;
+    
     try {
-      const response = await fetch(`/api/stories/${currentStory.id}/chapters`);
+      const response = await fetch(`/api/stories/${storyId}/chapters`);
       if (!response.ok) {
         throw new Error('获取章节列表失败');
       }
       const updatedChapters = await response.json();
-      setChapters(updatedChapters);
-      return updatedChapters;
+      const sortedChapters = updatedChapters.sort((a: Chapter, b: Chapter) => a.order - b.order);
+      setChapters(sortedChapters);
+      return sortedChapters;
     } catch (error) {
       showError(error, '获取章节列表失败');
       return null;
     }
   };
 
-  // 修改添加章节的处理函数
+  // 添加章节的处理函数
   const handleAddChapter = async (volumeId?: string) => {
+    // 显示创建章节对话框
+    setNewChapterTitle(`第${chapters.length + 1}章  `); // 在章节标题后添加两个空格
+    setShowCreateChapterDialog(true);
+  };
+
+  // 添加确认创建章节的函数
+  const handleConfirmAddChapter = async () => {
     try {
       console.log('开始创建新章节...');
       const storyId = localStorage.getItem('currentStoryId');
@@ -734,14 +929,21 @@ export default function AuthorWrite() {
         throw new Error('未找到当前故事，请先创建故事');
       }
 
+      if (!newChapterTitle.trim()) {
+        toast.error('章节标题不能为空');
+        return;
+      }
+
+      // 先关闭对话框，避免操作延迟
+      setShowCreateChapterDialog(false);
+      
       const response = await fetch(`/api/stories/${storyId}/chapters`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          title: `第${chapters.length + 1}章`,
-          volumeId,
+          title: newChapterTitle,
           content: '',
         }),
       });
@@ -757,14 +959,29 @@ export default function AuthorWrite() {
       // 立即更新章节列表
       const updatedChapters = await updateChapterList();
       if (updatedChapters) {
-        // 加载新创建的章节
-        await loadChapter(newChapter.id);
-        showSuccess('创建章节成功');
+        try {
+          // 加载新创建的章节
+          await loadChapter(newChapter.id);
+          toast.success('创建章节成功');
+        } catch (loadError) {
+          console.error('加载新章节失败:', loadError);
+          // 即使加载失败，章节创建仍然成功
+          toast.success('章节创建成功，但加载失败，请手动选择章节');
+        }
       }
+
+      // 重置标题
+      setNewChapterTitle('');
     } catch (error) {
       console.error('创建章节失败:', error);
-      showError(error, '创建章节失败，请稍后重试');
+      toast.error(error instanceof Error ? error.message : '创建章节失败，请稍后重试');
     }
+  };
+
+  // 添加取消创建章节的函数
+  const handleCancelAddChapter = () => {
+    setShowCreateChapterDialog(false);
+    setNewChapterTitle('');
   };
 
   // 修改章节更新函数
@@ -793,14 +1010,21 @@ export default function AuthorWrite() {
       }
 
       // 更新章节列表
-      await updateChapterList();
+      const updatedChapters = await updateChapterList();
       
-      // 如果删除的是当前章节，清空编辑器
+      // 如果删除的是当前章节
       if (chapterToDelete === currentChapterId) {
-        setCurrentChapterId(null);
-        setContent('');
-        setLastSavedContent('');
-        setHasUnsavedChanges(false);
+        // 如果还有其他章节，加载第一个章节
+        if (updatedChapters && updatedChapters.length > 0) {
+          await loadChapter(updatedChapters[0].id);
+        } else {
+          // 如果没有章节了，清空编辑器
+          setCurrentChapterId(null);
+          setCurrentChapter(null);
+          setContent('');
+          setLastSavedContent('');
+          setHasUnsavedChanges(false);
+        }
       }
 
       showSuccess('删除章节成功');
@@ -879,262 +1103,7 @@ const handleDeleteClick = (e: React.MouseEvent, chapterId: string) => {
 
 
 
-  
 
-
-/**作品创建 */
-// 创建作品
-const handleCreateStory = async () => {
-  try {
-    // 验证必填字段
-    const validationErrors = [];
-    if (!storyInfo.title.trim()) {
-      validationErrors.push('作品标题不能为空');
-    }
-    if (!storyInfo.type) {
-      validationErrors.push('请选择作品类型');
-    }
-    if (!storyInfo.description.trim()) {
-      validationErrors.push('作品简介不能为空');
-    }
-    if (!storyInfo.targetWordCount || storyInfo.targetWordCount < 100000) {
-      validationErrors.push('目标字数不能少于10万字。原因：较低的目标字数可能影响作品质量评估和NFT价值，同时不利于读者对作品完整度的判断。');
-    }
-    if (!storyInfo.isFree && (!storyInfo.price || storyInfo.price <= 0)) {
-      validationErrors.push('付费作品必须设置价格');
-    }
-
-    // 如果有验证错误，显示错误信息并返回
-    if (validationErrors.length > 0) {
-      showError(validationErrors.join('\n\n'), '创建失败');
-      return;
-    }
-
-    setShowCreateConfirm(true);
-  } catch (error) {
-    showError(error, '创建作品失败');
-  }
-}
-
-// 修改handleConfirmCreate函数
-const handleConfirmCreate = async () => {
-  try {
-    // 验证必填字段
-    const validationErrors = [];
-    if (!storyInfo.title.trim()) {
-      validationErrors.push('作品标题不能为空');
-    }
-    if (!storyInfo.type) {
-      validationErrors.push('请选择作品类型');
-    }
-    if (!storyInfo.description.trim()) {
-      validationErrors.push('作品简介不能为空');
-    }
-    if (!storyInfo.targetWordCount || storyInfo.targetWordCount < 100000) {
-      validationErrors.push('目标字数不能少于10万字。原因：较低的目标字数可能影响作品质量评估和NFT价值，同时不利于读者对作品完整度的判断。');
-    }
-    if (!storyInfo.isFree && (!storyInfo.price || storyInfo.price <= 0)) {
-      validationErrors.push('付费作品必须设置价格');
-    }
-
-    if (validationErrors.length > 0) {
-      showError(validationErrors.join('\n\n'), '请完善作品信息');
-      return;
-    }
-
-    // 检查钱包连接
-    if (!address) {
-      showError('请先连接钱包', '钱包未连接');
-      return;
-    }
-
-    setIsCreating(true);
-    setCreateProgress(0);
-
-    // 第一步：上传内容到IPFS
-    setCreateStatus(CreateStatus.UPLOADING);
-    setCreateProgress(20);
-    
-    console.log('开始上传内容到IPFS...');
-    const ipfsResponse = await fetch('/api/stories/upload', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        title: storyInfo.title,
-        description: storyInfo.description,
-        content: content,
-        coverImage: storyInfo.coverImage,
-        authorAddress: address,
-        category: storyInfo.type,
-        tags: storyInfo.tags
-      })
-    });
-
-    let ipfsData;
-    try {
-      ipfsData = await ipfsResponse.json();
-    } catch (error) {
-      console.error('解析API响应失败:', error);
-      throw new Error('内容上传失败: 无法解析服务器响应');
-    }
-
-    if (!ipfsData.success) {
-      console.error('上传失败:', ipfsData);
-      throw new Error(ipfsData.message || '内容上传失败');
-    }
-
-    if (!ipfsData.contentCid || !ipfsData.coverCid) {
-      console.error('API响应格式错误:', ipfsData);
-      throw new Error('内容上传失败: 服务器返回的数据格式不正确');
-    }
-
-    console.log('IPFS上传成功:', ipfsData);
-
-    // 准备智能合约调用参数
-    const { contentCid, coverCid } = ipfsData;
-    if (!contentCid || !coverCid) {
-      throw new Error('IPFS上传返回的CID无效');
-    }
-
-    // 调用智能合约创建故事
-    console.log('开始调用智能合约创建故事...');
-    try {
-      // 确保已连接钱包
-      if (!window.ethereum) {
-        throw new Error('未检测到钱包');
-      }
-
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      
-      // 创建合约实例
-      const storyManagerContract = new ethers.Contract(
-        CONTRACT_ADDRESSES.StoryManager,
-        CONTRACT_ABIS.StoryManager,
-        signer
-      );
-
-      const tx = await storyManagerContract.createStory(
-        storyInfo.title,
-        storyInfo.description,
-        coverCid,
-        contentCid,
-        storyInfo.targetWordCount
-      );
-      
-      console.log('等待交易确认...');
-      const receipt = await tx.wait();
-      console.log('故事创建成功！交易收据:', receipt);
-
-      // 保存到数据库
-      console.log('开始保存到数据库，发送数据:', {
-        title: storyInfo.title,
-        description: storyInfo.description,
-        content: content,
-        coverImage: storyInfo.coverImage,
-        authorAddress: address,
-        contentCid,
-        coverCid,
-        category: storyInfo.type,
-        tags: storyInfo.tags,
-        targetWordCount: storyInfo.targetWordCount
-      });
-
-      const saveResponse = await fetch('/api/stories/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: storyInfo.title,
-          description: storyInfo.description,
-          content: content,
-          coverImage: storyInfo.coverImage,
-          authorAddress: address,
-          contentCid,
-          coverCid,
-          category: storyInfo.type,
-          tags: storyInfo.tags,
-          targetWordCount: storyInfo.targetWordCount
-        })
-      });
-
-      let saveData;
-      try {
-        saveData = await saveResponse.json();
-        console.log('数据库保存响应:', saveData);
-        
-        if (!saveResponse.ok) {
-          console.error('保存失败，HTTP状态:', saveResponse.status);
-          throw new Error(saveData.message || '保存失败');
-        }
-
-        if (saveData.success) {
-          setCreateStatus(CreateStatus.COMPLETED);
-          setCreateProgress(100);
-          
-          // 显示成功提示
-          toast.success('作品创建成功！');
-          
-          // 关闭弹窗
-          setShowCreateConfirm(false);
-          
-          // 跳转到作品详情页
-          router.push(`/author/stories/${saveData.data.id}`);
-        }
-      } catch (error: unknown) {
-        console.error('保存到数据库失败:', error);
-        throw new Error(typeof error === 'object' && error && 'message' in error ? (error.message as string) : '保存失败');
-      }
-
-      const story = saveData.data;
-      console.log('保存到数据库成功:', story);
-      
-      return story;
-    } catch (error) {
-      console.error('创建故事失败:', error);
-      throw error;
-    }
-
-  } catch (error: any) {
-    console.error('创建作品失败:', error);
-    showError(error, error.message || '创建作品失败，请稍后重试');
-    setCreateStatus(null);
-  } finally {
-    setIsCreating(false);
-  }
-};
-
-
-// 添加封面处理函数
-const handleCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        setSelectedCoverFile(file);
-        setShowCoverCropper(true);
-      }
-    };
-    reader.readAsDataURL(file);
-  }
-};
-
-// 添加封面裁剪处理函数
-const handleCropComplete = async (croppedImage: string) => {
-  try {
-    // 直接使用裁剪后的base64图片URL
-    handleInfoChange('coverImage', croppedImage);
-    setShowCoverCropper(false);
-    setSelectedCoverFile(null);
-    showSuccess('封面上传成功');
-  } catch (error) {
-    showError(error, '封面上传失败');
-  }
-};
 
 
 // 添加故事大纲
@@ -1164,298 +1133,321 @@ const addOutline = (title: string, description: string) => {
   // };
 
   
-  /**编辑框工具栏 */
-// 编辑框工具栏
-const renderToolbar = () => (
+
+  /**
+   * 编辑框工具栏
+   *  
+  */
+
+  // 编辑框工具栏
+  const renderToolbar = () => (
   <div className={styles.toolbar}>
-    <div className={styles.toolbarLeft}>
-      <button
-        className={`${styles.iconButton} ${showChapters ? styles.active : ''}`}
-        onClick={toggleChapters}
-        title="章节管理"
-      >
-        <FaList />
-      </button>
-      <button
-        className={`${styles.iconButton} ${showSettings ? styles.active : ''}`}
-        onClick={toggleSettings}
-        title="作品创建"
-      >
-        <FaPlus />
-      </button>
-    </div>
+  <div className={styles.toolbarLeft}>
+    <button
+      className={`${styles.iconButton} ${showChapters ? styles.active : ''}`}
+      onClick={toggleChapters}
+      title="章节管理"
+    >
+      <FaList />
+    </button>
+    <button
+      className={`${styles.iconButton} ${showSettings ? styles.active : ''}`}
+      onClick={toggleSettings}
+      title="作品创建"
+    >
+      <FaPlus />
+    </button>
+  </div>
 
-    <div className={styles.toolbarCenter}>
-      <div className={styles.writingStats}>
-        <span>写作时长: {formatTime(totalWritingTime)}</span>
-        <span>目标字数: {wordCountGoal}</span>
-      </div>
-    </div>
-
-    <div className={styles.toolbarRight}>
-      <button
-        className={`${styles.iconButton} ${isPreview ? styles.active : ''}`}
-        onClick={() => setIsPreview(!isPreview)}
-        title="预览"
-      >
-        {isPreview ? <FaEye className={styles.icon} /> : <FaEyeSlash className={styles.icon} />}
-      </button>
-      <button
-        className={`${styles.primaryButton} ${isSaving ? styles.saving : ''} ${hasUnsavedChanges ? styles.hasChanges : ''}`}
-        onClick={async () => {
-          await handleSave();
-        }}
-        disabled={isSaving || !currentChapterId || !hasUnsavedChanges}
-      >
-        <FaSave />
-        {isSaving ? '保存中...' : hasUnsavedChanges ? '保存' : '已保存'}
-      </button>
-      <IconButton
-        icon={<FaUpload />}
-        onClick={handlePublish}
-        disabled={isSaving}
-        title="发布到区块链"
-      />
+  <div className={styles.toolbarCenter}>
+    <div className={styles.writingStats}>
+      <span>写作时长: {formatTime(totalWritingTime)}</span>
+      <span>目标字数: {wordCountGoal}</span>
     </div>
   </div>
-)
 
-// 在 AuthorWrite 组件中添加发布功能
-const handlePublish = async () => {
+  <div className={styles.toolbarRight}>
+    <button
+      className={`${styles.iconButton} ${isPreview ? styles.active : ''}`}
+      onClick={() => setIsPreview(!isPreview)}
+      title="预览"
+    >
+      {isPreview ? <FaEye className={styles.icon} /> : <FaEyeSlash className={styles.icon} />}
+    </button>
+    <button
+      className={`${styles.primaryButton} ${isSaving ? styles.saving : ''} ${hasUnsavedChanges ? styles.hasChanges : ''}`}
+      onClick={async () => {
+        await handleSave();
+      }}
+      disabled={isSaving || !currentChapterId || !hasUnsavedChanges}
+    >
+      <FaSave />
+      {isSaving ? '保存中...' : hasUnsavedChanges ? '保存' : '已保存'}
+    </button>
+    <IconButton
+      icon={<FaUpload />}
+      onClick={handlePublish}
+      disabled={isSaving}
+      title="发布到区块链"
+    />
+  </div>
+  </div>
+  )
+
+  // 在 AuthorWrite 组件中添加发布功能
+  const handlePublish = async () => {
   if (!storyInfo.title || !content) {
-    toast.error('请填写标题和内容')
-    return
+  toast.error('请填写标题和内容')
+  return
   }
 
   if (!address) {
-    toast.error('请先连接钱包')
-    return
+  toast.error('请先连接钱包')
+  return
   }
 
   try {
-    setIsSaving(true)
+  setIsSaving(true)
 
-    // 准备要上传的数据
-    const formData = {
-      title: storyInfo.title,
-      description: storyInfo.description || '',
-      content: content,
-      coverImage: storyInfo.coverImage || '/images/default-cover.jpg', // 使用默认封面
-      authorAddress: address,
-      targetWordCount: storyInfo.targetWordCount || 10000,
-      category: storyInfo.type || 'other'
-    }
+  // 准备要上传的数据
+  const formData = {
+    title: storyInfo.title,
+    description: storyInfo.description || '',
+    content: content,
+    coverImage: storyInfo.coverImage || '/images/default-cover.jpg', // 使用默认封面
+    authorAddress: address,
+    targetWordCount: storyInfo.targetWordCount || 10000,
+    category: storyInfo.type || 'other'
+  }
 
-    // 上传到 IPFS 并创建故事
-    const response = await fetch('/api/stories/create', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formData)
-    })
+  // 上传到 IPFS 并创建故事
+  const response = await fetch('/api/stories/create', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(formData)
+  })
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || '发布失败')
-    }
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error || '发布失败')
+  }
 
-    const data = await response.json()
-    toast.success('发布成功！')
-    
-    // 更新故事状态
-    setStoryInfo(prev => ({
-      ...prev,
-      published: true,
-      publishedAt: new Date(),
-      ipfsHash: data.story.contentCid
-    }))
+  const data = await response.json()
+  toast.success('发布成功！')
 
-    // 可以选择跳转到故事详情页
-    router.push(`/stories/${data.story.id}`)
+  // 更新故事状态
+  setStoryInfo(prev => ({
+    ...prev,
+    published: true,
+    publishedAt: new Date(),
+    ipfsHash: data.story.contentCid
+  }))
+
+  // 可以选择跳转到故事详情页
+  router.push(`/stories/${data.story.id}`)
 
   } catch (error: any) {
-    toast.error(error?.message || '发布失败')
-    console.error('Failed to publish story:', error)
+  toast.error(error?.message || '发布失败')
+  console.error('Failed to publish story:', error)
   } finally {
-    setIsSaving(false)
+  setIsSaving(false)
   }
-}
+  }
 
 
-// 修改内容变更处理
-const handleContentChange = useCallback((newContent: string) => {
+  // 修改内容变更处理
+  const handleContentChange = useCallback((newContent: string) => {
   console.log('内容变更');
   setContent(newContent);
   setHasContentChanged(true); // 标记内容已变更
-  
+
   // 计算字数
   const wordCount = newContent.replace(/<[^>]*>/g, '') // 移除 HTML 标签
-    .replace(/[\u200B-\u200D\uFEFF]/g, '') // 移除零宽字符
-    .trim() // 移除首尾空格
-    .replace(/\s+/g, ' ') // 将多个空格替换为单个空格
-    .split(/\s+/).length; // 按空格分割并计数
-  
+  .replace(/[\u200B-\u200D\uFEFF]/g, '') // 移除零宽字符
+  .trim() // 移除首尾空格
+  .replace(/\s+/g, ' ') // 将多个空格替换为单个空格
+  .split(/\s+/).length; // 按空格分割并计数
+
   // 使用 localStorage 作为临时存储
   if (currentChapterId) {
-    // 只有当内容真的发生变化时才标记为未保存
-    const hasChanges = newContent !== lastSavedContent;
-    setHasUnsavedChanges(hasChanges);
-    
-    if (hasChanges) {
-      localStorage.setItem(`draft_${currentChapterId}`, newContent);
-      // 更新字数统计
-      setWritingStats(prev => ({
-        ...prev,
-        totalWordCount: prev.totalWordCount + (wordCount - (currentChapter?.wordCount || 0)),
-        todayWordCount: prev.todayWordCount + (wordCount - (currentChapter?.wordCount || 0))
-      }));
-    }
-  }
-}, [currentChapterId, lastSavedContent, currentChapter]);
+  // 只有当内容真的发生变化时才标记为未保存
+  const hasChanges = newContent !== lastSavedContent;
+  setHasUnsavedChanges(hasChanges);
 
-// 添加路由切换拦截
-useEffect(() => {
+  if (hasChanges) {
+    localStorage.setItem(`draft_${currentChapterId}`, newContent);
+    // 更新字数统计
+    setWritingStats(prev => ({
+      ...prev,
+      totalWordCount: prev.totalWordCount + (wordCount - (currentChapter?.wordCount || 0)),
+      todayWordCount: prev.todayWordCount + (wordCount - (currentChapter?.wordCount || 0))
+    }));
+  }
+  }
+  }, [currentChapterId, lastSavedContent, currentChapter]);
+
+  // 添加路由切换拦截
+  useEffect(() => {
   // 监听浏览器的后退/前进
   const handlePopState = async (e: PopStateEvent) => {
-    if (hasUnsavedChanges && content !== '') {
-      const confirm = window.confirm('你有未保存的更改，确定要离开吗？');
-      if (!confirm) {
-        // 阻止后退/前进
-        e.preventDefault();
-        window.history.pushState(null, '', pathname);
-      } else {
-        // 用户确认离开，先保存
-        await handleSave();
-        // 允许导航
-        window.history.go(-1);
-      }
+  if (hasUnsavedChanges && content !== '') {
+    const confirm = window.confirm('你有未保存的更改，确定要离开吗？');
+    if (!confirm) {
+      // 阻止后退/前进
+      e.preventDefault();
+      window.history.pushState(null, '', pathname);
+    } else {
+      // 用户确认离开，先保存
+      await handleSave();
+      // 允许导航
+      window.history.go(-1);
     }
+  }
   };
 
   // 监听所有链接点击
   const handleLinkClick = async (e: MouseEvent) => {
-    const target = e.target as HTMLElement;
-    const link = target.closest('a');
-    if (link && link.href && !link.href.includes(pathname) && hasUnsavedChanges && content !== '') {
-      e.preventDefault();
-      const confirm = window.confirm('你有未保存的更改，确定要离开吗？');
-      if (confirm) {
-        await handleSave();
-        window.location.href = link.href;
-      }
+  const target = e.target as HTMLElement;
+  const link = target.closest('a');
+  if (link && link.href && !link.href.includes(pathname) && hasUnsavedChanges && content !== '') {
+    e.preventDefault();
+    const confirm = window.confirm('你有未保存的更改，确定要离开吗？');
+    if (confirm) {
+      await handleSave();
+      window.location.href = link.href;
     }
+  }
   };
 
   window.addEventListener('popstate', handlePopState);
   document.addEventListener('click', handleLinkClick);
 
   return () => {
-    window.removeEventListener('popstate', handlePopState);
-    document.removeEventListener('click', handleLinkClick);
+  window.removeEventListener('popstate', handlePopState);
+  document.removeEventListener('click', handleLinkClick);
   };
-}, [hasUnsavedChanges, pathname, handleSave, content]);
+  }, [hasUnsavedChanges, pathname, handleSave, content]);
 
-// 修改 beforeunload 事件监听
-useEffect(() => {
+  // 修改 beforeunload 事件监听
+  useEffect(() => {
   const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-    if (hasUnsavedChanges && content !== '') {
-      e.preventDefault();
-      e.returnValue = '你有未保存的更改，确定要离开吗？';
-      return e.returnValue;
-    }
+  if (hasUnsavedChanges && content !== '') {
+    e.preventDefault();
+    e.returnValue = '你有未保存的更改，确定要离开吗？';
+    return e.returnValue;
+  }
   };
 
   window.addEventListener('beforeunload', handleBeforeUnload);
   return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-}, [hasUnsavedChanges, content]);
+  }, [hasUnsavedChanges, content]);
 
 
-// 计算写作统计的 useEffect
-useEffect(() => {
+  // 计算写作统计的 useEffect
+  useEffect(() => {
   if (!currentChapter) return
-  
+
   const wordCount = content.length // 使用 content 而不是 currentChapter.content
   const now = new Date()
   const duration = (now.getTime() - writingStats.lastSaved.getTime()) / 1000 / 60
-  
+
   // 避免在 useEffect 中直接更新依赖项
   const newStats = {
-    totalWordCount: chapters.reduce((sum, ch) => sum + ch.wordCount, 0),
-    todayWordCount: wordCount,
-    averageSpeed: duration > 0 ? wordCount / duration : 0,
-    writingDuration: duration,
-    lastSaved: now
+  totalWordCount: chapters.reduce((sum, ch) => sum + ch.wordCount, 0),
+  todayWordCount: wordCount,
+  averageSpeed: duration > 0 ? wordCount / duration : 0,
+  writingDuration: duration,
+  lastSaved: now
   }
-  
-  if (JSON.stringify(newStats) !== JSON.stringify(writingStats)) {
-    setWritingStats(newStats)
-  }
-}, [content, chapters]) // 只依赖 content 和 chapters
 
-// 修改写作时长统计的 useEffect
-useEffect(() => {
+  if (JSON.stringify(newStats) !== JSON.stringify(writingStats)) {
+  setWritingStats(newStats)
+  }
+  }, [content, chapters]) // 只依赖 content 和 chapters
+
+  // 修改写作时长统计的 useEffect
+  useEffect(() => {
   if (!writingStartTime) {
-    setWritingStartTime(new Date())
-    return
+  setWritingStartTime(new Date())
+  return
   }
 
   const intervalId = setInterval(() => {
-    const now = new Date()
-    const diff = now.getTime() - writingStartTime.getTime()
-    setTotalWritingTime(Math.floor(diff / 1000))
+  const now = new Date()
+  const diff = now.getTime() - writingStartTime.getTime()
+  setTotalWritingTime(Math.floor(diff / 1000))
   }, 1000)
 
   return () => clearInterval(intervalId)
-}, [writingStartTime]) // 只依赖 writingStartTime
+  }, [writingStartTime]) // 只依赖 writingStartTime
 
-// 移除导航拦截，自动保存相关
-useEffect(() => {
-const cleanup = () => {
+  // 移除导航拦截，自动保存相关
+  useEffect(() => {
+  const cleanup = () => {
   if (autoSaveTimeoutRef.current) {
-    clearTimeout(autoSaveTimeoutRef.current)
+  clearTimeout(autoSaveTimeoutRef.current)
   }
-}
-return cleanup
-}, [])
+  }
+  return cleanup
+  }, [])
 
-// 添加自动保存清理
-useEffect(() => {
-return () => {
+  // 添加自动保存清理
+  useEffect(() => {
+  return () => {
   if (autoSaveTimeoutRef.current) {
-    clearTimeout(autoSaveTimeoutRef.current);
+  clearTimeout(autoSaveTimeoutRef.current);
   }
-};
-}, []);
+  };
+  }, []);
 
-// 自动保存功能
-useEffect(() => {
-if (!currentChapterId || !content || !hasContentChanged) return; // 只在内容变更时触发
+  // 自动保存功能
+  useEffect(() => {
+  if (!currentChapterId || !content || !hasContentChanged) return; // 只在内容变更时触发
 
-const timeoutId = setTimeout(() => {
+  const timeoutId = setTimeout(() => {
   console.log('自动保存草稿...');
   localStorage.setItem(`draft_${currentChapterId}`, content);
   setHasContentChanged(false); // 重置内容变更标记
-}, 30000); // 每30秒保存一次
+  }, 30000); // 每30秒保存一次
 
-return () => clearTimeout(timeoutId);
-}, [currentChapterId, content, hasContentChanged]);
+  return () => clearTimeout(timeoutId);
+  }, [currentChapterId, content, hasContentChanged]);
 
-// 组件卸载时保存草稿
-useEffect(() => {
-return () => {
+  // 组件卸载时保存草稿
+  useEffect(() => {
+  return () => {
   if (currentChapterId && content) {
-    console.log('组件卸载，保存草稿...');
-    localStorage.setItem(`draft_${currentChapterId}`, content);
+  console.log('组件卸载，保存草稿...');
+  localStorage.setItem(`draft_${currentChapterId}`, content);
   }
-}
-}, [currentChapterId, content]);
-
-  
-  
+  }
+  }, [currentChapterId, content]);
 
 
 
+  // 在 showStorySelector 状态变化时添加日志
+  useEffect(() => {
+  console.log('作品选择器显示状态:', showStorySelector)
+  }, [showStorySelector])
+
+  // 修改选择作品按钮的点击处理
+  const handleShowStorySelector = () => {
+  console.log('点击选择作品按钮')
+  console.log('当前作品数量:', stories.length)
+  if (stories.length > 0) {
+  setShowStorySelector(true)
+  } else {
+  showNoStoryTip()
+  }
+  }
+
+
+
+  /*
+    页面渲染
+  */
   return (
     <WalletRequired
       title="开始创作"
@@ -1478,7 +1470,7 @@ return () => {
           />
         )}
         
-        {isLoading ? (
+        {isLoadingStories ? (
           <div className={styles.loading}>加载中...</div>
         ) : (
           <>
@@ -1488,13 +1480,14 @@ return () => {
             <div className={styles.content}>
               {/* 左侧边栏 */}
               <div className={`${styles.sidebar} ${(showChapters || showSettings) ? styles.expanded : ''}`}>
+                
                 {/* 作品选择器 - 只在非设置模式下显示 */}
                 {!showSettings && (
                   <div className={styles.storySection}>
                     <div className={styles.storySelectorHeader}>
                       <IconButton
                         icon={<FaList />}
-                        onClick={() => setShowStorySelector(!showStorySelector)}
+                        onClick={handleShowStorySelector}
                         title="选择作品"
                       />
                       <span className={styles.sectionTitle}>当前作品</span>
@@ -1521,7 +1514,7 @@ return () => {
                         <p>请选择要编辑的作品</p>
                         <button
                           className={styles.createButton}
-                          onClick={() => stories.length > 0 ? setShowStorySelector(true) : showNoStoryTip()}
+                          onClick={handleShowStorySelector}
                         >
                           选择作品
                         </button>
@@ -1530,38 +1523,123 @@ return () => {
 
                     {/* 作品选择器弹窗 */}
                     {showStorySelector && stories.length > 0 && (
-                      <div className={styles.storySelector}>
-                        <div className={styles.storySelectorHeader}>
-                          <h3>选择作品</h3>
-                          <IconButton
-                            icon={<FaTimes />}
-                            onClick={() => setShowStorySelector(false)}
-                            title="关闭"
-                          />
-                        </div>
-                        <div className={styles.storyList}>
-                          {stories.map(story => (
-                            <div
-                              key={story.id}
-                              className={`${styles.storyItem} ${currentStory?.id === story.id ? styles.selected : ''}`}
-                              onClick={() => handleStorySelect(story)}
-                            >
-                              <h4>{story.title}</h4>
-                              <p>{STORY_TYPES.find(t => t.id === story.category)?.name || story.category}</p>
-                              <div className={styles.storyItemStats}>
-                                <span>字数：{story.wordCount || 0}</span>
-                                <span>章节：{story.chapterCount || 0}</span>
-                              </div>
+                      <>
+                        {/* 遮罩层 */}
+                        <div style={{
+                          position: 'fixed',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                          zIndex: 999
+                        }} />
+                        
+                        {/* 选择器弹窗 */}
+                        <div style={{
+                          position: 'fixed',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          backgroundColor: 'white',
+                          padding: '24px',
+                          borderRadius: '12px',
+                          boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)',
+                          zIndex: 1000,
+                          width: '90%',
+                          maxWidth: '600px',
+                          height: '80vh',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          overflow: 'hidden' // 防止内容溢出
+                        }}>
+                          {/* 标题栏 */}
+                          <div style={{
+                            marginBottom: '24px',
+                            paddingBottom: '16px',
+                            borderBottom: '1px solid #e5e7eb',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                          }}>
+                            <h3 style={{ 
+                              margin: 0,
+                              fontSize: '1.5rem',
+                              fontWeight: '600',
+                              color: '#111827'
+                            }}>选择作品</h3>
+                            <IconButton
+                              icon={<FaTimes />}
+                              onClick={() => setShowStorySelector(false)}
+                              title="关闭"
+                              style={{
+                                padding: '8px',
+                                borderRadius: '8px',
+                                backgroundColor: '#f3f4f6',
+                                cursor: 'pointer'
+                              }}
+                            />
+                          </div>
+
+                          {/* 列表内容区 */}
+                          <div style={{
+                            flex: 1,
+                            overflow: 'auto',
+                            marginRight: '-8px', // 为滚动条预留空间
+                            paddingRight: '8px'  // 补偿右侧间距
+                          }}>
+                            <div style={{
+                              display: 'grid',
+                              gap: '16px'
+                            }}>
+                              {stories.map(story => (
+                                <div
+                                  key={story.id}
+                                  onClick={() => handleStorySelect(story)}
+                                  className={styles.storyItem}
+                                  style={{
+                                    padding: '20px',
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '12px',
+                                    cursor: 'pointer',
+                                    backgroundColor: currentStory?.id === story.id ? '#f3f4f6' : 'white',
+                                    transition: 'all 0.2s ease',
+                                  }}
+                                >
+                                  <h4 style={{ 
+                                    margin: '0 0 12px 0',
+                                    fontSize: '1.25rem',
+                                    fontWeight: '600',
+                                    color: '#111827'
+                                  }}>{story.title}</h4>
+                                  <p style={{ 
+                                    margin: '0 0 12px 0',
+                                    color: '#4b5563',
+                                    fontSize: '1rem'
+                                  }}>
+                                    {STORY_TYPES.find(t => t.id === story.category)?.name || story.category}
+                                  </p>
+                                  <div style={{ 
+                                    display: 'flex',
+                                    gap: '24px',
+                                    fontSize: '0.875rem',
+                                    color: '#6b7280'
+                                  }}>
+                                    <span>字数：{story.wordCount || 0}</span>
+                                    <span>章节：{story.chapterCount || 0}</span>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                          </div>
                         </div>
-                      </div>
+                      </>
                     )}
                   </div>
                 )}
 
                 {/* 左侧面板 */}
-                {(showChapters || showSettings) && (
+                {currentStory && (showChapters || showSettings) && (
                   <div className={styles.leftPanel}>
                     {/* 章节管理面板 */}
                     {showChapters && (
@@ -1936,7 +2014,7 @@ return () => {
                 </div>
               )}
 
-              {/* 创建确认弹窗 */}
+              {/* 作品创建确认弹窗 */}
               {showCreateConfirm && (
                 <div className={styles.previewOverlay}>
                   <div className={styles.previewPanel}>
@@ -2042,7 +2120,7 @@ return () => {
                 </div>
               )}
 
-              {/* 添加图片裁剪对话框 */}
+              {/* 作品添加图片裁剪对话框 */}
               {showCoverCropper && selectedCoverFile && (
                 <div className={styles.modal}>
                   <div className={styles.modalContent}>
@@ -2076,6 +2154,70 @@ return () => {
           </>
         )}
       </div>
+      {/* 创建章节对话框 - 美化版 */}
+      {showCreateChapterDialog && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modernModal}>
+            <div className={styles.modernModalHeader}>
+              <h3>创建新章节</h3>
+              <button 
+                className={styles.modernCloseButton}
+                onClick={handleCancelAddChapter}
+                aria-label="关闭"
+              >
+                <FaTimes />
+              </button>
+            </div>
+            <div className={styles.modernModalBody}>
+              <div className={styles.modernFormGroup}>
+                <label htmlFor="chapterTitle" className={styles.modernLabel}>章节标题</label>
+                <div className={styles.inputWrapper}>
+                  <span className={styles.inputIcon}>
+                    <FaHeading />
+                  </span>
+                  <input
+                    id="chapterTitle"
+                    type="text"
+                    value={newChapterTitle}
+                    onChange={(e) => setNewChapterTitle(e.target.value)}
+                    className={styles.modernInput}
+                    placeholder="请输入章节标题"
+                    autoFocus
+                    spellCheck="false"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    ref={(input) => {
+                      // 当输入框挂载后，将光标移动到末尾
+                      if (input) {
+                        setTimeout(() => {
+                          input.focus();
+                          input.selectionStart = input.selectionEnd = input.value.length;
+                        }, 50);
+                      }
+                    }}
+                  />
+                </div>
+                <p className={styles.inputHint}>好的章节标题能够吸引读者并概括章节内容</p>
+              </div>
+            </div>
+            <div className={styles.modernModalFooter}>
+              <button 
+                className={styles.modernCancelButton}
+                onClick={handleCancelAddChapter}
+              >
+                取消
+              </button>
+              <button 
+                className={styles.modernConfirmButton}
+                onClick={handleConfirmAddChapter}
+              >
+                <FaPlus className={styles.buttonIcon} />
+                创建章节
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </WalletRequired>
   )
 }

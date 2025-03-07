@@ -20,6 +20,22 @@ export class StoryService {
     })
 
     try {
+
+      /**
+       * TODO 注意！！！同步这一功能还是有问题的，没有较好的触发需要同步的机制，这个如果后面还需要有这个功能
+       * 就需要进一步优化，暂时先这样。
+       * 方案一：比对作品数量
+                最简单的方案，但可能会有遗漏：
+                从链上获取作者的作品数量
+                与数据库中的作品数量比较
+                如果数量不一致，说明需要同步
+                优点：
+                实现简单，开销小
+                快速发现新增或删除的作品
+                缺点：
+                无法发现作品内容的更新
+                如果恰好数量一致但内容不同，会遗漏
+       */
       // 1. 获取同步状态
       const syncState = await syncService.getAuthorStoriesSyncState(authorId)
       console.log('[StoryService.getAuthorStories] 同步状态:', syncState)
@@ -32,7 +48,6 @@ export class StoryService {
       // COMPLETED（同步完成）
       // FAILED（同步失败）
       const needsSync = !syncState || !['COMPLETED'].includes(syncState.syncStatus)
-      
       // 如果需要同步，触发一次同步（异步执行，不等待结果）
       if (needsSync) {
         console.log('[StoryService.getAuthorStories] 触发同步，原因:', !syncState ? '首次加载' : `状态为 ${syncState.syncStatus}`)
