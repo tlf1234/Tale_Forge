@@ -3,7 +3,7 @@ import { uploadToIPFS, getJSONFromIPFS, uploadJSONToIPFS, getFromIPFS } from '..
 import { JsonRpcProvider } from '@ethersproject/providers'
 import { Contract } from '@ethersproject/contracts'
 import { formatEther } from '@ethersproject/units'
-import { CONTRACT_ADDRESS, CONTRACT_ABI, getProvider } from '../config/contract'
+import { CONTRACT_ADDRESS, CONTRACT_ABI, getProvider, getContractWithSigner } from '../config/contract'
 import type { StoryStatus } from '@prisma/client'
 import type { SyncStatus } from '@prisma/client'
 
@@ -396,7 +396,97 @@ export class SyncService {
     }
     return statusMap[chainStatus] || 'DRAFT'
   }
+
+  //上传章节数据到链上
+  async uploadChapterData(chapterData: any) {
+    console.log('[SyncService.uploadChapterData] 开始上传章节数据:', chapterData)
+
+    try {
+      // 确保 provider 已初始化
+      const provider = await this.ensureProvider()
+      if (!provider) {
+        throw new Error('无法获取 provider')
+      }
+
+      // 获取故事信息，以获取链上 ID
+      const chapter = await prisma.chapter.findUnique({
+        where: { id: chapterData.id },
+        include: {
+          story: true
+        }
+      })
+
+      if (!chapter || !chapter.story) {
+        throw new Error('章节或故事信息不存在')
+      }
+
+      // 获取故事的链上 ID
+      const storyChainId = chapter.story.nftAddress ? parseInt(chapter.story.nftAddress) : 0;
+      if (!storyChainId) {
+        throw new Error('故事链上 ID 不存在')
+      }
+
+      // 计算章节字数
+      const wordCount = chapterData.content ? chapterData.content.length : 0
+
+      // 获取带签名的合约实例
+      const contract = getContractWithSigner(
+        CONTRACT_ADDRESS.StoryManager,
+        CONTRACT_ABI.StoryManager,
+        provider
+      )
+      
+      console.log('[SyncService.uploadChapterData] 调用合约更新章节:', {
+        storyId: storyChainId,
+        chapterNumber: chapter.order,
+        title: chapterData.title,
+        wordCount
+      })
+
+      // 调用合约的 updateChapter 函数
+      // 参数：故事ID, 章节序号, 章节标题, 内容摘要, 字数
+      const tx = await contract.updateChapter(
+        storyChainId,         // 故事的链上ID
+        chapter.order,        // 章节序号
+        chapterData.title,    // 章节标题
+        '',                   // 内容摘要，这里不使用 contentCid
+        wordCount             // 章节字数
+      )
+      
+      // 等待交易确认
+      const receipt = await tx.wait()
+      
+      console.log('[SyncService.uploadChapterData] 章节上链成功:', receipt.transactionHash)
+
+      // 更新数据库中的章节信息
+      const updatedChapter = await prisma.chapter.update({
+        where: { id: chapterData.id },
+        data: {
+          title: chapterData.title,
+          content: chapterData.content,
+          status: chapterData.status,
+          txHash: receipt.transactionHash,
+          wordCount,
+          updatedAt: new Date()
+        }
+      })
+
+      console.log('[SyncService.uploadChapterData] 章节数据上传完成:', updatedChapter)
+      return updatedChapter
+    } catch (error) {
+      console.error('[SyncService.uploadChapterData] 章节数据上传失败:', error)
+      throw error
+    }
+  }
+
+
+
 }
+
+
+
+
+
 
 // 导出单例实例
 export const syncService = new SyncService()

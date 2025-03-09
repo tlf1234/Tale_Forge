@@ -283,8 +283,8 @@ contract StoryManager is Ownable, ReentrancyGuard {
     function updateChapter(
         uint256 storyId,
         uint32 chapterNumber,
-        string memory contentCid,
-        uint256 newWords
+        string memory contentCid,  //这个不需要，或者用一个数据保存，实际上不需要最好
+        uint256 newWords   //新增文字数。
     ) external storyExists(storyId) onlyAuthor(storyId) nonReentrant {
         Story storage story = stories[storyId];
         require(!story.isCompleted, "Story is completed");
@@ -295,7 +295,7 @@ contract StoryManager is Ownable, ReentrancyGuard {
         
         // 更新章节信息
         story.chapterCount = chapterNumber;
-        story.contentCid = contentCid;
+        story.contentCid = contentCid;   
         story.updatedAt = block.timestamp;
         
         // 更新字数

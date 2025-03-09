@@ -12,6 +12,7 @@
     "baseUrl": ".",
     "paths": {
       "@shared/*": ["../shared/src/*"]
+      
     }
   },
   "include": ["**/*.ts"],

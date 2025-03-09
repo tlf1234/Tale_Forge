@@ -14,7 +14,6 @@ export interface ChapterMeta {
   order: number
   wordCount: number
   status: 'draft' | 'pending' | 'published'
-  isVip: boolean
   createdAt: string
   updatedAt: string
 }

@@ -74,10 +74,12 @@ model Story {
 model Chapter {
   id            String    @id @default(cuid())
   title         String    // 标题
-  contentCID    String    // IPFS内容ID
+  content       String?   // 章节内容（临时保存）
+  contentCID    String?   // IPFS内容ID（发布后才有）
   wordCount     Int       @default(0) // 字数
   order         Int       // 章节顺序
   status        ChapterStatus @default(DRAFT) // 状态
+  txHash        String?   // 区块链交易哈希（发布后才有）
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

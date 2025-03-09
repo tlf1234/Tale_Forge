@@ -7,6 +7,9 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
+/**
+ * 用户相关路由(未完善)
+ */
 // POST - 创建新用户
 app.post('/api/users', async (req, res) => {
   try {
@@ -42,8 +45,6 @@ app.get('/api/users/:address', async (req, res) => {
     res.status(500).json({ error: error?.message });
   }
 });
-
-
 // PUT - 更新用户信息（主要是作者信息）
 app.put('/api/users/:address', async (req, res) => {
   try {
@@ -63,7 +64,9 @@ app.put('/api/users/:address', async (req, res) => {
   }
 })
 
-
+/**
+ * 作者相关路由
+ */
 // 作者相关路由
 // POST - 注册新作者
 app.post('/api/authors/register', async (req, res) => {
@@ -112,7 +115,9 @@ app.post('/api/authors/verify', async (req, res) => {
   // 处理验证
 })
 
-
+/**
+ * 作品故事创建路由
+ */
 // 故事创建路由
 app.post('/api/stories/upload', async (req, res) => {
   try {
@@ -146,7 +151,6 @@ app.post('/api/stories/save', async (req, res) => {
     res.status(500).json({ error: error?.message });
   }
 });
-
 
 // GET - 获取作者作品列表
 app.get('/api/authors/:address/stories', async (req, res) => {
@@ -190,6 +194,7 @@ app.get('/api/authors/:address/stories', async (req, res) => {
 })
 
 
+//TODO
 // 获取故事列表路由
 app.get('/api/stories', async (req, res) => {
   try {
@@ -232,7 +237,131 @@ app.post('/api/stories/validate', async (req, res) => {
 });
 
 
-// 关注相关路由
+/**
+ * 章节相关路由
+ */
+
+// 创建新章节（草稿）
+app.post('/api/stories/:storyId/chapters', async (req, res) => {
+  try {
+    console.log('[POST /api/stories/:storyId/chapters] 收到请求:', {
+      storyId: req.params.storyId,
+      body: req.body
+    });
+    
+    const { storyId } = req.params;
+    const chapter = await storyService.addChapter(storyId, req.body);
+    
+    res.json(chapter);
+  } catch (error: any) {
+    console.error('[POST /api/stories/:storyId/chapters] 创建章节失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// 获取章节列表
+app.get('/api/stories/:storyId/chapters', async (req, res) => {
+  try {
+    console.log('[GET /api/stories/:storyId/chapters] 收到请求:', {
+      storyId: req.params.storyId
+    });
+    
+    const { storyId } = req.params;
+    
+    // 使用服务层方法获取章节列表
+    const chapters = await storyService.getChaptersByStoryId(storyId);
+    
+    res.json(chapters);
+  } catch (error: any) {
+    console.error('[GET /api/stories/:storyId/chapters] 获取章节列表失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// 获取章节详情（新路由，包含 storyId）
+app.get('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
+  try {
+    console.log('[GET /api/stories/:storyId/chapters/:chapterId] 收到请求:', {
+      storyId: req.params.storyId,
+      chapterId: req.params.chapterId
+    });
+    
+    const { storyId, chapterId } = req.params;
+    const chapter = await storyService.getChapter(chapterId, storyId);
+    
+    res.json(chapter);
+  } catch (error: any) {
+    console.error('[GET /api/stories/:storyId/chapters/:chapterId] 获取章节详情失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// 更新章节（新路由，包含 storyId）
+app.put('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
+  try {
+    console.log('[PUT /api/stories/:storyId/chapters/:chapterId] 收到请求:', {
+      storyId: req.params.storyId,
+      chapterId: req.params.chapterId,
+      body: req.body
+    });
+    
+    const { storyId, chapterId } = req.params;
+    const chapter = await storyService.updateChapter(chapterId, req.body, storyId);
+    
+    res.json(chapter);
+  } catch (error: any) {
+    console.error('[PUT /api/stories/:storyId/chapters/:chapterId] 更新章节失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// 发布章节（新路由，包含 storyId）
+app.post('/api/stories/:storyId/chapters/:chapterId/publish', async (req, res) => {
+  try {
+    console.log('[POST /api/stories/:storyId/chapters/:chapterId/publish] 收到请求:', {
+      storyId: req.params.storyId,
+      chapterId: req.params.chapterId,
+      body: req.body
+    });
+    
+    const { storyId, chapterId } = req.params;
+    const { authorAddress } = req.body;
+    
+    if (!authorAddress) {
+      return res.status(400).json({ error: '缺少作者地址' });
+    }
+    
+    const chapter = await storyService.publishChapter(chapterId, authorAddress, storyId);
+    
+    res.json(chapter);
+  } catch (error: any) {
+    console.error('[POST /api/stories/:storyId/chapters/:chapterId/publish] 发布章节失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// 删除章节（新路由，包含 storyId）
+app.delete('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
+  try {
+    console.log('[DELETE /api/stories/:storyId/chapters/:chapterId] 收到请求:', {
+      storyId: req.params.storyId,
+      chapterId: req.params.chapterId
+    });
+    
+    const { storyId, chapterId } = req.params;
+    const result = await storyService.deleteChapter(chapterId, storyId);
+    
+    res.json(result);
+  } catch (error: any) {
+    console.error('[DELETE /api/stories/:storyId/chapters/:chapterId] 删除章节失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+
+/**
+ * 关注相关路由
+ */
 // GET - 获取关注列表
 app.get('/api/authors/:address/follows', async (req, res) => {
   try {

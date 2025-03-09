@@ -79,7 +79,6 @@ interface Chapter {
   volumeId?: string;
   wordCount: number;
   status: 'draft' | 'pending' | 'published';
-  isVip: boolean;
   price?: number;
   publishTime?: Date;
   createdAt: Date;
@@ -726,12 +725,80 @@ export default function AuthorWrite() {
   };
 
 
-
   /**章节列表创建及加载相关
    * 对于章节我们是直接加载已经发布的，而不是本地编辑，因为我们主要的目的是发布作品。
    * 并不是以写作为主的在线工具软件。要先明白这一原则，不要开发走偏了。
    * 增加一个文件加载显示功能，以方便作者用其它写作软件写好文章后直接加载进来，方便发布。
   */
+
+
+  // 添加章节的处理函数
+  const handleAddChapter = async (volumeId?: string) => {
+    // 显示创建章节对话框
+    setNewChapterTitle(`第${chapters.length + 1}章  `); // 在章节标题后添加两个空格
+    setShowCreateChapterDialog(true);
+  };
+
+  // 添加确认创建章节的函数
+  const handleConfirmAddChapter = async () => {
+    try {
+      console.log('开始创建新章节...');
+      const storyId = localStorage.getItem('currentStoryId');
+      if (!storyId) {
+        throw new Error('未找到当前故事，请先选择或创建故事');
+      }
+
+      if (!newChapterTitle.trim()) {
+        toast.error('章节标题不能为空');
+        return;
+      }
+
+      // 先关闭对话框，避免操作延迟
+      setShowCreateChapterDialog(false);
+      
+      // 创建章节，这个创建章节实际是在数据库中创建一个章节，
+      // 并不是上链和上分布式存储，只有进行发布时才会把章节元数据和内容才会发布到相关链上和分布式存储。
+      const response = await fetch(`/api/stories/${storyId}/chapters`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: newChapterTitle,
+          content: '',
+          order: chapters.length + 1
+        }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || '创建章节失败');
+      }
+      
+      const newChapter = await response.json();
+      console.log('创建新章节成功:', newChapter);
+      
+      // 立即更新章节列表
+      const updatedChapters = await updateChapterList();
+      if (updatedChapters) {
+        toast.success('创建章节成功');
+      }else{
+        toast.error('创建章节失败');
+      }
+
+      // 重置标题
+      setNewChapterTitle('');
+    } catch (error) {
+      console.error('创建章节失败:', error);
+      toast.error(error instanceof Error ? error.message : '创建章节失败，请稍后重试');
+    }
+  };
+
+  // 添加取消创建章节的函数
+  const handleCancelAddChapter = () => {
+    setShowCreateChapterDialog(false);
+    setNewChapterTitle('');
+  };
 
  
   // 加载章节列表的函数
@@ -747,7 +814,7 @@ export default function AuthorWrite() {
         return;
       }
       console.log('当前故事ID:', storyId);
-      const response = await fetch(`/api/stories/${storyId}/chapters`);
+      const response = await fetch(`/api/stories/${storyId}/chapters`);//
       if (!response.ok) {
         throw new Error('获取章节列表失败');
       }
@@ -791,7 +858,12 @@ export default function AuthorWrite() {
   // 加载章节内容
   const loadChapter = async (chapterId: string) => {
     try {
-      const response = await fetch(`/api/chapters/${chapterId}`);
+      const storyId = localStorage.getItem('currentStoryId');
+      if (!storyId) {
+        throw new Error('未找到当前故事');
+      }
+      
+      const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`);
       if (!response.ok) {
         throw new Error('加载章节失败');
       }
@@ -848,7 +920,7 @@ export default function AuthorWrite() {
     return sortedChapters;
   }, []);
 
-  // 修改保存章节的函数。。。这里有问题
+  // 保存章节的函数。。。这里有问题
   const handleSave = useCallback(async (): Promise<boolean> => {
     if (!currentChapterId || isSaving) return false;
     
@@ -893,7 +965,7 @@ export default function AuthorWrite() {
     }
   }, [currentChapterId, isSaving, content, chapters, currentChapter, outlines]);
 
-  // 修改更新章节列表函数
+  // 更新章节列表函数
   const updateChapterList = async () => {
     const storyId = localStorage.getItem('currentStoryId');
     if (!storyId) return null;
@@ -913,76 +985,7 @@ export default function AuthorWrite() {
     }
   };
 
-  // 添加章节的处理函数
-  const handleAddChapter = async (volumeId?: string) => {
-    // 显示创建章节对话框
-    setNewChapterTitle(`第${chapters.length + 1}章  `); // 在章节标题后添加两个空格
-    setShowCreateChapterDialog(true);
-  };
 
-  // 添加确认创建章节的函数
-  const handleConfirmAddChapter = async () => {
-    try {
-      console.log('开始创建新章节...');
-      const storyId = localStorage.getItem('currentStoryId');
-      if (!storyId) {
-        throw new Error('未找到当前故事，请先创建故事');
-      }
-
-      if (!newChapterTitle.trim()) {
-        toast.error('章节标题不能为空');
-        return;
-      }
-
-      // 先关闭对话框，避免操作延迟
-      setShowCreateChapterDialog(false);
-      
-      const response = await fetch(`/api/stories/${storyId}/chapters`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: newChapterTitle,
-          content: '',
-        }),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || '创建章节失败');
-      }
-      
-      const newChapter = await response.json();
-      console.log('创建新章节成功:', newChapter);
-      
-      // 立即更新章节列表
-      const updatedChapters = await updateChapterList();
-      if (updatedChapters) {
-        try {
-          // 加载新创建的章节
-          await loadChapter(newChapter.id);
-          toast.success('创建章节成功');
-        } catch (loadError) {
-          console.error('加载新章节失败:', loadError);
-          // 即使加载失败，章节创建仍然成功
-          toast.success('章节创建成功，但加载失败，请手动选择章节');
-        }
-      }
-
-      // 重置标题
-      setNewChapterTitle('');
-    } catch (error) {
-      console.error('创建章节失败:', error);
-      toast.error(error instanceof Error ? error.message : '创建章节失败，请稍后重试');
-    }
-  };
-
-  // 添加取消创建章节的函数
-  const handleCancelAddChapter = () => {
-    setShowCreateChapterDialog(false);
-    setNewChapterTitle('');
-  };
 
   // 修改章节更新函数
   const handleChapterUpdate = (chapterId: string, field: keyof Chapter, value: any) => {
@@ -991,7 +994,7 @@ export default function AuthorWrite() {
     ))
   }
 
-  // 修改确认删除章节函数
+  // 处理确认删除章节
   const handleConfirmDelete = async () => {
     if (!chapterToDelete) return;
     
@@ -1000,38 +1003,32 @@ export default function AuthorWrite() {
       if (!storyId) {
         throw new Error('未找到当前故事');
       }
-
+      
+      // 使用 API 客户端删除章节
       const response = await fetch(`/api/stories/${storyId}/chapters/${chapterToDelete}`, {
         method: 'DELETE'
       });
-
+      
       if (!response.ok) {
         throw new Error('删除失败');
       }
-
-      // 更新章节列表
-      const updatedChapters = await updateChapterList();
       
-      // 如果删除的是当前章节
-      if (chapterToDelete === currentChapterId) {
-        // 如果还有其他章节，加载第一个章节
-        if (updatedChapters && updatedChapters.length > 0) {
-          await loadChapter(updatedChapters[0].id);
-        } else {
-          // 如果没有章节了，清空编辑器
-          setCurrentChapterId(null);
-          setCurrentChapter(null);
-          setContent('');
-          setLastSavedContent('');
-          setHasUnsavedChanges(false);
-        }
+      // 如果删除的是当前章节，清空编辑器
+      if (currentChapter?.id === chapterToDelete) {
+        setContent('');
+        setCurrentChapter(null);
       }
-
-      showSuccess('删除章节成功');
+      
+      // 更新章节列表
+      await updateChapterList();
+      
+      // 关闭对话框
       setShowDeleteDialog(false);
       setChapterToDelete(null);
+      
+      showSuccess('删除成功');
     } catch (error) {
-      showError(error, '删除章节失败');
+      showError(error, '删除失败');
     }
   };
 
@@ -1067,6 +1064,7 @@ const handleSaveClick = async (e: React.MouseEvent, chapterId: string) => {
       throw new Error('未找到当前章节');
     }
 
+    // 使用 API 客户端保存章节草稿
     const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
       method: 'PUT',
       headers: {
@@ -1074,7 +1072,7 @@ const handleSaveClick = async (e: React.MouseEvent, chapterId: string) => {
       },
       body: JSON.stringify({
         content,
-        isVip: currentChapter.isVip
+        title: currentChapter.title
       })
     });
 
@@ -1091,6 +1089,48 @@ const handleSaveClick = async (e: React.MouseEvent, chapterId: string) => {
     await updateChapterList();
   } catch (error) {
     showError(error, '保存失败');
+  }
+};
+
+// 处理章节发布按钮点击
+const handlePublishChapter = async (chapterId: string) => {
+  if (!address) {
+    toast.error('请先连接钱包');
+    return;
+  }
+
+  try {
+    // 先保存最新内容
+    await handleSaveClick({ stopPropagation: () => {} } as React.MouseEvent, chapterId);
+
+    const storyId = localStorage.getItem('currentStoryId');
+    if (!storyId) {
+      throw new Error('未找到当前故事');
+    }
+
+    // 使用 API 客户端发布章节
+    const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}/publish`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        authorAddress: address
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || '发布失败');
+    }
+
+    const publishedChapter = await response.json();
+    showSuccess('章节已发布到区块链');
+    
+    // 更新章节列表
+    await updateChapterList();
+  } catch (error) {
+    showError(error, '发布章节失败');
   }
 };
 
@@ -1698,14 +1738,6 @@ const addOutline = (title: string, description: string) => {
                                     <option value="pending">待审核</option>
                                     <option value="published">已发布</option>
                                   </select>
-                                  <label className={styles.vipLabel} onClick={(e) => e.stopPropagation()}>
-                                    <input
-                                      type="checkbox"
-                                      checked={chapter.isVip}
-                                      onChange={(e) => handleChapterUpdate(chapter.id, 'isVip', e.target.checked)}
-                                    />
-                                    VIP
-                                  </label>
                                 </div>
                               </div>
                               <div className={styles.chapterActions}>
@@ -1733,6 +1765,18 @@ const addOutline = (title: string, description: string) => {
                                     >
                                       <FaTrash />
                                     </button>
+                                    {chapter.status !== 'published' && (
+                                      <button
+                                        className={styles.actionButton}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handlePublishChapter(chapter.id);
+                                        }}
+                                        title="发布到区块链"
+                                      >
+                                        <FaUpload />
+                                      </button>
+                                    )}
                                   </>
                                 )}
                               </div>

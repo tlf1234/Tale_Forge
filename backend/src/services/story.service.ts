@@ -103,11 +103,6 @@ export class StoryService {
     }
   }
 
-  // 验证故事内容
-  async validateStory(data: any) {
-    // 内容验证逻辑
-    return { isValid: true, ipfsHash: '' }
-  }
 
   /**
    * 创建故事
@@ -229,6 +224,14 @@ export class StoryService {
     }
   }
 
+  
+  // 验证故事内容
+  async validateStory(data: any) {
+    // 内容验证逻辑
+    return { isValid: true, ipfsHash: '' }
+  }
+
+
   // 更新故事
   async updateStory(id: string, data: {
     title?: string
@@ -267,6 +270,7 @@ export class StoryService {
       data: updateData
     })
   }
+
 
   // 获取故事详情
   async getStory(id: string) {
@@ -363,20 +367,23 @@ export class StoryService {
     })
   }
 
+  /*
+  章节相关
+  */
   // 添加章节
   async addChapter(storyId: string, data: {
     title: string
     content: string
     order: number
   }) {
-    const contentCID = await uploadToIPFS(data.content)
-
+    // 创建草稿章节，直接保存内容到数据库
     return await prisma.chapter.create({
       data: {
         title: data.title,
-        contentCID,
+        content: data.content,
         order: data.order,
         wordCount: data.content.length,
+        status: 'DRAFT',
         storyId
       }
     })
@@ -387,50 +394,161 @@ export class StoryService {
     title?: string
     content?: string
     order?: number
-  }) {
-    const updateData: Prisma.ChapterUpdateInput = {}
-
-    if (data.content) {
-      updateData.contentCID = await uploadToIPFS(data.content)
-      updateData.wordCount = data.content.length
+  }, storyId?: string) {
+    // 如果提供了 storyId，先验证章节是否属于该故事
+    if (storyId) {
+      const chapter = await prisma.chapter.findUnique({
+        where: { id }
+      });
+      
+      if (!chapter || chapter.storyId !== storyId) {
+        throw new Error('章节不属于指定的故事');
+      }
     }
-
-    Object.assign(updateData, {
-      title: data.title,
-      order: data.order
-    })
-
+    
     return await prisma.chapter.update({
       where: { id },
-      data: updateData
+      data
     })
   }
 
+
   // 删除章节
-  async deleteChapter(id: string) {
+  async deleteChapter(id: string, storyId?: string) {
+    // 如果提供了 storyId，先验证章节是否属于该故事
+    if (storyId) {
+      const chapter = await prisma.chapter.findUnique({
+        where: { id }
+      });
+      
+      if (!chapter || chapter.storyId !== storyId) {
+        throw new Error('章节不属于指定的故事');
+      }
+    }
+    
     return await prisma.chapter.delete({
       where: { id }
     })
   }
 
-  // 获取章节内容
-  async getChapter(id: string) {
+
+  // 发布章节
+  async publishChapter(id: string, authorAddress: string, storyId?: string) {
+    // 如果提供了 storyId，先验证章节是否属于该故事
+    if (storyId) {
+      const chapter = await prisma.chapter.findUnique({
+        where: { id }
+      });
+      
+      if (!chapter || chapter.storyId !== storyId) {
+        throw new Error('章节不属于指定的故事');
+      }
+    }
+    
+    // 获取章节
     const chapter = await prisma.chapter.findUnique({
       where: { id },
       include: {
-        story: {
-          include: {
-            author: true
-          }
-        }
+        story: true
       }
     })
 
-    if (!chapter) throw new Error('Chapter not found')
+    if (!chapter) {
+      throw new Error('章节不存在')
+    }
 
+    // 验证作者身份
+    if (chapter.story.authorId !== authorAddress) {
+      throw new Error('只有作者才能发布章节')
+    }
+
+    // 获取章节内容
+    const content = chapter.content
+
+    if (!content) {
+      throw new Error('章节内容为空')
+    }
+
+    try {
+      // 上传到IPFS
+      const contentCID = await uploadToIPFS(content)
+
+      //注意后端不需上传链上数据，所有合约相关都是尽可能在前端，通过钱包组件调用合约实现
+      
+      // 更新章节状态
+      return await prisma.chapter.update({
+        where: { id },
+        data: {
+          status: 'PUBLISHED',
+          contentCID,
+          updatedAt: new Date()
+        }
+      })
+    } catch (error) {
+      console.error('发布章节失败:', error)
+      throw new Error('发布章节失败')
+    }
+  }
+
+  // 获取章节列表
+  async getChaptersByStoryId(storyId: string) {
+    return await prisma.chapter.findMany({
+      where: {
+        storyId: storyId
+      },
+      orderBy: {
+        order: 'asc'
+      },
+      select: {
+        id: true,
+        title: true,
+        wordCount: true,
+        order: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+  }
+
+ // 获取章节内容
+ async getChapter(id: string, storyId?: string) {
+  // @ts-ignore - 忽略类型检查，因为我们已经修改了 Prisma 模型
+  const chapter = await prisma.chapter.findUnique({
+    where: { 
+      id,
+      ...(storyId ? { storyId } : {})
+    },
+    include: {
+      story: {
+        include: {
+          author: true
+        }
+      }
+    }
+  })
+
+  if (!chapter) throw new Error('Chapter not found')
+  
+  // 如果提供了 storyId 但章节不属于该故事，则拒绝访问
+  if (storyId && chapter.storyId !== storyId) {
+    throw new Error('章节不属于指定的故事')
+  }
+
+  // 如果是草稿状态，直接返回content
+  // @ts-ignore - 忽略类型检查，因为我们已经修改了 Prisma 模型
+  if (chapter.status === 'DRAFT' && chapter.content) {
+    return chapter
+  }
+
+  // 如果是已发布状态，从IPFS获取内容
+  if (chapter.contentCID) {
     const content = await getFromIPFS(chapter.contentCID)
     return { ...chapter, content }
   }
+
+ }
+
 }
 
 // 导出单例实例

@@ -21,7 +21,6 @@ interface Work {
   commentCount: number;
   updateTime: string;
   isSerial: boolean;
-  isVip: boolean;
   description: string;
 }
 
@@ -53,7 +52,6 @@ export default function WorksPage() {
             commentCount: 45,
             updateTime: '2024-02-10',
             isSerial: true,
-            isVip: false,
             description: '一个关于魔法世界的精彩故事...'
           },
           // 更多模拟数据...
@@ -230,11 +228,6 @@ export default function WorksPage() {
                           {work.isSerial && (
                             <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
                               连载
-                            </span>
-                          )}
-                          {work.isVip && (
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
-                              VIP
                             </span>
                           )}
                         </div>

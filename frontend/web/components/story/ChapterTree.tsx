@@ -12,7 +12,6 @@ interface Volume {
 interface Chapter {
   id: string
   title: string
-  isVip: boolean
   wordCount: number
 }
 
@@ -81,9 +80,6 @@ export default function ChapterTree({ storyId, volumes, currentChapterId, onClos
                   >
                     <span className={styles.chapterTitle}>
                       {chapter.title}
-                      {chapter.isVip && (
-                        <span className={styles.vipBadge}>VIP</span>
-                      )}
                     </span>
                     <span className={styles.wordCount}>
                       {chapter.wordCount}字

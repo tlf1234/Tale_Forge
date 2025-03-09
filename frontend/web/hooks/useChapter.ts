@@ -1,46 +1,102 @@
 import { useState, useEffect } from 'react'
 import type { Chapter } from '@/types/story'
 
-// 模拟章节数据加载
+//这些钩子都没怎么用，不需要。先放着，以后考虑
+// 获取章节详情
 const fetchChapter = async (storyId: string, chapterId: string): Promise<Chapter> => {
-  // 这里模拟 API 调用
-  await new Promise(resolve => setTimeout(resolve, 1000))
-  
-  return {
-    id: parseInt(chapterId),
-    title: `第${chapterId}章 示例章节`,
-    order: parseInt(chapterId),
-    wordCount: 3000,
-    updateTime: new Date().toISOString(),
-    content: [
-      {
-        type: 'text',
-        content: '这是一个示例章节的开始。这里展示了如何通过内容块来组织章节内容，使其能够灵活地支持文本和图片的混排。'
-      },
-      {
-        type: 'image',
-        content: 'https://picsum.photos/800/400',
-        caption: '这是一张配图示例',
-        align: 'center'
-      },
-      {
-        type: 'text',
-        content: '在这个段落中，我们可以看到图文混排的效果。图片可以根据需要设置不同的对齐方式，文字会自动围绕图片进行排列。这种灵活的布局方式让内容呈现更加丰富多样。'
-      },
-      {
-        type: 'image',
-        content: 'https://picsum.photos/400/300',
-        caption: '左对齐的图片示例',
-        align: 'left'
-      },
-      {
-        type: 'text',
-        content: '这是另一个段落，用来演示更多的文本内容。当我们有大量文本时，需要确保段落之间有适当的间距，并且文字的大小、行高等都要适合阅读。另外，我们还需要考虑在不同设备上的显示效果，确保在手机等小屏幕设备上同样有良好的阅读体验。'
-      }
-    ]
+  try {
+    const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch chapter');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching chapter:', error);
+    throw error;
   }
 }
 
+// 保存章节草稿
+const saveChapterDraft = async (storyId: string, chapterId: string, data: Partial<Chapter>): Promise<Chapter> => {
+  try {
+    const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to save chapter draft');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error saving chapter draft:', error);
+    throw error;
+  }
+}
+
+// 创建新章节
+const createChapter = async (storyId: string, data: Partial<Chapter>): Promise<Chapter> => {
+  try {
+    const response = await fetch(`/api/stories/${storyId}/chapters`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to create chapter');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error creating chapter:', error);
+    throw error;
+  }
+}
+
+// 发布章节
+const publishChapter = async (storyId: string, chapterId: string, authorAddress: string): Promise<Chapter> => {
+  try {
+    const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}/publish`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ authorAddress }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to publish chapter');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error publishing chapter:', error);
+    throw error;
+  }
+}
+
+// 获取章节列表
+const fetchChapterList = async (storyId: string): Promise<Chapter[]> => {
+  try {
+    const response = await fetch(`/api/stories/${storyId}/chapters`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch chapter list');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching chapter list:', error);
+    throw error;
+  }
+}
+
+// 章节详情钩子
 export function useChapter(storyId: string, chapterId: string) {
   const [chapter, setChapter] = useState<Chapter | null>(null)
   const [loading, setLoading] = useState(true)
@@ -50,6 +106,8 @@ export function useChapter(storyId: string, chapterId: string) {
     let mounted = true
 
     const loadChapter = async () => {
+      if (!chapterId) return;
+      
       try {
         setLoading(true)
         setError(null)
@@ -75,5 +133,96 @@ export function useChapter(storyId: string, chapterId: string) {
     }
   }, [storyId, chapterId])
 
-  return { chapter, loading, error }
+  // 保存章节草稿
+  const saveChapter = async (data: Partial<Chapter>) => {
+    if (!chapterId) return null;
+    
+    try {
+      setLoading(true);
+      const updatedChapter = await saveChapterDraft(storyId, chapterId, data);
+      setChapter(updatedChapter);
+      return updatedChapter;
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to save chapter'));
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 发布章节
+  const publish = async (authorAddress: string) => {
+    if (!chapterId) return null;
+    
+    try {
+      setLoading(true);
+      const publishedChapter = await publishChapter(storyId, chapterId, authorAddress);
+      setChapter(publishedChapter);
+      return publishedChapter;
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to publish chapter'));
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { 
+    chapter, 
+    loading, 
+    error, 
+    saveChapter,
+    publish
+  }
+}
+
+// 章节列表钩子
+export function useChapterList(storyId: string) {
+  const [chapters, setChapters] = useState<Chapter[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  const loadChapters = async () => {
+    if (!storyId) return;
+    
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await fetchChapterList(storyId)
+      setChapters(data)
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to load chapters'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadChapters()
+  }, [storyId])
+
+  // 创建新章节
+  const createNewChapter = async (data: Partial<Chapter>) => {
+    if (!storyId) return null;
+    
+    try {
+      setLoading(true);
+      const newChapter = await createChapter(storyId, data);
+      setChapters(prev => [...prev, newChapter]);
+      return newChapter;
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to create chapter'));
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { 
+    chapters, 
+    loading, 
+    error, 
+    refreshChapters: loadChapters,
+    createNewChapter
+  }
 } 
