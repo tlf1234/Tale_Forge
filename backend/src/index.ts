@@ -325,13 +325,20 @@ app.post('/api/stories/:storyId/chapters/:chapterId/publish', async (req, res) =
     });
     
     const { storyId, chapterId } = req.params;
-    const { authorAddress } = req.body;
+    const { authorAddress, txHash } = req.body;
     
     if (!authorAddress) {
       return res.status(400).json({ error: '缺少作者地址' });
     }
     
+    // 调用发布章节方法
     const chapter = await storyService.publishChapter(chapterId, authorAddress, storyId);
+    
+    // 如果提供了交易哈希，更新章节的交易哈希
+    if (txHash && chapter) {
+      // 使用 storyService 更新章节的交易哈希
+      await storyService.updateChapter(chapterId, { txHash }, storyId);
+    }
     
     res.json(chapter);
   } catch (error: any) {

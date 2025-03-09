@@ -389,48 +389,6 @@ export class StoryService {
     })
   }
 
-  // 更新章节
-  async updateChapter(id: string, data: {
-    title?: string
-    content?: string
-    order?: number
-  }, storyId?: string) {
-    // 如果提供了 storyId，先验证章节是否属于该故事
-    if (storyId) {
-      const chapter = await prisma.chapter.findUnique({
-        where: { id }
-      });
-      
-      if (!chapter || chapter.storyId !== storyId) {
-        throw new Error('章节不属于指定的故事');
-      }
-    }
-    
-    return await prisma.chapter.update({
-      where: { id },
-      data
-    })
-  }
-
-
-  // 删除章节
-  async deleteChapter(id: string, storyId?: string) {
-    // 如果提供了 storyId，先验证章节是否属于该故事
-    if (storyId) {
-      const chapter = await prisma.chapter.findUnique({
-        where: { id }
-      });
-      
-      if (!chapter || chapter.storyId !== storyId) {
-        throw new Error('章节不属于指定的故事');
-      }
-    }
-    
-    return await prisma.chapter.delete({
-      where: { id }
-    })
-  }
-
 
   // 发布章节
   async publishChapter(id: string, authorAddress: string, storyId?: string) {
@@ -489,6 +447,50 @@ export class StoryService {
       throw new Error('发布章节失败')
     }
   }
+
+  // 更新章节
+  async updateChapter(id: string, data: {
+    title?: string
+    content?: string
+    order?: number
+    txHash?: string
+  }, storyId?: string) {
+    // 如果提供了 storyId，先验证章节是否属于该故事
+    if (storyId) {
+      const chapter = await prisma.chapter.findUnique({
+        where: { id }
+      });
+      
+      if (!chapter || chapter.storyId !== storyId) {
+        throw new Error('章节不属于指定的故事');
+      }
+    }
+    
+    return await prisma.chapter.update({
+      where: { id },
+      data
+    })
+  }
+
+
+  // 删除章节
+  async deleteChapter(id: string, storyId?: string) {
+    // 如果提供了 storyId，先验证章节是否属于该故事
+    if (storyId) {
+      const chapter = await prisma.chapter.findUnique({
+        where: { id }
+      });
+      
+      if (!chapter || chapter.storyId !== storyId) {
+        throw new Error('章节不属于指定的故事');
+      }
+    }
+    
+    return await prisma.chapter.delete({
+      where: { id }
+    })
+  }
+
 
   // 获取章节列表
   async getChaptersByStoryId(storyId: string) {

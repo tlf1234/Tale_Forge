@@ -800,7 +800,6 @@ export default function AuthorWrite() {
     setNewChapterTitle('');
   };
 
- 
   // 加载章节列表的函数
   const loadChapterList = async () => {
     try {
@@ -880,45 +879,109 @@ export default function AuthorWrite() {
     }
   };
 
-  // 章节排序和统计函数
-  const processChapters = useCallback((chapterList: Chapter[]) => {
-    // 按顺序排序
-    const sortedChapters = [...chapterList].sort((a, b) => a.order - b.order);
-    
-    // 计算总字数
-    let totalWords = 0;
-    let todayWords = 0;
-    const today = new Date().setHours(0, 0, 0, 0);
+  // 处理章节发布按钮点击
+  const handlePublishChapter = async (chapterId: string) => {
+    if (!address) {
+      toast.error('请先连接钱包');
+      return;
+    }
 
-    sortedChapters.forEach(chapter => {
-      // 计算章节字数
-      const content = chapter.content || '';
-      const wordCount = content.replace(/<[^>]*>/g, '') // 移除 HTML 标签
-        .replace(/[\u200B-\u200D\uFEFF]/g, '') // 移除零宽字符
-        .trim() // 移除首尾空格
-        .replace(/\s+/g, ' ') // 将多个空格替换为单个空格
-        .split(/\s+/).length; // 按空格分割并计数
-      
-      // 更新章节字数
-      chapter.wordCount = wordCount;
-      totalWords += wordCount;
+    try {
+      // 先保存最新内容
+      await handleSaveClick({ stopPropagation: () => {} } as React.MouseEvent, chapterId);
 
-      // 计算今日字数
-      const updateTime = new Date(chapter.updatedAt).setHours(0, 0, 0, 0);
-      if (updateTime === today) {
-        todayWords += wordCount;
+      const storyId = localStorage.getItem('currentStoryId');
+      if (!storyId) {
+        throw new Error('未找到当前故事');
       }
-    });
 
-    // 更新写作统计
-    setWritingStats(prev => ({
-      ...prev,
-      totalWordCount: totalWords,
-      todayWordCount: todayWords
-    }));
+      // 获取当前章节
+      const currentChapter = chapters.find(ch => ch.id === chapterId);
+      if (!currentChapter) {
+        throw new Error('未找到当前章节');
+      }
 
-    return sortedChapters;
-  }, []);
+      // 计算章节字数
+      const wordCount = content ? content.length : 0;
+
+      // 获取故事的链上 ID
+      const storyResponse = await fetch(`/api/stories/${storyId}`);
+      if (!storyResponse.ok) {
+        throw new Error('获取故事信息失败');
+      }
+      const story = await storyResponse.json();
+      
+      if (!story || !story.nftAddress) {
+        throw new Error('故事未上链或链上 ID 不存在');
+      }
+
+      const storyChainId = parseInt(story.nftAddress);
+      if (!storyChainId) {
+        throw new Error('无效的故事链上 ID');
+      }
+
+      // 调用合约上传章节数据
+      showSuccess('正在将章节数据上传到区块链...');
+
+      // 检查是否有可用的以太坊提供者
+      if (!window.ethereum) {
+        throw new Error('未检测到以太坊钱包，请安装 MetaMask 或其他兼容的钱包');
+      }
+
+      // 获取合约实例
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const storyManagerContract = new ethers.Contract(
+        CONTRACT_ADDRESSES.StoryManager,
+        CONTRACT_ABIS.StoryManager,
+        signer
+      );
+
+      // 调用合约的 updateChapter 函数
+      const tx = await storyManagerContract.updateChapter(
+        storyChainId,           // 故事的链上ID
+        currentChapter.order,    // 章节序号
+        currentChapter.title,    // 章节标题
+        '',                      // 内容摘要，这里不使用 contentCid
+        wordCount                // 章节字数
+      );
+
+      showSuccess('交易已提交，等待确认...');
+      
+      // 等待交易确认
+      const receipt = await tx.wait();
+      
+      showSuccess('章节数据已成功上传到区块链！');
+      console.log('章节上链成功，交易哈希:', receipt.transactionHash);
+
+      // 使用 API 客户端发布章节，同时传递交易哈希
+      const publishResponse = await fetch(`/api/stories/${storyId}/chapters/${chapterId}/publish`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          authorAddress: address,
+          txHash: receipt.transactionHash // 将交易哈希传递给后端
+        })
+      });
+
+      if (!publishResponse.ok) {
+        const errorData = await publishResponse.json();
+        throw new Error(errorData.error || '发布失败');
+      }
+
+      const publishedChapter = await publishResponse.json();
+      showSuccess('章节已发布成功');
+      
+      // 更新章节列表
+      await updateChapterList();
+    } catch (error: any) {
+      showError(error, '发布章节失败');
+    }
+  };
+
+
 
   // 保存章节的函数。。。这里有问题
   const handleSave = useCallback(async (): Promise<boolean> => {
@@ -926,8 +989,14 @@ export default function AuthorWrite() {
     
     setIsSaving(true);
     try {
-      //这个路径有问题。
-      const saveResponse = await fetch(`/api/chapters/${currentChapterId}`, {
+      // 获取当前故事ID
+      const storyId = localStorage.getItem('currentStoryId');
+      if (!storyId) {
+        throw new Error('未找到当前故事');
+      }
+      
+      // 使用正确的API路径
+      const saveResponse = await fetch(`/api/stories/${storyId}/chapters/${currentChapterId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -935,7 +1004,7 @@ export default function AuthorWrite() {
         body: JSON.stringify({
           content: content,
           title: currentChapter?.title,
-          outlines,
+          // 移除 outlines 参数，因为后端不处理这个参数
         }),
       });
 
@@ -963,7 +1032,7 @@ export default function AuthorWrite() {
     } finally {
       setIsSaving(false);
     }
-  }, [currentChapterId, isSaving, content, chapters, currentChapter, outlines]);
+  }, [currentChapterId, isSaving, content, chapters, currentChapter]);
 
   // 更新章节列表函数
   const updateChapterList = async () => {
@@ -986,13 +1055,6 @@ export default function AuthorWrite() {
   };
 
 
-
-  // 修改章节更新函数
-  const handleChapterUpdate = (chapterId: string, field: keyof Chapter, value: any) => {
-    setChapters(chapters.map(ch => 
-      ch.id === chapterId ? { ...ch, [field]: value } : ch
-    ))
-  }
 
   // 处理确认删除章节
   const handleConfirmDelete = async () => {
@@ -1039,7 +1101,6 @@ export default function AuthorWrite() {
     const plainText = content.replace(/<[^>]*>/g, '').replace(/\s+/g, '');
     return plainText.length;
   };
-
 
 // 处理编辑章节按钮点击
 const handleEditClick = (e: React.MouseEvent, chapterId: string) => {
@@ -1092,48 +1153,6 @@ const handleSaveClick = async (e: React.MouseEvent, chapterId: string) => {
   }
 };
 
-// 处理章节发布按钮点击
-const handlePublishChapter = async (chapterId: string) => {
-  if (!address) {
-    toast.error('请先连接钱包');
-    return;
-  }
-
-  try {
-    // 先保存最新内容
-    await handleSaveClick({ stopPropagation: () => {} } as React.MouseEvent, chapterId);
-
-    const storyId = localStorage.getItem('currentStoryId');
-    if (!storyId) {
-      throw new Error('未找到当前故事');
-    }
-
-    // 使用 API 客户端发布章节
-    const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}/publish`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        authorAddress: address
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || '发布失败');
-    }
-
-    const publishedChapter = await response.json();
-    showSuccess('章节已发布到区块链');
-    
-    // 更新章节列表
-    await updateChapterList();
-  } catch (error) {
-    showError(error, '发布章节失败');
-  }
-};
-
 // 处理删除章节按钮点击
 const handleDeleteClick = (e: React.MouseEvent, chapterId: string) => {
   e.stopPropagation();
@@ -1141,9 +1160,12 @@ const handleDeleteClick = (e: React.MouseEvent, chapterId: string) => {
   setShowDeleteDialog(true);
 };
 
-
-
-
+// 修改章节更新函数
+const handleChapterUpdate = (chapterId: string, field: keyof Chapter, value: any) => {
+  setChapters(chapters.map(ch => 
+    ch.id === chapterId ? { ...ch, [field]: value } : ch
+  ))
+}
 
 
 // 添加故事大纲
@@ -1161,6 +1183,47 @@ const addOutline = (title: string, description: string) => {
   setShowOutlineDialog(false)
 }
 
+// 章节排序和统计函数
+  // const processChapters = useCallback((chapterList: Chapter[]) => {
+  //   // 按顺序排序
+  //   const sortedChapters = [...chapterList].sort((a, b) => a.order - b.order);
+    
+  //   // 计算总字数
+  //   let totalWords = 0;
+  //   let todayWords = 0;
+  //   const today = new Date().setHours(0, 0, 0, 0);
+
+  //   sortedChapters.forEach(chapter => {
+  //     // 计算章节字数
+  //     const content = chapter.content || '';
+  //     const wordCount = content.replace(/<[^>]*>/g, '') // 移除 HTML 标签
+  //       .replace(/[\u200B-\u200D\uFEFF]/g, '') // 移除零宽字符
+  //       .trim() // 移除首尾空格
+  //       .replace(/\s+/g, ' ') // 将多个空格替换为单个空格
+  //       .split(/\s+/).length; // 按空格分割并计数
+      
+  //     // 更新章节字数
+  //     chapter.wordCount = wordCount;
+  //     totalWords += wordCount;
+
+  //     // 计算今日字数
+  //     const updateTime = new Date(chapter.updatedAt).setHours(0, 0, 0, 0);
+  //     if (updateTime === today) {
+  //       todayWords += wordCount;
+  //     }
+  //   });
+
+  //   // 更新写作统计
+  //   setWritingStats(prev => ({
+  //     ...prev,
+  //     totalWordCount: totalWords,
+  //     todayWordCount: todayWords
+  //   }));
+
+  //   return sortedChapters;
+  // }, []);
+
+
   // 处理卷添加
   // const handleAddVolume = () => {
   //   const newVolume: Volume = {
@@ -1172,7 +1235,8 @@ const addOutline = (title: string, description: string) => {
   //   setVolumes([...volumes, newVolume]);
   // };
 
-  
+
+
 
   /**
    * 编辑框工具栏
@@ -1224,77 +1288,77 @@ const addOutline = (title: string, description: string) => {
       <FaSave />
       {isSaving ? '保存中...' : hasUnsavedChanges ? '保存' : '已保存'}
     </button>
-    <IconButton
+    {/* <IconButton
       icon={<FaUpload />}
       onClick={handlePublish}
       disabled={isSaving}
       title="发布到区块链"
-    />
+    /> */}
   </div>
   </div>
   )
 
-  // 在 AuthorWrite 组件中添加发布功能
-  const handlePublish = async () => {
-  if (!storyInfo.title || !content) {
-  toast.error('请填写标题和内容')
-  return
-  }
+  // 在 AuthorWrite 组件中添加发布功能（通过章节列表来发送）
+  // const handlePublish = async () => {
+  // if (!storyInfo.title || !content) {
+  // toast.error('请填写标题和内容')
+  // return
+  // }
 
-  if (!address) {
-  toast.error('请先连接钱包')
-  return
-  }
+  // if (!address) {
+  // toast.error('请先连接钱包')
+  // return
+  // }
 
-  try {
-  setIsSaving(true)
+  // try {
+  // setIsSaving(true)
 
-  // 准备要上传的数据
-  const formData = {
-    title: storyInfo.title,
-    description: storyInfo.description || '',
-    content: content,
-    coverImage: storyInfo.coverImage || '/images/default-cover.jpg', // 使用默认封面
-    authorAddress: address,
-    targetWordCount: storyInfo.targetWordCount || 10000,
-    category: storyInfo.type || 'other'
-  }
+  // // 准备要上传的数据
+  // const formData = {
+  //   title: storyInfo.title,
+  //   description: storyInfo.description || '',
+  //   content: content,
+  //   coverImage: storyInfo.coverImage || '/images/default-cover.jpg', // 使用默认封面
+  //   authorAddress: address,
+  //   targetWordCount: storyInfo.targetWordCount || 10000,
+  //   category: storyInfo.type || 'other'
+  // }
 
-  // 上传到 IPFS 并创建故事
-  const response = await fetch('/api/stories/create', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(formData)
-  })
+  // // 上传到 IPFS 并创建故事
+  // const response = await fetch('/api/stories/create', {
+  //   method: 'POST',
+  //   headers: {
+  //     'Content-Type': 'application/json',
+  //   },
+  //   body: JSON.stringify(formData)
+  // })
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || '发布失败')
-  }
+  // if (!response.ok) {
+  //   const error = await response.json()
+  //   throw new Error(error.error || '发布失败')
+  // }
 
-  const data = await response.json()
-  toast.success('发布成功！')
+  // const data = await response.json()
+  // toast.success('发布成功！')
 
-  // 更新故事状态
-  setStoryInfo(prev => ({
-    ...prev,
-    published: true,
-    publishedAt: new Date(),
-    ipfsHash: data.story.contentCid
-  }))
+  // // 更新故事状态
+  // setStoryInfo(prev => ({
+  //   ...prev,
+  //   published: true,
+  //   publishedAt: new Date(),
+  //   ipfsHash: data.story.contentCid
+  // }))
 
-  // 可以选择跳转到故事详情页
-  router.push(`/stories/${data.story.id}`)
+  // // 可以选择跳转到故事详情页
+  // router.push(`/stories/${data.story.id}`)
 
-  } catch (error: any) {
-  toast.error(error?.message || '发布失败')
-  console.error('Failed to publish story:', error)
-  } finally {
-  setIsSaving(false)
-  }
-  }
+  // } catch (error: any) {
+  // toast.error(error?.message || '发布失败')
+  // console.error('Failed to publish story:', error)
+  // } finally {
+  // setIsSaving(false)
+  // }
+  // }
 
 
   // 修改内容变更处理
