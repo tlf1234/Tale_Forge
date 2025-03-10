@@ -353,12 +353,14 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
         paragraph: {
           HTMLAttributes: {
             class: 'editor-paragraph',
+            spellcheck: 'false',
           },
         },
         heading: {
           levels: [1, 2, 3],
           HTMLAttributes: {
             class: 'editor-heading',
+            spellcheck: 'false',
           },
         },
       }),
@@ -366,6 +368,7 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
         openOnClick: false,
         HTMLAttributes: {
           class: 'editor-link',
+          spellcheck: 'false',
         },
       }),
       Placeholder.configure({
@@ -380,6 +383,7 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
       Underline.configure({
         HTMLAttributes: {
           class: 'editor-underline',
+          spellcheck: 'false',
         },
       }),
       TextStyle,
@@ -396,6 +400,13 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
       const html = editor.getHTML()
       console.log('编辑器内容更新:', html)
       onChange?.(html)
+    },
+    editorProps: {
+      attributes: {
+        spellcheck: 'false',
+        autocorrect: 'off',
+        autocapitalize: 'off',
+      },
     },
   })
 
@@ -422,7 +433,12 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
     <div className={styles.editor}>
       {editable && <MenuBar editor={editor} onImageClick={() => {}} />}
       <div className={editable ? styles.content : styles.previewContent}>
-        <EditorContent editor={editor} />
+        <EditorContent 
+          editor={editor} 
+          spellCheck="false" 
+          autoCorrect="off" 
+          autoCapitalize="off" 
+        />
       </div>
     </div>
   )

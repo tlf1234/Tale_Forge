@@ -328,6 +328,14 @@ export default function AuthorWrite() {
   const [showCreateChapterDialog, setShowCreateChapterDialog] = useState(false);
   const [newChapterTitle, setNewChapterTitle] = useState('');
 
+  // 添加编辑器展开状态的状态变量
+  // const [editorExpanded, setEditorExpanded] = useState(false);
+
+  // 添加切换编辑器展开状态的函数
+  // const toggleEditorExpand = () => {
+  //   setEditorExpanded(prev => !prev);
+  // };
+
   // 错误提示函数
   const showError = (error: unknown, defaultMessage: string) => {
     console.error(error);
@@ -766,7 +774,8 @@ export default function AuthorWrite() {
         body: JSON.stringify({
           title: newChapterTitle,
           content: '',
-          order: chapters.length + 1
+          order: chapters.length + 1,
+          wordCount: 0 // 设置初始字数为0
         }),
       });
       
@@ -813,12 +822,34 @@ export default function AuthorWrite() {
         return;
       }
       console.log('当前故事ID:', storyId);
-      const response = await fetch(`/api/stories/${storyId}/chapters`);//
-      if (!response.ok) {
-        throw new Error('获取章节列表失败');
+      
+      const response = await fetch(`/api/stories/${storyId}/chapters`);
+      
+      // 尝试解析响应，无论成功与否
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('解析章节列表数据失败:', parseError);
+        throw new Error('解析章节列表数据失败，请稍后重试');
       }
-
-      const data = await response.json();
+      
+      // 检查响应状态
+      if (!response.ok) {
+        // 如果响应包含错误信息，则使用它
+        if (data && data.error) {
+          throw new Error(data.error);
+        } else {
+          throw new Error('获取章节列表失败');
+        }
+      }
+      
+      // 确保data是数组
+      if (!Array.isArray(data)) {
+        console.error('章节列表数据格式错误:', data);
+        data = []; // 使用空数组作为默认值
+      }
+      
       console.log('获取到章节列表:', data);
       
       const sortedChapters = data.sort((a: Chapter, b: Chapter) => a.order - b.order);
@@ -857,25 +888,57 @@ export default function AuthorWrite() {
   // 加载章节内容
   const loadChapter = async (chapterId: string) => {
     try {
+      // 立即设置当前章节ID，以便立即更新UI
+      setCurrentChapterId(chapterId);
+      setIsChapterLoading(true);
+      
       const storyId = localStorage.getItem('currentStoryId');
       if (!storyId) {
         throw new Error('未找到当前故事');
       }
       
       const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`);
-      if (!response.ok) {
-        throw new Error('加载章节失败');
+      
+      // 尝试解析响应，无论成功与否
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (parseError) {
+        console.error('解析响应数据失败:', parseError);
+        throw new Error('解析响应数据失败，请稍后重试');
       }
-      const chapter = await response.json();
+      
+      // 检查响应状态
+      if (!response.ok) {
+        // 如果响应包含错误信息，则使用它
+        if (responseData && responseData.error) {
+          throw new Error(responseData.error);
+        }
+        
+        // 根据状态码提供默认错误信息
+        if (response.status === 404) {
+          throw new Error('章节不存在或已被删除');
+        } else if (response.status === 403) {
+          throw new Error('您没有权限访问此章节');
+        } else if (response.status === 500) {
+          throw new Error('服务器内部错误，请稍后重试');
+        } else {
+          throw new Error(`加载章节失败 (${response.status})`);
+        }
+      }
+      
+      // 响应成功，使用解析的数据
+      const chapter = responseData;
       setCurrentChapter(chapter);
-      setContent(chapter.content);
-      setLastSavedContent(chapter.content);
-      setCurrentChapterId(chapter.id);
+      setContent(chapter.content || ''); // 确保content不为null
+      setLastSavedContent(chapter.content || '');
       setHasUnsavedChanges(false);
       return chapter;
     } catch (error) {
-      showError(error, '加载章节失败');
+      showError(error, '加载章节失败，请稍后重试');
       return null;
+    } finally {
+      setIsChapterLoading(false);
     }
   };
 
@@ -981,11 +1044,24 @@ export default function AuthorWrite() {
     }
   };
 
-
-
-  // 保存章节的函数。。。这里有问题
+  // 保存章节的函数
   const handleSave = useCallback(async (): Promise<boolean> => {
-    if (!currentChapterId || isSaving) return false;
+    console.log('【handleSave】函数被调用');
+    console.log('【handleSave】currentChapterId:', currentChapterId);
+    console.log('【handleSave】isSaving:', isSaving);
+    console.log('【handleSave】content长度:', content.length);
+    
+    // 检查是否有章节ID和内容
+    if (!currentChapterId) {
+      console.log('【handleSave】没有当前章节ID，无法保存');
+      showError(new Error('没有当前章节'), '请先选择或创建一个章节');
+      return false;
+    }
+    
+    if (isSaving) {
+      console.log('【handleSave】正在保存中，跳过');
+      return false;
+    }
     
     setIsSaving(true);
     try {
@@ -995,7 +1071,12 @@ export default function AuthorWrite() {
         throw new Error('未找到当前故事');
       }
       
+      // 计算字数
+      const wordCount = calculateWordCount(content);
+      console.log('【handleSave】字数:', wordCount);
+      
       // 使用正确的API路径
+      console.log('【handleSave】开始发送保存请求');
       const saveResponse = await fetch(`/api/stories/${storyId}/chapters/${currentChapterId}`, {
         method: 'PUT',
         headers: {
@@ -1004,9 +1085,10 @@ export default function AuthorWrite() {
         body: JSON.stringify({
           content: content,
           title: currentChapter?.title,
-          // 移除 outlines 参数，因为后端不处理这个参数
+          wordCount // 添加字数
         }),
       });
+      console.log('【handleSave】保存请求已发送，状态码:', saveResponse.status);
 
       if (!saveResponse.ok) {
         const error = await saveResponse.json();
@@ -1014,6 +1096,7 @@ export default function AuthorWrite() {
       }
 
       const savedChapter = await saveResponse.json();
+      console.log('【handleSave】保存成功，返回数据:', savedChapter);
       
       setCurrentChapter(savedChapter);
       setChapters(chapters.map(ch => 
@@ -1027,12 +1110,13 @@ export default function AuthorWrite() {
       showSuccess('保存成功');
       return true;
     } catch (error) {
+      console.error('【handleSave】保存失败:', error);
       showError(error, '保存失败，请稍后重试');
       return false;
     } finally {
       setIsSaving(false);
     }
-  }, [currentChapterId, isSaving, content, chapters, currentChapter]);
+  }, [currentChapterId, content, isSaving, currentChapter, chapters]);
 
   // 更新章节列表函数
   const updateChapterList = async () => {
@@ -1040,6 +1124,7 @@ export default function AuthorWrite() {
     if (!storyId) return null;
     
     try {
+      // 获取章节列表
       const response = await fetch(`/api/stories/${storyId}/chapters`);
       if (!response.ok) {
         throw new Error('获取章节列表失败');
@@ -1053,8 +1138,6 @@ export default function AuthorWrite() {
       return null;
     }
   };
-
-
 
   // 处理确认删除章节
   const handleConfirmDelete = async () => {
@@ -1102,86 +1185,90 @@ export default function AuthorWrite() {
     return plainText.length;
   };
 
-// 处理编辑章节按钮点击
-const handleEditClick = (e: React.MouseEvent, chapterId: string) => {
-  e.stopPropagation();
-  setEditingChapterId(chapterId);
-}
+  // 处理编辑章节按钮点击
+  const handleEditClick = (e: React.MouseEvent, chapterId: string) => {
+    e.stopPropagation();
+    setEditingChapterId(chapterId);
+  }
 
-// 处理章节保存按钮点击
-const handleSaveClick = async (e: React.MouseEvent, chapterId: string) => {
-  e.stopPropagation();
-  setEditingChapterId(null);
-  
-  try {
-    const storyId = localStorage.getItem('currentStoryId');
-    if (!storyId) {
-      throw new Error('未找到当前故事');
-    }
-
-    // 获取当前章节
-    const currentChapter = chapters.find(ch => ch.id === chapterId);
-    if (!currentChapter) {
-      throw new Error('未找到当前章节');
-    }
-
-    // 使用 API 客户端保存章节草稿
-    const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        content,
-        title: currentChapter.title
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('保存失败');
-    }
-
-    const savedChapter = await response.json();
-    setLastSavedContent(content);
-    setHasUnsavedChanges(false);
-    showSuccess('保存成功');
+  // 处理章节保存按钮点击
+  const handleSaveClick = async (e: React.MouseEvent, chapterId: string) => {
+    e.stopPropagation();
+    setEditingChapterId(null);
     
-    // 更新章节列表
-    await updateChapterList();
-  } catch (error) {
-    showError(error, '保存失败');
+    try {
+      const storyId = localStorage.getItem('currentStoryId');
+      if (!storyId) {
+        throw new Error('未找到当前故事');
+      }
+
+      // 获取当前章节
+      const currentChapter = chapters.find(ch => ch.id === chapterId);
+      if (!currentChapter) {
+        throw new Error('未找到当前章节');
+      }
+
+      // 计算字数
+      const wordCount = calculateWordCount(content);
+
+      // 使用 API 客户端保存章节草稿
+      const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          content,
+          title: currentChapter.title,
+          wordCount // 添加字数
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('保存失败');
+      }
+
+      const savedChapter = await response.json();
+      setLastSavedContent(content);
+      setHasUnsavedChanges(false);
+      showSuccess('保存成功');
+      
+      // 更新章节列表
+      await updateChapterList();
+    } catch (error) {
+      showError(error, '保存失败');
+    }
+  };
+
+  // 处理删除章节按钮点击
+  const handleDeleteClick = (e: React.MouseEvent, chapterId: string) => {
+    e.stopPropagation();
+    setChapterToDelete(chapterId);
+    setShowDeleteDialog(true);
+  };
+
+  // 修改章节更新函数
+  const handleChapterUpdate = (chapterId: string, field: keyof Chapter, value: any) => {
+    setChapters(chapters.map(ch => 
+      ch.id === chapterId ? { ...ch, [field]: value } : ch
+    ))
   }
-};
-
-// 处理删除章节按钮点击
-const handleDeleteClick = (e: React.MouseEvent, chapterId: string) => {
-  e.stopPropagation();
-  setChapterToDelete(chapterId);
-  setShowDeleteDialog(true);
-};
-
-// 修改章节更新函数
-const handleChapterUpdate = (chapterId: string, field: keyof Chapter, value: any) => {
-  setChapters(chapters.map(ch => 
-    ch.id === chapterId ? { ...ch, [field]: value } : ch
-  ))
-}
 
 
-// 添加故事大纲
-const addOutline = (title: string, description: string) => {
-  if (!currentChapter) return
-  
-  const newOutline: Outline = {
-    id: Date.now().toString(),
-    title,
-    description,
-    chapterId: currentChapter.id
+  // 添加故事大纲
+  const addOutline = (title: string, description: string) => {
+    if (!currentChapter) return
+    
+    const newOutline: Outline = {
+      id: Date.now().toString(),
+      title,
+      description,
+      chapterId: currentChapter.id
+    }
+    
+    setOutlines([...outlines, newOutline])
+    setShowOutlineDialog(false)
   }
-  
-  setOutlines([...outlines, newOutline])
-  setShowOutlineDialog(false)
-}
 
 // 章节排序和统计函数
   // const processChapters = useCallback((chapterList: Chapter[]) => {
@@ -1279,173 +1366,124 @@ const addOutline = (title: string, description: string) => {
       {isPreview ? <FaEye className={styles.icon} /> : <FaEyeSlash className={styles.icon} />}
     </button>
     <button
-      className={`${styles.primaryButton} ${isSaving ? styles.saving : ''} ${hasUnsavedChanges ? styles.hasChanges : ''}`}
+      className={`${styles.primaryButton} ${styles.hasChanges}`}
       onClick={async () => {
-        await handleSave();
+        console.log('【保存按钮】点击事件触发');
+        console.log('【保存按钮】currentChapterId:', currentChapterId);
+        console.log('【保存按钮】isSaving:', isSaving);
+        console.log('【保存按钮】content长度:', content.length);
+        try {
+          const result = await handleSave();
+          console.log('【保存按钮】保存结果:', result);
+        } catch (error) {
+          console.error('【保存按钮】保存出错:', error);
+        }
       }}
-      disabled={isSaving || !currentChapterId || !hasUnsavedChanges}
     >
       <FaSave />
-      {isSaving ? '保存中...' : hasUnsavedChanges ? '保存' : '已保存'}
+      {isSaving ? '保存中...' : '保存'}
     </button>
-    {/* <IconButton
-      icon={<FaUpload />}
-      onClick={handlePublish}
-      disabled={isSaving}
-      title="发布到区块链"
-    /> */}
+    
   </div>
   </div>
   )
 
-  // 在 AuthorWrite 组件中添加发布功能（通过章节列表来发送）
-  // const handlePublish = async () => {
-  // if (!storyInfo.title || !content) {
-  // toast.error('请填写标题和内容')
-  // return
-  // }
-
-  // if (!address) {
-  // toast.error('请先连接钱包')
-  // return
-  // }
-
-  // try {
-  // setIsSaving(true)
-
-  // // 准备要上传的数据
-  // const formData = {
-  //   title: storyInfo.title,
-  //   description: storyInfo.description || '',
-  //   content: content,
-  //   coverImage: storyInfo.coverImage || '/images/default-cover.jpg', // 使用默认封面
-  //   authorAddress: address,
-  //   targetWordCount: storyInfo.targetWordCount || 10000,
-  //   category: storyInfo.type || 'other'
-  // }
-
-  // // 上传到 IPFS 并创建故事
-  // const response = await fetch('/api/stories/create', {
-  //   method: 'POST',
-  //   headers: {
-  //     'Content-Type': 'application/json',
-  //   },
-  //   body: JSON.stringify(formData)
-  // })
-
-  // if (!response.ok) {
-  //   const error = await response.json()
-  //   throw new Error(error.error || '发布失败')
-  // }
-
-  // const data = await response.json()
-  // toast.success('发布成功！')
-
-  // // 更新故事状态
-  // setStoryInfo(prev => ({
-  //   ...prev,
-  //   published: true,
-  //   publishedAt: new Date(),
-  //   ipfsHash: data.story.contentCid
-  // }))
-
-  // // 可以选择跳转到故事详情页
-  // router.push(`/stories/${data.story.id}`)
-
-  // } catch (error: any) {
-  // toast.error(error?.message || '发布失败')
-  // console.error('Failed to publish story:', error)
-  // } finally {
-  // setIsSaving(false)
-  // }
-  // }
-
-
+  
   // 修改内容变更处理
   const handleContentChange = useCallback((newContent: string) => {
-  console.log('内容变更');
-  setContent(newContent);
-  setHasContentChanged(true); // 标记内容已变更
+    console.log('【write/page】handleContentChange 被调用，内容长度:', newContent.length);
+    
+    // 检查内容是否真的变化了
+    if (newContent === content) {
+      console.log('【write/page】内容没有变化，跳过更新');
+      return;
+    }
+    
+    console.log('【write/page】内容已变更，更新状态');
+    setContent(newContent);
+    setHasContentChanged(true); // 标记内容已变更
 
-  // 计算字数
-  const wordCount = newContent.replace(/<[^>]*>/g, '') // 移除 HTML 标签
-  .replace(/[\u200B-\u200D\uFEFF]/g, '') // 移除零宽字符
-  .trim() // 移除首尾空格
-  .replace(/\s+/g, ' ') // 将多个空格替换为单个空格
-  .split(/\s+/).length; // 按空格分割并计数
+    // 计算字数
+    const currentWordCount = calculateWordCount(newContent);
+    console.log('【write/page】计算字数:', currentWordCount);
 
-  // 使用 localStorage 作为临时存储
-  if (currentChapterId) {
-  // 只有当内容真的发生变化时才标记为未保存
-  const hasChanges = newContent !== lastSavedContent;
-  setHasUnsavedChanges(hasChanges);
+    // 使用 localStorage 作为临时存储
+    if (currentChapterId) {
+      // 只有当内容真的发生变化时才标记为未保存
+      const hasChanges = newContent !== lastSavedContent;
+      console.log('【write/page】内容是否变更:', hasChanges);
+      console.log('【write/page】当前内容长度:', newContent.length, '上次保存内容长度:', lastSavedContent.length);
+      
+      // 强制设置为有变更
+      console.log('【write/page】强制设置hasUnsavedChanges为true');
+      setHasUnsavedChanges(true);
+      console.log('【write/page】hasUnsavedChanges设置完成，当前值:', true);
 
-  if (hasChanges) {
-    localStorage.setItem(`draft_${currentChapterId}`, newContent);
-    // 更新字数统计
-    setWritingStats(prev => ({
-      ...prev,
-      totalWordCount: prev.totalWordCount + (wordCount - (currentChapter?.wordCount || 0)),
-      todayWordCount: prev.todayWordCount + (wordCount - (currentChapter?.wordCount || 0))
-    }));
-  }
-  }
-  }, [currentChapterId, lastSavedContent, currentChapter]);
+      if (hasChanges) {
+        localStorage.setItem(`draft_${currentChapterId}`, newContent);
+        // 更新字数统计
+        setWritingStats(prev => ({
+          ...prev,
+          totalWordCount: prev.totalWordCount + (currentWordCount - (currentChapter?.wordCount || 0)),
+        }));
+      }
+    }
+  }, [currentChapterId, lastSavedContent, content, currentChapter?.wordCount]);
 
   // 添加路由切换拦截
   useEffect(() => {
-  // 监听浏览器的后退/前进
-  const handlePopState = async (e: PopStateEvent) => {
-  if (hasUnsavedChanges && content !== '') {
-    const confirm = window.confirm('你有未保存的更改，确定要离开吗？');
-    if (!confirm) {
-      // 阻止后退/前进
-      e.preventDefault();
-      window.history.pushState(null, '', pathname);
-    } else {
-      // 用户确认离开，先保存
-      await handleSave();
-      // 允许导航
-      window.history.go(-1);
-    }
-  }
-  };
+    // 监听浏览器的后退/前进
+    const handlePopState = async (e: PopStateEvent) => {
+    if (hasUnsavedChanges && content !== '') {
+      const confirm = window.confirm('你有未保存的更改，确定要离开吗？');
+      if (!confirm) {
+        // 阻止后退/前进
+        e.preventDefault();
+        window.history.pushState(null, '', pathname);
+      } else {
+          // 用户确认离开，先保存
+          await handleSave();
+          // 允许导航
+          window.history.go(-1);
+        }
+      }
+    };
 
-  // 监听所有链接点击
-  const handleLinkClick = async (e: MouseEvent) => {
-  const target = e.target as HTMLElement;
-  const link = target.closest('a');
-  if (link && link.href && !link.href.includes(pathname) && hasUnsavedChanges && content !== '') {
-    e.preventDefault();
-    const confirm = window.confirm('你有未保存的更改，确定要离开吗？');
-    if (confirm) {
-      await handleSave();
-      window.location.href = link.href;
-    }
-  }
-  };
+    // 监听所有链接点击
+    const handleLinkClick = async (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const link = target.closest('a');
+      if (link && link.href && !link.href.includes(pathname) && hasUnsavedChanges && content !== '') {
+          e.preventDefault();
+          const confirm = window.confirm('你有未保存的更改，确定要离开吗？');
+          if (confirm) {
+            await handleSave();
+            window.location.href = link.href;
+          }
+        }
+    };
 
-  window.addEventListener('popstate', handlePopState);
-  document.addEventListener('click', handleLinkClick);
+    window.addEventListener('popstate', handlePopState);
+    document.addEventListener('click', handleLinkClick);
 
-  return () => {
-  window.removeEventListener('popstate', handlePopState);
-  document.removeEventListener('click', handleLinkClick);
-  };
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      document.removeEventListener('click', handleLinkClick);
+    };
   }, [hasUnsavedChanges, pathname, handleSave, content]);
 
   // 修改 beforeunload 事件监听
   useEffect(() => {
-  const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-  if (hasUnsavedChanges && content !== '') {
-    e.preventDefault();
-    e.returnValue = '你有未保存的更改，确定要离开吗？';
-    return e.returnValue;
-  }
-  };
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges && content !== '') {
+        e.preventDefault();
+        e.returnValue = '你有未保存的更改，确定要离开吗？';
+        return e.returnValue;
+      }
+    };
 
-  window.addEventListener('beforeunload', handleBeforeUnload);
-  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges, content]);
 
 
@@ -1459,11 +1497,11 @@ const addOutline = (title: string, description: string) => {
 
   // 避免在 useEffect 中直接更新依赖项
   const newStats = {
-  totalWordCount: chapters.reduce((sum, ch) => sum + ch.wordCount, 0),
-  todayWordCount: wordCount,
-  averageSpeed: duration > 0 ? wordCount / duration : 0,
-  writingDuration: duration,
-  lastSaved: now
+    totalWordCount: chapters.reduce((sum, ch) => sum + ch.wordCount, 0),
+    todayWordCount: wordCount,
+    averageSpeed: duration > 0 ? wordCount / duration : 0,
+    writingDuration: duration,
+    lastSaved: now
   }
 
   if (JSON.stringify(newStats) !== JSON.stringify(writingStats)) {
@@ -1473,9 +1511,9 @@ const addOutline = (title: string, description: string) => {
 
   // 修改写作时长统计的 useEffect
   useEffect(() => {
-  if (!writingStartTime) {
-  setWritingStartTime(new Date())
-  return
+    if (!writingStartTime) {
+    setWritingStartTime(new Date())
+    return
   }
 
   const intervalId = setInterval(() => {
@@ -1489,31 +1527,31 @@ const addOutline = (title: string, description: string) => {
 
   // 移除导航拦截，自动保存相关
   useEffect(() => {
-  const cleanup = () => {
-  if (autoSaveTimeoutRef.current) {
-  clearTimeout(autoSaveTimeoutRef.current)
-  }
+    const cleanup = () => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current)
+    }
   }
   return cleanup
   }, [])
 
   // 添加自动保存清理
   useEffect(() => {
-  return () => {
-  if (autoSaveTimeoutRef.current) {
-  clearTimeout(autoSaveTimeoutRef.current);
-  }
-  };
+    return () => {
+    if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
   }, []);
 
   // 自动保存功能
   useEffect(() => {
-  if (!currentChapterId || !content || !hasContentChanged) return; // 只在内容变更时触发
+    if (!currentChapterId || !content || !hasContentChanged) return; // 只在内容变更时触发
 
-  const timeoutId = setTimeout(() => {
-  console.log('自动保存草稿...');
-  localStorage.setItem(`draft_${currentChapterId}`, content);
-  setHasContentChanged(false); // 重置内容变更标记
+    const timeoutId = setTimeout(() => {
+      console.log('自动保存草稿...');
+      localStorage.setItem(`draft_${currentChapterId}`, content);
+      setHasContentChanged(false); // 重置内容变更标记
   }, 30000); // 每30秒保存一次
 
   return () => clearTimeout(timeoutId);
@@ -1521,32 +1559,30 @@ const addOutline = (title: string, description: string) => {
 
   // 组件卸载时保存草稿
   useEffect(() => {
-  return () => {
-  if (currentChapterId && content) {
-  console.log('组件卸载，保存草稿...');
-  localStorage.setItem(`draft_${currentChapterId}`, content);
-  }
-  }
+    return () => {
+      if (currentChapterId && content) {
+        console.log('组件卸载，保存草稿...');
+        localStorage.setItem(`draft_${currentChapterId}`, content);
+      }
+    }
   }, [currentChapterId, content]);
 
 
+  // 修改选择作品按钮的点击处理
+  const handleShowStorySelector = () => {
+    console.log('点击选择作品按钮')
+    console.log('当前作品数量:', stories.length)
+    if (stories.length > 0) {
+      setShowStorySelector(true)
+    } else {
+      showNoStoryTip()
+    }
+  }
 
   // 在 showStorySelector 状态变化时添加日志
   useEffect(() => {
-  console.log('作品选择器显示状态:', showStorySelector)
-  }, [showStorySelector])
-
-  // 修改选择作品按钮的点击处理
-  const handleShowStorySelector = () => {
-  console.log('点击选择作品按钮')
-  console.log('当前作品数量:', stories.length)
-  if (stories.length > 0) {
-  setShowStorySelector(true)
-  } else {
-  showNoStoryTip()
-  }
-  }
-
+    console.log('作品选择器显示状态:', showStorySelector)
+}, [showStorySelector])
 
 
   /*
@@ -1743,37 +1779,42 @@ const addOutline = (title: string, description: string) => {
                 )}
 
                 {/* 左侧面板 */}
-                {currentStory && (showChapters || showSettings) && (
+                {((currentStory && showChapters) || showSettings) && (
                   <div className={styles.leftPanel}>
                     {/* 章节管理面板 */}
-                    {showChapters && (
+                    {showChapters && currentStory && (
                       <div className={styles.chaptersPanel}>
-                        <div className={styles.chapterHeader}>
-                          <h2 className={styles.panelTitle}>
-                            章节管理
-                            <span className={styles.chapterCount}>({chapters.length})</span>
-                          </h2>
-                          <div className={styles.headerActions}>
-                            <button className={styles.sortButton}>
-                              <FaSort />
-                            </button>
-                            <button
-                              className={styles.addChapterButton}
-                              onClick={() => handleAddChapter()}
-                            >
-                              + 新建
-                            </button>
-                          </div>
-                        </div>
-
+                       
                         <div className={styles.chapterList}>
+                          <div className={styles.chapterHeader}>
+                            <h2 className={styles.panelTitle}>
+                              章节管理
+                              <span className={styles.chapterCount}>({chapters.length})</span>
+                            </h2>
+                            <div className={styles.headerActions}>
+                              <button className={styles.sortButton}>
+                                <FaSort />
+                              </button>
+                              <button
+                                className={styles.addChapterButton}
+                                onClick={() => handleAddChapter()}
+                              >
+                                + 新建
+                              </button>
+                            </div>
+                          </div>
+                          
                           {chapters.map((chapter) => (
                             <div
                               key={chapter.id}
                               className={`${styles.chapterItem} ${
                                 currentChapter?.id === chapter.id ? styles.activeChapter : ''
-                              }`}
+                              } ${currentChapterId === chapter.id ? styles.selected : ''}`}
                               onClick={() => loadChapter(chapter.id)}
+                              data-chapter-id={chapter.id}
+                              data-current-chapter-id={currentChapterId}
+                              data-is-selected={currentChapterId === chapter.id ? 'true' : 'false'}
+                              data-is-active={currentChapter?.id === chapter.id ? 'true' : 'false'}
                             >
                               <div className={styles.chapterMain}>
                                 {editingChapterId === chapter.id ? (
@@ -1784,13 +1825,16 @@ const addOutline = (title: string, description: string) => {
                                     className={styles.chapterTitleInput}
                                     onClick={(e) => e.stopPropagation()}
                                     autoFocus
+                                    spellCheck="false"
+                                    autoCorrect="off"
+                                    autoCapitalize="off"
                                   />
                                 ) : (
                                   <span className={styles.chapterTitle}>{chapter.title}</span>
                                 )}
                                 <div className={styles.chapterInfo}>
                                   <span className={styles.wordCount}>
-                                    {calculateWordCount(chapter.content)}字
+                                    {chapter.wordCount}字
                                   </span>
                                   <select
                                     value={chapter.status}
@@ -1846,6 +1890,13 @@ const addOutline = (title: string, description: string) => {
                               </div>
                             </div>
                           ))}
+                          
+                          {/* 添加底部边界区域 */}
+                          <div className={styles.chapterListBottomBoundary}>
+                            <div className={styles.bottomBoundaryContent}>
+                              {chapters.length > 0 ? "已显示全部章节" : "暂无章节"}
+                            </div>
+                          </div>
                         </div>
 
                         <div className={styles.chapterStats}>
@@ -2033,6 +2084,7 @@ const addOutline = (title: string, description: string) => {
                       }}
                     />
                   </div>
+                  {/* 移除下拉按钮 */}
                 </div>
               </div>
 

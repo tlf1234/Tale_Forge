@@ -238,7 +238,7 @@ app.post('/api/stories/validate', async (req, res) => {
 
 
 /**
- * 章节相关路由
+ * 章节相关路由（实际上章节相关可以不需要storyId，因为各个章节ID是唯一的）
  */
 
 // 创建新章节（草稿）
@@ -296,7 +296,7 @@ app.get('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
   }
 });
 
-// 更新章节（新路由，包含 storyId）
+// （保存章节）更新章节（新路由，包含 storyId）
 app.put('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
   try {
     console.log('[PUT /api/stories/:storyId/chapters/:chapterId] 收到请求:', {

@@ -395,10 +395,15 @@ export class StoryService {
     // 如果提供了 storyId，先验证章节是否属于该故事
     if (storyId) {
       const chapter = await prisma.chapter.findUnique({
-        where: { id }
+        where: { id },
+        include: { story: true }
       });
       
-      if (!chapter || chapter.storyId !== storyId) {
+      if (!chapter) {
+        throw new Error('章节不存在');
+      }
+      
+      if (chapter.storyId !== storyId) {
         throw new Error('章节不属于指定的故事');
       }
     }
@@ -448,28 +453,35 @@ export class StoryService {
     }
   }
 
-  // 更新章节
+  // 更新章节（保存章节）
   async updateChapter(id: string, data: {
     title?: string
     content?: string
     order?: number
     txHash?: string
+    wordCount?: number
   }, storyId?: string) {
     // 如果提供了 storyId，先验证章节是否属于该故事
     if (storyId) {
       const chapter = await prisma.chapter.findUnique({
-        where: { id }
+        where: { id },
+        include: { story: true }
       });
       
-      if (!chapter || chapter.storyId !== storyId) {
+      if (!chapter) {
+        throw new Error('章节不存在');
+      }
+      
+      if (chapter.storyId !== storyId) {
         throw new Error('章节不属于指定的故事');
       }
     }
     
+    // 更新章节
     return await prisma.chapter.update({
       where: { id },
       data
-    })
+    });
   }
 
 
@@ -478,17 +490,22 @@ export class StoryService {
     // 如果提供了 storyId，先验证章节是否属于该故事
     if (storyId) {
       const chapter = await prisma.chapter.findUnique({
-        where: { id }
+        where: { id },
+        include: { story: true }
       });
       
-      if (!chapter || chapter.storyId !== storyId) {
+      if (!chapter) {
+        throw new Error('章节不存在');
+      }
+      
+      if (chapter.storyId !== storyId) {
         throw new Error('章节不属于指定的故事');
       }
     }
     
     return await prisma.chapter.delete({
       where: { id }
-    })
+    });
   }
 
 

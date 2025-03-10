@@ -4,67 +4,6 @@ import { Chapter } from '@/types/story';
 // 后端 API 基础 URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-// 获取章节
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string; chapterId: string } }
-) {
-  try {
-    const { id: storyId, chapterId } = params;
-    
-    // 调用后端 API 获取章节详情
-    const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}/chapters/${chapterId}`);
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || '获取章节失败');
-    }
-    
-    const chapter = await response.json();
-    return NextResponse.json(chapter);
-  } catch (error) {
-    console.error('获取章节失败:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : '获取章节失败' },
-      { status: 500 }
-    );
-  }
-}
-
-// 更新章节
-export async function PUT(
-  request: Request,
-  { params }: { params: { id: string; chapterId: string } }
-) {
-  try {
-    const { id: storyId, chapterId } = params;
-    const updates = await request.json();
-    
-    // 调用后端 API 更新章节
-    const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}/chapters/${chapterId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(updates)
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || '更新章节失败');
-    }
-    
-    const updatedChapter = await response.json();
-    return NextResponse.json(updatedChapter);
-  } catch (error) {
-    console.error('更新章节失败:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : '更新章节失败' },
-      { status: 500 }
-    );
-  }
-}
-
 // 发布章节
 export async function POST(
   request: Request,
@@ -72,7 +11,20 @@ export async function POST(
 ) {
   try {
     const { id: storyId, chapterId } = params;
-    const { authorAddress } = await request.json();
+    
+    // 解析请求体
+    let requestBody;
+    try {
+      requestBody = await request.json();
+    } catch (parseError) {
+      console.error('解析请求体失败:', parseError);
+      return NextResponse.json(
+        { error: '无效的请求数据' },
+        { status: 400 }
+      );
+    }
+    
+    const { authorAddress } = requestBody;
     
     if (!authorAddress) {
       return NextResponse.json(
@@ -90,17 +42,141 @@ export async function POST(
       body: JSON.stringify({ authorAddress })
     });
     
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || '发布章节失败');
+    // 尝试解析响应，处理可能的解析错误
+    let responseData;
+    try {
+      responseData = await response.json();
+    } catch (parseError) {
+      console.error('解析响应数据失败:', parseError);
+      return NextResponse.json(
+        { error: '服务器响应格式错误' },
+        { status: 500 }
+      );
     }
     
-    const publishedChapter = await response.json();
-    return NextResponse.json(publishedChapter);
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: responseData.error || '发布章节失败' },
+        { status: response.status }
+      );
+    }
+    
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('发布章节失败:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : '发布章节失败' },
+      { status: 500 }
+    );
+  }
+}
+
+// 获取章节
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string; chapterId: string } }
+) {
+  try {
+    const { id: storyId, chapterId } = params;
+    
+    // 调用后端 API 获取章节详情
+    const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}/chapters/${chapterId}`);
+    
+    if (!response.ok) {
+      // 尝试解析错误响应，但不要在解析失败时抛出额外错误
+      let errorMessage = '获取章节失败';
+      try {
+        const errorData = await response.json();
+        if (errorData && errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } catch (parseError) {
+        // JSON解析错误，使用默认错误信息
+        console.error('解析错误响应失败:', parseError);
+      }
+      
+      // 返回适当的状态码
+      return NextResponse.json(
+        { error: errorMessage },
+        { status: response.status }
+      );
+    }
+    
+    // 尝试解析响应JSON，处理可能的解析错误
+    let chapter;
+    try {
+      chapter = await response.json();
+    } catch (parseError) {
+      console.error('解析章节数据失败:', parseError);
+      return NextResponse.json(
+        { error: '章节数据格式错误' },
+        { status: 500 }
+      );
+    }
+    
+    return NextResponse.json(chapter);
+  } catch (error) {
+    console.error('获取章节失败:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : '获取章节失败' },
+      { status: 500 }
+    );
+  }
+}
+
+//保存章节（更新章节）
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string; chapterId: string } }
+) {
+  try {
+    const { id: storyId, chapterId } = params;
+    
+    // 解析请求体
+    let updates;
+    try {
+      updates = await request.json();
+    } catch (parseError) {
+      console.error('解析请求体失败:', parseError);
+      return NextResponse.json(
+        { error: '无效的请求数据' },
+        { status: 400 }
+      );
+    }
+    
+    // 调用后端 API 更新章节
+    const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}/chapters/${chapterId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updates)
+    });
+    
+    // 尝试解析响应，处理可能的解析错误
+    let responseData;
+    try {
+      responseData = await response.json();
+    } catch (parseError) {
+      console.error('解析响应数据失败:', parseError);
+      return NextResponse.json(
+        { error: '服务器响应格式错误' },
+        { status: 500 }
+      );
+    }
+    
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: responseData.error || '更新章节失败' },
+        { status: response.status }
+      );
+    }
+    
+    return NextResponse.json(responseData);
+  } catch (error) {
+    console.error('更新章节失败:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : '更新章节失败' },
       { status: 500 }
     );
   }
@@ -119,13 +195,32 @@ export async function DELETE(
       method: 'DELETE'
     });
     
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || '删除章节失败');
+    // 尝试解析响应，处理可能的解析错误
+    let responseData;
+    try {
+      responseData = await response.json();
+    } catch (parseError) {
+      console.error('解析响应数据失败:', parseError);
+      
+      // 如果响应成功但没有返回JSON，可能是正常的
+      if (response.ok) {
+        return NextResponse.json({ success: true });
+      }
+      
+      return NextResponse.json(
+        { error: '服务器响应格式错误' },
+        { status: 500 }
+      );
     }
     
-    const result = await response.json();
-    return NextResponse.json(result);
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: responseData.error || '删除章节失败' },
+        { status: response.status }
+      );
+    }
+    
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('删除章节失败:', error);
     return NextResponse.json(

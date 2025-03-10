@@ -11,7 +11,18 @@ export async function POST(
 ) {
   try {
     const { id: storyId } = params;
-    const chapterData = await request.json();
+    
+    // 解析请求体
+    let chapterData;
+    try {
+      chapterData = await request.json();
+    } catch (parseError) {
+      console.error('解析请求体失败:', parseError);
+      return NextResponse.json(
+        { error: '无效的请求数据' },
+        { status: 400 }
+      );
+    }
     
     // 调用后端 API 创建章节
     const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}/chapters`, {
@@ -22,13 +33,26 @@ export async function POST(
       body: JSON.stringify(chapterData)
     });
     
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || '创建章节失败');
+    // 尝试解析响应，处理可能的解析错误
+    let responseData;
+    try {
+      responseData = await response.json();
+    } catch (parseError) {
+      console.error('解析响应数据失败:', parseError);
+      return NextResponse.json(
+        { error: '服务器响应格式错误' },
+        { status: 500 }
+      );
     }
     
-    const chapter = await response.json();
-    return NextResponse.json(chapter);
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: responseData.error || '创建章节失败' },
+        { status: response.status }
+      );
+    }
+    
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('创建章节失败:', error);
     return NextResponse.json(
@@ -50,11 +74,35 @@ export async function GET(
     const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}/chapters`);
     
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || '获取章节列表失败');
+      // 尝试解析错误响应，但不要在解析失败时抛出额外错误
+      let errorMessage = '获取章节列表失败';
+      try {
+        const errorData = await response.json();
+        if (errorData && errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } catch (parseError) {
+        // JSON解析错误，使用默认错误信息
+        console.error('解析错误响应失败:', parseError);
+      }
+      
+      return NextResponse.json(
+        { error: errorMessage },
+        { status: response.status }
+      );
     }
     
-    const chapters = await response.json();
+    // 尝试解析响应JSON，处理可能的解析错误
+    let chapters;
+    try {
+      chapters = await response.json();
+    } catch (parseError) {
+      console.error('解析章节列表数据失败:', parseError);
+      
+      // 如果响应成功但没有返回有效的JSON，返回空数组
+      return NextResponse.json([]);
+    }
+    
     return NextResponse.json(chapters);
   } catch (error) {
     console.error('获取章节列表失败:', error);

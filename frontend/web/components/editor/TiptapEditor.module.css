@@ -167,6 +167,27 @@
   outline: none;
   min-height: 300px;
   white-space: pre-wrap !important;
+  -webkit-spell-check: false;
+  -ms-spell-check: false;
+  spellcheck: false;
+}
+
+/* 禁用浏览器的拼写检查样式 */
+.content :global(.ProseMirror *) {
+  -webkit-spell-check: false;
+  -ms-spell-check: false;
+  spellcheck: false;
+}
+
+/* 移除拼写错误的红色下划线 */
+.content :global(.ProseMirror *::-webkit-spelling-error) {
+  text-decoration: none !important;
+  background-color: transparent !important;
+}
+
+.content :global(.ProseMirror *::-webkit-grammar-error) {
+  text-decoration: none !important;
+  background-color: transparent !important;
 }
 
 .content :global(.ProseMirror p) {
