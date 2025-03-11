@@ -825,13 +825,21 @@ export default function AuthorWrite() {
       
       const response = await fetch(`/api/stories/${storyId}/chapters`);
       
-      // 尝试解析响应，无论成功与否
+      // 检查响应内容长度
       let data;
-      try {
-        data = await response.json();
-      } catch (parseError) {
-        console.error('解析章节列表数据失败:', parseError);
-        throw new Error('解析章节列表数据失败，请稍后重试');
+      const contentLength = response.headers.get('content-length');
+      if (contentLength === '0') {
+        console.log('服务器返回了空响应体，可能是没有章节');
+        // 使用空数组
+        data = [];
+      } else {
+        // 尝试解析响应，无论成功与否
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          console.error('解析章节列表数据失败:', parseError);
+          throw new Error('解析章节列表数据失败，请稍后重试');
+        }
       }
       
       // 检查响应状态
@@ -892,6 +900,10 @@ export default function AuthorWrite() {
       setCurrentChapterId(chapterId);
       setIsChapterLoading(true);
       
+      // 先清空编辑器内容，避免显示旧内容
+      setContent('');
+      setLastSavedContent('');
+      
       const storyId = localStorage.getItem('currentStoryId');
       if (!storyId) {
         throw new Error('未找到当前故事');
@@ -899,42 +911,32 @@ export default function AuthorWrite() {
       
       const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`);
       
-      // 尝试解析响应，无论成功与否
-      let responseData;
-      try {
-        responseData = await response.json();
-      } catch (parseError) {
-        console.error('解析响应数据失败:', parseError);
-        throw new Error('解析响应数据失败，请稍后重试');
-      }
-      
-      // 检查响应状态
+      // 如果响应不成功，直接抛出错误
       if (!response.ok) {
-        // 如果响应包含错误信息，则使用它
-        if (responseData && responseData.error) {
-          throw new Error(responseData.error);
-        }
-        
-        // 根据状态码提供默认错误信息
-        if (response.status === 404) {
-          throw new Error('章节不存在或已被删除');
-        } else if (response.status === 403) {
-          throw new Error('您没有权限访问此章节');
-        } else if (response.status === 500) {
-          throw new Error('服务器内部错误，请稍后重试');
-        } else {
-          throw new Error(`加载章节失败 (${response.status})`);
-        }
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `加载章节失败 (${response.status})`);
       }
       
-      // 响应成功，使用解析的数据
-      const chapter = responseData;
+      // 检查响应内容长度 - 空响应体现在由API路由处理，返回空章节对象
+      // 所以这里不需要特殊处理
+      
+      // 响应成功，解析数据
+      const chapter = await response.json().catch(error => {
+        console.error('解析章节数据失败:', error);
+        throw new Error('章节数据格式错误');
+      });
+      
+      // 更新状态
       setCurrentChapter(chapter);
       setContent(chapter.content || ''); // 确保content不为null
       setLastSavedContent(chapter.content || '');
       setHasUnsavedChanges(false);
       return chapter;
     } catch (error) {
+      // 加载失败时，确保清空编辑器内容和当前章节
+      setContent('');
+      setLastSavedContent('');
+      setCurrentChapter(null);
       showError(error, '加载章节失败，请稍后重试');
       return null;
     } finally {

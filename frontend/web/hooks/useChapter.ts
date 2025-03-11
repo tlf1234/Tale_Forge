@@ -9,6 +9,24 @@ const fetchChapter = async (storyId: string, chapterId: string): Promise<Chapter
     if (!response.ok) {
       throw new Error('Failed to fetch chapter');
     }
+    
+    // 检查响应内容长度
+    const contentLength = response.headers.get('content-length');
+    if (contentLength === '0') {
+      console.log('服务器返回了空响应体，可能是章节不存在');
+      // 返回一个空章节对象
+      return {
+        id: chapterId,
+        title: '',
+        content: '',
+        order: 0,
+        wordCount: 0,
+        status: 'draft',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      } as Chapter;
+    }
+    
     return await response.json();
   } catch (error) {
     console.error('Error fetching chapter:', error);
@@ -89,6 +107,15 @@ const fetchChapterList = async (storyId: string): Promise<Chapter[]> => {
     if (!response.ok) {
       throw new Error('Failed to fetch chapter list');
     }
+    
+    // 检查响应内容长度
+    const contentLength = response.headers.get('content-length');
+    if (contentLength === '0') {
+      console.log('服务器返回了空响应体，可能是没有章节');
+      // 返回空数组
+      return [];
+    }
+    
     return await response.json();
   } catch (error) {
     console.error('Error fetching chapter list:', error);

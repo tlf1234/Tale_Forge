@@ -20,6 +20,7 @@ interface Props {
   }
 }
 
+// 章节列表页面
 export default function ChaptersPage({ params }: Props) {
   const { id } = params
   const [chapters, setChapters] = useState<Chapter[]>([])

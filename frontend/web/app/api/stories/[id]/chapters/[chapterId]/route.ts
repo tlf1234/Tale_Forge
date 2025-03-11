@@ -82,30 +82,37 @@ export async function GET(
     // 调用后端 API 获取章节详情
     const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}/chapters/${chapterId}`);
     
+    // 处理错误响应
     if (!response.ok) {
-      // 尝试解析错误响应，但不要在解析失败时抛出额外错误
-      let errorMessage = '获取章节失败';
-      try {
-        const errorData = await response.json();
-        if (errorData && errorData.error) {
-          errorMessage = errorData.error;
-        }
-      } catch (parseError) {
-        // JSON解析错误，使用默认错误信息
-        console.error('解析错误响应失败:', parseError);
-      }
-      
-      // 返回适当的状态码
+      // 尝试获取错误信息，如果解析失败则使用默认错误信息
+      const errorData = await response.json().catch(() => ({ error: '获取章节失败' }));
       return NextResponse.json(
-        { error: errorMessage },
+        { error: errorData.error || '获取章节失败' },
         { status: response.status }
       );
     }
     
-    // 尝试解析响应JSON，处理可能的解析错误
-    let chapter;
+    // 检查响应内容长度
+    const contentLength = response.headers.get('content-length');
+    if (contentLength === '0') {
+      // 空响应体表示没有找到数据，返回空章节对象
+      console.log('服务器返回了空响应体，可能是章节不存在');
+      return NextResponse.json({
+        id: chapterId,
+        title: '',
+        content: '',
+        order: 0,
+        wordCount: 0,
+        status: 'draft',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+    }
+    
+    // 解析响应数据
     try {
-      chapter = await response.json();
+      const chapter = await response.json();
+      return NextResponse.json(chapter);
     } catch (parseError) {
       console.error('解析章节数据失败:', parseError);
       return NextResponse.json(
@@ -113,8 +120,6 @@ export async function GET(
         { status: 500 }
       );
     }
-    
-    return NextResponse.json(chapter);
   } catch (error) {
     console.error('获取章节失败:', error);
     return NextResponse.json(

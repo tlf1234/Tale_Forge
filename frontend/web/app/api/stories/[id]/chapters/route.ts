@@ -95,6 +95,14 @@ export async function GET(
     // 尝试解析响应JSON，处理可能的解析错误
     let chapters;
     try {
+      // 检查响应内容长度
+      const contentLength = response.headers.get('content-length');
+      if (contentLength === '0') {
+        // 空响应体表示没有找到数据，返回空数组
+        console.log('服务器返回了空响应体，可能是没有章节');
+        return NextResponse.json([]);
+      }
+      
       chapters = await response.json();
     } catch (parseError) {
       console.error('解析章节列表数据失败:', parseError);
