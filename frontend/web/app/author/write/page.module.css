@@ -358,11 +358,22 @@
 
 .chapterTitle {
   flex: 1;
-  font-size: 0.8rem;
-  color: #374151;
-  text-decoration: none !important;
-  border-bottom: none !important;
-  background-color: transparent !important;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+.wordCount {
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-weight: 400;
+  display: inline-flex;
+  align-items: center;
+}
+
+.divider {
+  margin: 0 0.5rem;
+  color: #9ca3af;
 }
 
 .chapterTitle::after,
@@ -390,11 +401,6 @@
   gap: 0.5rem;
   font-size: 0.7rem;
   margin-top: 0.1rem;
-}
-
-.wordCount {
-  font-size: 0.7rem;
-  color: #64748b;
 }
 
 .chapterStatus {
@@ -1025,9 +1031,61 @@
 
 .writingStats {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 1rem;
+  color: #6b7280;
+}
+
+.writingStatsRight {
+  display: flex;
   gap: 2rem;
-  color: #64748b;
-  font-size: 0.875rem;
+}
+
+.currentStoryInfo {
+  display: flex;
+  align-items: center;
+  font-weight: 530;
+  color: #1f2937;
+}
+
+.storyTitle {
+  font-size: 1.2rem;
+  color: #2563eb;
+  margin-left: 1.5rem;
+}
+
+.divider {
+  margin: 0 0.5rem;
+  color: #9ca3af;
+}
+
+.chapterTitle {
+  font-size: 1rem;
+  color: #4b5563;
+}
+
+@media (prefers-color-scheme: dark) {
+  .currentStoryInfo {
+    color: #e5e7eb;
+  }
+  
+  .storyTitle {
+    color: #e5e7eb;
+  }
+  
+  .divider {
+    color: #6b7280;
+  }
+  
+  .chapterTitle {
+    color: #d1d5db;
+  }
+  
+  .wordCount {
+    color: #9ca3af;
+  }
 }
 
 .outlinePanel {
@@ -1148,7 +1206,7 @@
 }
 
 .wordCount {
-  font-size: 0.75rem;
+  font-size: 0.95rem;
   color: #64748b;
 }
 
@@ -2354,22 +2412,22 @@
 
 /* 章节列表底部边界区域 */
 .chapterListBottomBoundary {
-  height: 100px; /* 增加高度，确保有足够的空间 */
-  width: 100%;
-  margin-top: 20px;
-  margin-bottom: 20px; /* 添加底部外边距 */
+  height: 100px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 1rem;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.875rem;
 }
 
-/* 底部边界内容 */
 .bottomBoundaryContent {
-  padding: 10px 20px;
-  background-color: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  color: #6b7280;
-  font-size: 0.8rem;
-  text-align: center;
+  background-color: #f3f4f6;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
 }

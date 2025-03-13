@@ -61,42 +61,59 @@ declare module '@tiptap/core' {
   }
 }
 
-// 字数统计组件
-const WordCount = memo(({ editor }: { editor: Editor | null }) => {
-  const [wordCount, setWordCount] = useState(0);
+// 添加自定义扩展来处理 Tab 键
+const TabHandler = Extension.create({
+  name: 'tabHandler',
+  
+  addKeyboardShortcuts() {
+    return {
+      Tab: ({ editor }) => {
+        // 阻止默认行为
+        const event = window.event;
+        if (event) {
+          event.preventDefault();
+        }
+        
+        // 插入不间断空格而不是使用缩进功能
+        return editor.commands.insertContent('\u00A0\u00A0\u00A0\u00A0');
+      },
+      'Shift-Tab': ({ editor }) => {
+        // 阻止默认行为
+        const event = window.event;
+        if (event) {
+          event.preventDefault();
+        }
+        
+        // 使用减少缩进功能
+        return editor.commands.outdent();
+      }
+    }
+  },
+})
 
-  useEffect(() => {
-    if (!editor) return;
-
-    // 更新字数的函数
-    const updateWordCount = () => {
-      const text = editor.getText();
-      const count = text.replace(/\s+/g, '').length;
-      setWordCount(count);
-    };
-
-    // 初始计算
-    updateWordCount();
-
-    // 监听编辑器内容变化
-    editor.on('update', updateWordCount);
-
-    return () => {
-      editor.off('update', updateWordCount);
-    };
-  }, [editor]);
-
-  return (
-    <div className={styles.wordCount}>
-      <span>{wordCount} 字</span>
-    </div>
-  );
-});
-
-WordCount.displayName = 'WordCount';
+// 添加自定义扩展来处理键盘快捷键
+const KeyboardShortcuts = Extension.create({
+  name: 'keyboardShortcuts',
+  
+  addKeyboardShortcuts() {
+    return {
+      // 保存快捷键
+      'Mod-s': () => {
+        // 触发保存按钮点击
+        const saveButton = document.querySelector(`.${styles.saveButton}`) as HTMLButtonElement;
+        if (saveButton) {
+          saveButton.click();
+        }
+        return true;
+      },
+      
+      // 其他快捷键可以在这里添加
+    }
+  },
+})
 
 // 工具栏组件
-const MenuBar = memo(({ editor, onImageClick }: { editor: Editor | null, onImageClick: () => void }) => {
+const MenuBar = memo(({ editor, onImageClick, onSave }: { editor: Editor | null, onImageClick: () => void, onSave?: () => void }) => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showFontSize, setShowFontSize] = useState(false);
@@ -164,6 +181,21 @@ const MenuBar = memo(({ editor, onImageClick }: { editor: Editor | null, onImage
     event.target.value = '';
   }, [editor]);
 
+  // 添加插入缩进的函数
+  const insertIndent = useCallback(() => {
+    if (!editor) return;
+    console.log('通过按钮插入缩进');
+    editor.commands.insertContent('    ');
+  }, [editor]);
+
+  const handleSave = useCallback(() => {
+    if (onSave) {
+      onSave();
+    } else {
+      console.log('保存功能未实现');
+    }
+  }, [onSave]);
+
   if (!editor) return null;
 
   return (
@@ -206,6 +238,13 @@ const MenuBar = memo(({ editor, onImageClick }: { editor: Editor | null, onImage
           title="减少缩进"
         >
           <FaOutdent />
+        </button>
+        <button
+          onClick={insertIndent}
+          title="插入空格缩进"
+          className={styles.indentButton}
+        >
+          空格缩进
         </button>
       </div>
 
@@ -324,10 +363,9 @@ const MenuBar = memo(({ editor, onImageClick }: { editor: Editor | null, onImage
       </div>
 
       <div className={styles.rightTools}>
-        <WordCount editor={editor} />
         <button
-          onClick={() => {/* TODO: 实现保存功能 */}}
-          title="保存"
+          onClick={handleSave}
+          title="保存 (Ctrl+S)"
           className={styles.saveButton}
         >
           <FaSave />
@@ -347,6 +385,40 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
   placeholder = '开始写作...',
   onSave
 }) => {
+  // 添加自定义的 Tab 处理函数
+  const handleTabKey = useCallback((editor: Editor) => {
+    console.log('自定义 Tab 处理函数被调用');
+    
+    // 方法 1: 使用 insertContent
+    try {
+      editor.commands.insertContent('    ');
+      return true;
+    } catch (error) {
+      console.error('方法 1 失败:', error);
+    }
+    
+    // 方法 2: 使用 insertText
+    try {
+      const { state, view } = editor;
+      const { tr } = state;
+      const transaction = tr.insertText('    ', state.selection.from, state.selection.to);
+      view.dispatch(transaction);
+      return true;
+    } catch (error) {
+      console.error('方法 2 失败:', error);
+    }
+    
+    // 方法 3: 使用 chain
+    try {
+      editor.chain().focus().insertContent('    ').run();
+      return true;
+    } catch (error) {
+      console.error('方法 3 失败:', error);
+    }
+    
+    return false;
+  }, []);
+  
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -391,6 +463,8 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
       FontSize,
       Indent,
       ImageExtension,
+      TabHandler,
+      KeyboardShortcuts,
     ],
     content: initialContent,
     editable,
@@ -425,19 +499,52 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
     }
   }, [editor, initialContent])
 
+  // 添加全局键盘事件监听器
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 如果按下 Ctrl+S
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault(); // 阻止浏览器默认的保存行为
+        if (onSave) {
+          onSave();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onSave]);
+
   if (!editor) {
     return null
   }
 
   return (
     <div className={styles.editor}>
-      {editable && <MenuBar editor={editor} onImageClick={() => {}} />}
+      {editable && <MenuBar editor={editor} onImageClick={() => {}} onSave={onSave} />}
       <div className={editable ? styles.content : styles.previewContent}>
         <EditorContent 
           editor={editor} 
           spellCheck="false" 
           autoCorrect="off" 
-          autoCapitalize="off" 
+          autoCapitalize="off"
+          className={styles.preserveWhitespace}
+          onKeyDown={(e) => {
+            // 处理 Tab 键
+            if (e.key === 'Tab') {
+              e.preventDefault(); // 阻止默认行为
+              console.log('Tab 键被按下，调用自定义处理函数');
+              
+              if (editor) {
+                const success = handleTabKey(editor);
+                console.log('Tab 键处理结果:', success ? '成功' : '失败');
+              } else {
+                console.error('编辑器实例不存在');
+              }
+            }
+          }}
         />
       </div>
     </div>

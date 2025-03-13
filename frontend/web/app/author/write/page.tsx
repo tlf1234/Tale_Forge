@@ -36,6 +36,14 @@ import { useAccount } from 'wagmi'
 import { ethers } from 'ethers'
 
 import { CONTRACT_ADDRESSES,CONTRACT_ABIS } from '@/constants/contracts'
+import { Story as StoryType, Chapter as ChapterType, Author, StoryStats } from '@/types/story'
+
+// 扩展 Story 类型
+interface Story extends StoryType {
+  chapterCount: number;
+  publishedChapterCount: number;
+  draftChapterCount: number;
+}
 
 // 定义IconButton的类型
 interface IconButtonProps {
@@ -101,7 +109,9 @@ interface Story {
   category: string;
   wordCount: number;
   targetWordCount: number;
-  chapterCount?: number;
+  chapterCount: number;
+  publishedChapterCount: number;
+  draftChapterCount: number;
 }
 
 
@@ -251,8 +261,8 @@ export default function AuthorWrite() {
   
   
   // 章节管理
-  const [chapters, setChapters] = useState<Chapter[]>([])
-  const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null)
+  const [chapters, setChapters] = useState<ChapterType[]>([])
+  const [currentChapter, setCurrentChapter] = useState<ChapterType | null>(null)
   // 章节加载状态
   const [isChapterLoading, setIsChapterLoading] = useState(true);
 
@@ -273,6 +283,7 @@ export default function AuthorWrite() {
   // 文件上传相关
   const coverInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const editorRef = useRef<any>(null) // 添加编辑器引用
 
   // 大纲管理
   const [outlines, setOutlines] = useState<Outline[]>([])
@@ -399,52 +410,139 @@ export default function AuthorWrite() {
   // 加载作品列表
   const loadStories = async () => {
     try {
-      setIsLoadingStories(true)
+      setIsLoadingStories(true);
       
       // 检查钱包地址
       if (!address) {
-        console.log('未找到钱包地址，跳过加载作品列表')
-        return
+        console.log('未找到钱包地址，跳过加载作品列表');
+        return;
       }
       
-      console.log('开始加载作品列表，作者地址:', address)
-      const response = await fetch(`/api/authors/${address}/stories`)
+      console.log('开始加载作品列表，作者地址:', address);
+      const response = await fetch(`/api/authors/${address}/stories`);
       
       if (!response.ok) {
-        const errorData = await response.json()
-        console.error('API错误响应:', errorData)
-        throw new Error(errorData.error || '加载作品列表失败')
+        const errorData = await response.json();
+        console.error('API错误响应:', errorData);
+        throw new Error(errorData.error || '加载作品列表失败');
       }
       
-      const data = await response.json()
-      console.log('成功加载作品列表:', data)
+      const data = await response.json();
+      console.log('API返回的原始数据:', data);
 
       // 显示同步状态或错误信息
       if (data.message) {
-        setMessage(data.message)
+        setMessage(data.message);
       } else if (data.error) {
-        setMessage(data.error)
+        setMessage(data.error);
       } else {
-        setMessage('')
+        setMessage('');
       }
       
       // 如果有作品列表则显示
-      if (data.stories.length > 0) {
-        setStories(data.stories)
+      if (data.stories && data.stories.length > 0) {
+        console.log('找到作品列表，开始处理每个作品...');
+        
+        // 获取每个作品的详细信息
+        const getStoryDetails = async (story: Story) => {
+          try {
+            console.log('开始获取作品详细信息:', story);
+            
+            // 获取作品的章节列表
+            const chaptersResponse = await fetch(`/api/stories/${story.id}/chapters`);
+            if (!chaptersResponse.ok) {
+              console.error('获取章节列表失败:', chaptersResponse.status);
+              throw new Error('获取章节列表失败');
+            }
+            
+            const chaptersData = await chaptersResponse.json();
+            console.log('API返回的章节数据:', chaptersData);
+            
+            // 确保 chapters 是数组
+            const chapters = Array.isArray(chaptersData) ? chaptersData : [];
+            console.log('处理后的章节列表:', chapters);
+            
+            // 修改章节统计逻辑 - 只有明确标记为已发布的才算已发布章节，其他都算草稿
+            const publishedCount = chapters.filter(ch => 
+              ch.status?.toLowerCase() === 'published'
+            ).length;
+            
+            // 所有非已发布的章节都视为草稿
+            const draftCount = chapters.filter(ch => 
+              ch.status?.toLowerCase() !== 'published'
+            ).length;
+            
+            // 计算总字数（包括所有章节的字数）
+            const totalWordCount = chapters.reduce((sum, ch) => {
+              const chapterWordCount = typeof ch.wordCount === 'number' && !isNaN(ch.wordCount) ? ch.wordCount : 0;
+              console.log(`章节 ${ch.id} 字数:`, chapterWordCount);
+              return sum + chapterWordCount;
+            }, 0);
+            
+            // 创建扩展的故事对象
+            const storyDetails: Story = {
+              ...story,
+              wordCount: totalWordCount,
+              targetWordCount: typeof story.targetWordCount === 'number' && !isNaN(story.targetWordCount) ? story.targetWordCount : 100000,
+              chapterCount: chapters.length,
+              publishedChapterCount: publishedCount,
+              draftChapterCount: draftCount,
+              // 确保其他必需字段都存在
+              description: story.description || '',
+              coverCid: story.coverCid || '',
+              contentCid: story.contentCid || '',
+              author: story.author || { id: '', address: '', name: '' },
+              category: story.category || '',
+              status: story.status || 'DRAFT',
+              isNFT: story.isNFT || false,
+              stats: story.stats || { likes: 0, views: 0, comments: 0 },
+              createdAt: story.createdAt || new Date().toISOString(),
+              updatedAt: story.updatedAt || new Date().toISOString()
+            };
+            
+            console.log('处理后的作品详细信息:', storyDetails);
+            return storyDetails;
+          } catch (error) {
+            console.error(`获取作品 ${story.id} 的详细信息失败:`, error);
+            return {
+              ...story,
+              wordCount: 0,
+              targetWordCount: typeof story.targetWordCount === 'number' && !isNaN(story.targetWordCount) ? story.targetWordCount : 100000,
+              chapterCount: 0,
+              publishedChapterCount: 0,
+              draftChapterCount: 0,
+              description: story.description || '',
+              coverCid: story.coverCid || '',
+              contentCid: story.contentCid || '',
+              author: story.author || { id: '', address: '', name: '' },
+              category: story.category || '',
+              status: story.status || 'DRAFT',
+              isNFT: story.isNFT || false,
+              stats: story.stats || { likes: 0, views: 0, comments: 0 },
+              createdAt: story.createdAt || new Date().toISOString(),
+              updatedAt: story.updatedAt || new Date().toISOString()
+            };
+          }
+        };
+        
+        const storiesWithDetails = await Promise.all(data.stories.map(getStoryDetails));
+        console.log('最终处理后的作品列表:', storiesWithDetails);
+        setStories(storiesWithDetails);
       } else {
-        setStories([])
+        console.log('没有找到作品列表');
+        setStories([]);
         if (!data.message && !data.error) {
-          setMessage('暂无作品')
+          setMessage('暂无作品');
         }
       }
     } catch (error) {
-      console.error('加载作品列表失败:', error)
-      showError(error, '加载作品列表失败')
-      setStories([]) // 设置空数组确保界面正常显示
+      console.error('加载作品列表失败:', error);
+      showError(error, '加载作品列表失败');
+      setStories([]); // 设置空数组确保界面正常显示
     } finally {
-      setIsLoadingStories(false)
+      setIsLoadingStories(false);
     }
-  }
+  };
 
   // 选择作品
   const handleStorySelect = async (story: Story) => {
@@ -827,21 +925,14 @@ export default function AuthorWrite() {
       
       // 检查响应内容长度
       let data;
-      const contentLength = response.headers.get('content-length');
-      if (contentLength === '0') {
-        console.log('服务器返回了空响应体，可能是没有章节');
-        // 使用空数组
-        data = [];
-      } else {
-        // 尝试解析响应，无论成功与否
-        try {
-          data = await response.json();
-        } catch (parseError) {
-          console.error('解析章节列表数据失败:', parseError);
-          throw new Error('解析章节列表数据失败，请稍后重试');
-        }
+      // 尝试解析响应，无论成功与否
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('解析章节列表数据失败:', parseError);
+        throw new Error('解析章节列表数据失败，请稍后重试');
       }
-      
+
       // 检查响应状态
       if (!response.ok) {
         // 如果响应包含错误信息，则使用它
@@ -860,7 +951,7 @@ export default function AuthorWrite() {
       
       console.log('获取到章节列表:', data);
       
-      const sortedChapters = data.sort((a: Chapter, b: Chapter) => a.order - b.order);
+      const sortedChapters = data.sort((a: ChapterType, b: ChapterType) => a.order - b.order);
       setChapters(sortedChapters);
 
       if (sortedChapters.length === 0) {
@@ -899,6 +990,8 @@ export default function AuthorWrite() {
       // 立即设置当前章节ID，以便立即更新UI
       setCurrentChapterId(chapterId);
       setIsChapterLoading(true);
+
+      console.log('【loadChapter】函数被调用，章节ID:', chapterId);
       
       // 先清空编辑器内容，避免显示旧内容
       setContent('');
@@ -909,6 +1002,7 @@ export default function AuthorWrite() {
         throw new Error('未找到当前故事');
       }
       
+      // 获取章节内容
       const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`);
       
       // 如果响应不成功，直接抛出错误
@@ -917,26 +1011,33 @@ export default function AuthorWrite() {
         throw new Error(errorData.error || `加载章节失败 (${response.status})`);
       }
       
-      // 检查响应内容长度 - 空响应体现在由API路由处理，返回空章节对象
-      // 所以这里不需要特殊处理
-      
       // 响应成功，解析数据
       const chapter = await response.json().catch(error => {
         console.error('解析章节数据失败:', error);
         throw new Error('章节数据格式错误');
       });
       
+      console.log('【loadChapter】API返回的章节:', chapter);
+      console.log('【loadChapter】API返回的章节:', chapter ? chapter.title : '未返回章节');
+      
+      const wordCount = calculateWordCount(chapter.content || '');
+      chapter.wordCount = wordCount;
+      console.log('【loadChapter】章节字数:', wordCount);
+      
+      // 更新显示的字数
+      setDisplayWordCount(wordCount);
+
       // 更新状态
       setCurrentChapter(chapter);
       setContent(chapter.content || ''); // 确保content不为null
       setLastSavedContent(chapter.content || '');
       setHasUnsavedChanges(false);
+
+     
+
       return chapter;
     } catch (error) {
-      // 加载失败时，确保清空编辑器内容和当前章节
-      setContent('');
-      setLastSavedContent('');
-      setCurrentChapter(null);
+
       showError(error, '加载章节失败，请稍后重试');
       return null;
     } finally {
@@ -1132,7 +1233,7 @@ export default function AuthorWrite() {
         throw new Error('获取章节列表失败');
       }
       const updatedChapters = await response.json();
-      const sortedChapters = updatedChapters.sort((a: Chapter, b: Chapter) => a.order - b.order);
+      const sortedChapters = updatedChapters.sort((a: ChapterType, b: ChapterType) => a.order - b.order);
       setChapters(sortedChapters);
       return sortedChapters;
     } catch (error) {
@@ -1186,6 +1287,14 @@ export default function AuthorWrite() {
     const plainText = content.replace(/<[^>]*>/g, '').replace(/\s+/g, '');
     return plainText.length;
   };
+
+  // 获取当前编辑器字数
+  const getCurrentWordCount = useCallback((): number => {
+    if (!editorRef.current) return 0;
+    const text = editorRef.current.getText();
+    if (!text) return 0;
+    return text.replace(/\s+/g, '').length;
+  }, []);
 
   // 处理编辑章节按钮点击
   const handleEditClick = (e: React.MouseEvent, chapterId: string) => {
@@ -1250,7 +1359,7 @@ export default function AuthorWrite() {
   };
 
   // 修改章节更新函数
-  const handleChapterUpdate = (chapterId: string, field: keyof Chapter, value: any) => {
+  const handleChapterUpdate = (chapterId: string, field: keyof ChapterType, value: any) => {
     setChapters(chapters.map(ch => 
       ch.id === chapterId ? { ...ch, [field]: value } : ch
     ))
@@ -1271,59 +1380,6 @@ export default function AuthorWrite() {
     setOutlines([...outlines, newOutline])
     setShowOutlineDialog(false)
   }
-
-// 章节排序和统计函数
-  // const processChapters = useCallback((chapterList: Chapter[]) => {
-  //   // 按顺序排序
-  //   const sortedChapters = [...chapterList].sort((a, b) => a.order - b.order);
-    
-  //   // 计算总字数
-  //   let totalWords = 0;
-  //   let todayWords = 0;
-  //   const today = new Date().setHours(0, 0, 0, 0);
-
-  //   sortedChapters.forEach(chapter => {
-  //     // 计算章节字数
-  //     const content = chapter.content || '';
-  //     const wordCount = content.replace(/<[^>]*>/g, '') // 移除 HTML 标签
-  //       .replace(/[\u200B-\u200D\uFEFF]/g, '') // 移除零宽字符
-  //       .trim() // 移除首尾空格
-  //       .replace(/\s+/g, ' ') // 将多个空格替换为单个空格
-  //       .split(/\s+/).length; // 按空格分割并计数
-      
-  //     // 更新章节字数
-  //     chapter.wordCount = wordCount;
-  //     totalWords += wordCount;
-
-  //     // 计算今日字数
-  //     const updateTime = new Date(chapter.updatedAt).setHours(0, 0, 0, 0);
-  //     if (updateTime === today) {
-  //       todayWords += wordCount;
-  //     }
-  //   });
-
-  //   // 更新写作统计
-  //   setWritingStats(prev => ({
-  //     ...prev,
-  //     totalWordCount: totalWords,
-  //     todayWordCount: todayWords
-  //   }));
-
-  //   return sortedChapters;
-  // }, []);
-
-
-  // 处理卷添加
-  // const handleAddVolume = () => {
-  //   const newVolume: Volume = {
-  //     id: Date.now().toString(),
-  //     title: `第${volumes.length + 1}卷`,
-  //     description: '',
-  //     order: volumes.length + 1,
-  //   };
-  //   setVolumes([...volumes, newVolume]);
-  // };
-
 
 
 
@@ -1350,12 +1406,36 @@ export default function AuthorWrite() {
     >
       <FaPlus />
     </button>
+    {/* 这个本意是按钮触发作品章节显示弹窗，以显示更多内容，但是设计上还没有确定，先放一放 */}
+    {/* <button
+      className={`${styles.iconButton}`}
+      onClick={handleShowStorySelector}
+      title="我的作品"
+      style={{ marginLeft: '12px' }}
+    >
+      <FaBook />
+    </button> */}
   </div>
 
   <div className={styles.toolbarCenter}>
     <div className={styles.writingStats}>
-      <span>写作时长: {formatTime(totalWritingTime)}</span>
-      <span>目标字数: {wordCountGoal}</span>
+      {currentStory && (
+        <div className={styles.currentStoryInfo}>
+          <span className={styles.storyTitle}>{currentStory.title}</span>
+          {currentChapter && (
+            <>
+              <span className={styles.divider}>|</span>
+              <span className={styles.chapterTitle}>{currentChapter.title}</span>
+              <span className={styles.divider}>|</span>
+              <span className={styles.wordCount}>{displayWordCount} 字</span>
+            </>
+          )}
+        </div>
+      )}
+      <div className={styles.writingStatsRight}>
+        <span>写作时长: {formatTime(totalWritingTime)}</span>
+        <span>目标字数: {wordCountGoal}</span>
+      </div>
     </div>
   </div>
 
@@ -1408,6 +1488,9 @@ export default function AuthorWrite() {
     // 计算字数
     const currentWordCount = calculateWordCount(newContent);
     console.log('【write/page】计算字数:', currentWordCount);
+    
+    // 更新显示的字数
+    setDisplayWordCount(currentWordCount);
 
     // 使用 localStorage 作为临时存储
     if (currentChapterId) {
@@ -1490,26 +1573,26 @@ export default function AuthorWrite() {
 
 
   // 计算写作统计的 useEffect
-  useEffect(() => {
-  if (!currentChapter) return
+  // useEffect(() => {
+  //   if (!currentChapter) return
 
-  const wordCount = content.length // 使用 content 而不是 currentChapter.content
-  const now = new Date()
-  const duration = (now.getTime() - writingStats.lastSaved.getTime()) / 1000 / 60
+  //   const wordCount = content.length // 使用 content 而不是 currentChapter.content
+  //   const now = new Date()
+  //   const duration = (now.getTime() - writingStats.lastSaved.getTime()) / 1000 / 60
 
-  // 避免在 useEffect 中直接更新依赖项
-  const newStats = {
-    totalWordCount: chapters.reduce((sum, ch) => sum + ch.wordCount, 0),
-    todayWordCount: wordCount,
-    averageSpeed: duration > 0 ? wordCount / duration : 0,
-    writingDuration: duration,
-    lastSaved: now
-  }
+  //   // 避免在 useEffect 中直接更新依赖项
+  //   const newStats = {
+  //     totalWordCount: chapters.reduce((sum, ch) => sum + ch.wordCount, 0),
+  //     todayWordCount: wordCount,
+  //     averageSpeed: duration > 0 ? wordCount / duration : 0,
+  //     writingDuration: duration,
+  //     lastSaved: now
+  //   }
 
-  if (JSON.stringify(newStats) !== JSON.stringify(writingStats)) {
-  setWritingStats(newStats)
-  }
-  }, [content, chapters]) // 只依赖 content 和 chapters
+  //   if (JSON.stringify(newStats) !== JSON.stringify(writingStats)) {
+  //     setWritingStats(newStats)
+  //   }
+  // }, [content, chapters]) // 只依赖 content 和 chapters
 
   // 修改写作时长统计的 useEffect
   useEffect(() => {
@@ -1585,6 +1668,16 @@ export default function AuthorWrite() {
   useEffect(() => {
     console.log('作品选择器显示状态:', showStorySelector)
 }, [showStorySelector])
+
+
+  // 添加一个状态来存储当前字数（实时显示字数，包括初始化时）
+  const [displayWordCount, setDisplayWordCount] = useState(0);
+  // 添加一个 useEffect 来初始化字数显示
+  useEffect(() => {
+    // 初始化字数显示
+    const initialWordCount = calculateWordCount(content);
+    setDisplayWordCount(initialWordCount);
+  }, [content]); // 只在 content 变化时更新
 
 
   /*
@@ -1693,7 +1786,7 @@ export default function AuthorWrite() {
                           height: '80vh',
                           display: 'flex',
                           flexDirection: 'column',
-                          overflow: 'hidden' // 防止内容溢出
+                          overflow: 'hidden'
                         }}>
                           {/* 标题栏 */}
                           <div style={{
@@ -1726,53 +1819,86 @@ export default function AuthorWrite() {
                           {/* 列表内容区 */}
                           <div style={{
                             flex: 1,
-                            overflow: 'auto',
-                            marginRight: '-8px', // 为滚动条预留空间
-                            paddingRight: '8px'  // 补偿右侧间距
+                            overflowY: 'auto',
+                            padding: '0 4px'
                           }}>
-                            <div style={{
-                              display: 'grid',
-                              gap: '16px'
-                            }}>
-                              {stories.map(story => (
-                                <div
-                                  key={story.id}
-                                  onClick={() => handleStorySelect(story)}
-                                  className={styles.storyItem}
-                                  style={{
-                                    padding: '20px',
-                                    border: '1px solid #e5e7eb',
-                                    borderRadius: '12px',
-                                    cursor: 'pointer',
-                                    backgroundColor: currentStory?.id === story.id ? '#f3f4f6' : 'white',
-                                    transition: 'all 0.2s ease',
-                                  }}
-                                >
-                                  <h4 style={{ 
-                                    margin: '0 0 12px 0',
-                                    fontSize: '1.25rem',
+                            {stories.map((story) => (
+                              <div
+                                key={story.id}
+                                onClick={() => handleStorySelect(story)}
+                                style={{
+                                  padding: '20px',
+                                  borderRadius: '12px',
+                                  backgroundColor: currentStory?.id === story.id ? '#f3f4f6' : 'white',
+                                  cursor: 'pointer',
+                                  marginBottom: '16px',
+                                  transition: 'all 0.2s',
+                                  border: '1px solid #e5e7eb',
+                                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                  e.currentTarget.style.transform = 'translateY(-1px)';
+                                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (currentStory?.id !== story.id) {
+                                    e.currentTarget.style.backgroundColor = 'white';
+                                  }
+                                  e.currentTarget.style.transform = 'none';
+                                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
+                                }}
+                              >
+                                <div style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  marginBottom: '12px'
+                                }}>
+                                  <h4 style={{
+                                    margin: 0,
+                                    fontSize: '1.125rem',
                                     fontWeight: '600',
                                     color: '#111827'
                                   }}>{story.title}</h4>
-                                  <p style={{ 
-                                    margin: '0 0 12px 0',
-                                    color: '#4b5563',
-                                    fontSize: '1rem'
+                                  <span style={{
+                                    fontSize: '0.875rem',
+                                    color: '#6b7280',
+                                    backgroundColor: '#f3f4f6',
+                                    padding: '4px 12px',
+                                    borderRadius: '16px',
+                                    fontWeight: '500'
                                   }}>
                                     {STORY_TYPES.find(t => t.id === story.category)?.name || story.category}
-                                  </p>
-                                  <div style={{ 
-                                    display: 'flex',
-                                    gap: '24px',
-                                    fontSize: '0.875rem',
-                                    color: '#6b7280'
-                                  }}>
-                                    <span>字数：{story.wordCount || 0}</span>
-                                    <span>章节：{story.chapterCount || 0}</span>
+                                  </span>
+                                </div>
+                                
+                                <div style={{
+                                  display: 'flex',
+                                  gap: '16px',
+                                  fontSize: '0.875rem',
+                                  color: '#6b7280',
+                                  marginTop: '8px'
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ color: '#4b5563', fontWeight: '500' }}>字数:</span>
+                                    <span>{story.wordCount.toLocaleString()} / {story.targetWordCount.toLocaleString()}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ color: '#4b5563', fontWeight: '500' }}>总章节:</span>
+                                    <span>{story.chapterCount}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ color: '#10b981', fontWeight: '500' }}>已发布:</span>
+                                    <span>{story.publishedChapterCount}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ color: '#f59e0b', fontWeight: '500' }}>草稿:</span>
+                                    <span>{story.draftChapterCount}</span>
                                   </div>
                                 </div>
-                              ))}
-                            </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       </>
@@ -1812,7 +1938,13 @@ export default function AuthorWrite() {
                               className={`${styles.chapterItem} ${
                                 currentChapter?.id === chapter.id ? styles.activeChapter : ''
                               } ${currentChapterId === chapter.id ? styles.selected : ''}`}
-                              onClick={() => loadChapter(chapter.id)}
+                              onClick={() => {
+                                // 立即设置当前章节，不等待API请求完成
+                                // setCurrentChapterId(chapter.id);
+                                setCurrentChapter(chapter);
+                                // 然后加载章节内容
+                                loadChapter(chapter.id);
+                              }}
                               data-chapter-id={chapter.id}
                               data-current-chapter-id={currentChapterId}
                               data-is-selected={currentChapterId === chapter.id ? 'true' : 'false'}
@@ -1837,7 +1969,7 @@ export default function AuthorWrite() {
                                 <div className={styles.chapterInfo}>
                                   <span className={styles.wordCount}>
                                     {chapter.wordCount}字
-                                  </span>
+          </span>
                                   <select
                                     value={chapter.status}
                                     onChange={(e) => handleChapterUpdate(chapter.id, 'status', e.target.value)}
@@ -2209,7 +2341,7 @@ export default function AuthorWrite() {
                         <h3 className={styles.previewTitle}>{storyInfo.title}</h3>
                         <span className={styles.previewType}>
                           {STORY_TYPES.find(t => t.id === storyInfo.type)?.name || '未选择类型'}
-                        </span>
+            </span>
                         <div className={styles.previewDescription}>
                           {storyInfo.description || '暂无简介'}
                         </div>
@@ -2250,8 +2382,8 @@ export default function AuthorWrite() {
                           {createStatus === CreateStatus.SAVING_DATABASE && '正在保存数据...'}
                           {createStatus === CreateStatus.COMPLETED && '创建完成！'}
                         </div>
-                      </div>
-                    )}
+        </div>
+      )}
                     <div className={styles.previewActions}>
                       <button
                         className={styles.cancelButton}
@@ -2277,7 +2409,7 @@ export default function AuthorWrite() {
                           </>
                         )}
                       </button>
-                    </div>
+    </div>
                   </div>
                 </div>
               )}

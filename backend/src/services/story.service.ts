@@ -554,18 +554,27 @@ export class StoryService {
     throw new Error('章节不属于指定的故事')
   }
 
-  // 如果是草稿状态，直接返回content
-  // @ts-ignore - 忽略类型检查，因为我们已经修改了 Prisma 模型
-  if (chapter.status === 'DRAFT' && chapter.content) {
-    return chapter
+  // 如果是草稿状态，直接返回chapter（无论content是否为空）
+  if (chapter.status === 'DRAFT') {
+    // 确保content字段存在，如果不存在则设为空字符串
+    return { ...chapter, content: chapter.content || '' };
   }
 
   // 如果是已发布状态，从IPFS获取内容
   if (chapter.contentCID) {
-    const content = await getFromIPFS(chapter.contentCID)
-    return { ...chapter, content }
+    try {
+      const content = await getFromIPFS(chapter.contentCID)
+      return { ...chapter, content }
+    } catch (error) {
+      console.error(`从IPFS获取内容失败 (CID: ${chapter.contentCID}):`, error)
+      // 即使IPFS获取失败，也返回章节数据，但内容为空
+      return { ...chapter, content: '' }
+    }
   }
-
+  
+  // 如果既不是草稿也没有contentCID，返回章节数据但内容为空
+  console.warn(`章节 ${id} 既不是草稿状态也没有contentCID，返回空内容`)
+  return { ...chapter, content: '' }
  }
 
 }

@@ -65,6 +65,8 @@
 .content {
   padding: 1rem 2rem;
   min-height: 300px;
+  position: relative;
+  z-index: 1;
 }
 
 /* 字号下拉菜单 */
@@ -162,7 +164,30 @@
   color: #1a1a1a !important;
 }
 
-/* 编辑器内容样式 */
+/* 空格缩进按钮样式 */
+.indentButton {
+  width: auto !important;
+  padding: 0 0.5rem !important;
+  font-size: 0.75rem !important;
+  background-color: #f3f4f6 !important;
+  border: 1px solid #e5e7eb !important;
+  color: #374151 !important;
+}
+
+.indentButton:hover {
+  background-color: #e5e7eb !important;
+  color: #111827 !important;
+}
+
+/* 确保空格被保留的样式 */
+.preserveWhitespace {
+  white-space: pre-wrap !important;
+}
+
+.preserveWhitespace :global(.ProseMirror) {
+  white-space: pre-wrap !important;
+}
+
 .content :global(.ProseMirror) {
   outline: none;
   min-height: 300px;
@@ -170,6 +195,9 @@
   -webkit-spell-check: false;
   -ms-spell-check: false;
   spellcheck: false;
+  position: relative;
+  z-index: 1;
+  tab-index: 0;
 }
 
 /* 禁用浏览器的拼写检查样式 */
@@ -800,4 +828,10 @@
   height: auto;
   margin: 0.3em 0;
   line-height: 0;
+}
+
+.editor {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
 } 

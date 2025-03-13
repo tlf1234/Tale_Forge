@@ -78,12 +78,11 @@ export async function GET(
 ) {
   try {
     const { id: storyId, chapterId } = params;
-    
     // 调用后端 API 获取章节详情
     const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}/chapters/${chapterId}`);
-    
     // 处理错误响应
     if (!response.ok) {
+      console.log('【GET】章节数据错误:', response);
       // 尝试获取错误信息，如果解析失败则使用默认错误信息
       const errorData = await response.json().catch(() => ({ error: '获取章节失败' }));
       return NextResponse.json(
@@ -92,27 +91,13 @@ export async function GET(
       );
     }
     
-    // 检查响应内容长度
-    const contentLength = response.headers.get('content-length');
-    if (contentLength === '0') {
-      // 空响应体表示没有找到数据，返回空章节对象
-      console.log('服务器返回了空响应体，可能是章节不存在');
-      return NextResponse.json({
-        id: chapterId,
-        title: '',
-        content: '',
-        order: 0,
-        wordCount: 0,
-        status: 'draft',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-    }
-    
     // 解析响应数据
     try {
+
+      console.log('【GET】章节数据，解析响应数据:', response);
       const chapter = await response.json();
       return NextResponse.json(chapter);
+      
     } catch (parseError) {
       console.error('解析章节数据失败:', parseError);
       return NextResponse.json(
