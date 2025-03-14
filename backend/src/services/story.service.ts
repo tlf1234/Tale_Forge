@@ -510,7 +510,9 @@ export class StoryService {
 
 
   // 获取章节列表
-  async getChaptersByStoryId(storyId: string) {
+  async getChaptersByStoryId(storyId: string, page: number = 1, limit: number = 50) {
+    const skip = (page - 1) * limit;
+    
     return await prisma.chapter.findMany({
       where: {
         storyId: storyId
@@ -518,12 +520,120 @@ export class StoryService {
       orderBy: {
         order: 'asc'
       },
+      skip,
+      take: limit,
       select: {
         id: true,
         title: true,
         wordCount: true,
         order: true,
         status: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+  }
+
+  // 获取章节统计信息
+  async getChapterStats(storyId: string) {
+    // 获取章节总数
+    const totalCount = await prisma.chapter.count({
+      where: {
+        storyId: storyId
+      }
+    });
+    
+    // 获取已发布章节数
+    const publishedCount = await prisma.chapter.count({
+      where: {
+        storyId: storyId,
+        status: 'PUBLISHED'
+      }
+    });
+    
+    // 获取草稿章节数
+    const draftCount = await prisma.chapter.count({
+      where: {
+        storyId: storyId,
+        status: {
+          not: 'PUBLISHED'
+        }
+      }
+    });
+    
+    return {
+      total: totalCount,
+      published: publishedCount,
+      draft: draftCount
+    };
+  }
+  
+  // 获取最近的章节
+  async getRecentChapters(storyId: string, limit: number = 10) {
+    return await prisma.chapter.findMany({
+      where: {
+        storyId: storyId
+      },
+      orderBy: {
+        order: 'desc' // 按章节序号降序排列
+      },
+      take: limit,
+      select: {
+        id: true,
+        title: true,
+        order: true,
+        status: true,
+        wordCount: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+  }
+  
+  // 获取指定范围的章节
+  async getChaptersByRange(storyId: string, start: number, end: number) {
+    return await prisma.chapter.findMany({
+      where: {
+        storyId: storyId,
+        order: {
+          gte: end,
+          lte: start
+        }
+      },
+      orderBy: {
+        order: 'desc' // 按章节序号降序排列
+      },
+      select: {
+        id: true,
+        title: true,
+        order: true,
+        status: true,
+        wordCount: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+  }
+  
+  // 搜索章节
+  async searchChapters(storyId: string, keyword: string) {
+    return await prisma.chapter.findMany({
+      where: {
+        storyId: storyId,
+        title: {
+          contains: keyword,
+          mode: 'insensitive' // 不区分大小写
+        }
+      },
+      orderBy: {
+        order: 'desc' // 按章节序号降序排列
+      },
+      select: {
+        id: true,
+        title: true,
+        order: true,
+        status: true,
+        wordCount: true,
         createdAt: true,
         updatedAt: true
       }

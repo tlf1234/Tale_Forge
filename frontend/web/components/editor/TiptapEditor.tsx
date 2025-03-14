@@ -419,6 +419,7 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
     return false;
   }, []);
   
+  // 创建编辑器实例
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -546,6 +547,9 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
             }
           }}
         />
+        <div className={styles.editorBottomBoundary}>
+          文档结束
+        </div>
       </div>
     </div>
   )

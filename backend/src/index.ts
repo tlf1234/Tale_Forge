@@ -263,17 +263,115 @@ app.post('/api/stories/:storyId/chapters', async (req, res) => {
 app.get('/api/stories/:storyId/chapters', async (req, res) => {
   try {
     console.log('[GET /api/stories/:storyId/chapters] 收到请求:', {
+      storyId: req.params.storyId,
+      page: req.query.page,
+      limit: req.query.limit
+    });
+    
+    const { storyId } = req.params;
+    const page = parseInt(req.query.page as string || '1');
+    const limit = parseInt(req.query.limit as string || '50');
+    
+    // 使用服务层方法获取章节列表
+    const chapters = await storyService.getChaptersByStoryId(storyId, page, limit);
+    
+    res.json(chapters);
+  } catch (error: any) {
+    console.error('[GET /api/stories/:storyId/chapters] 获取章节列表失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// 获取章节统计信息
+app.get('/api/stories/:storyId/chapters/stats', async (req, res) => {
+  try {
+    console.log('[GET /api/stories/:storyId/chapters/stats] 收到请求:', {
       storyId: req.params.storyId
     });
     
     const { storyId } = req.params;
     
-    // 使用服务层方法获取章节列表
-    const chapters = await storyService.getChaptersByStoryId(storyId);
+    // 使用服务层方法获取章节统计信息
+    const stats = await storyService.getChapterStats(storyId);
+    
+    res.json(stats);
+  } catch (error: any) {
+    console.error('[GET /api/stories/:storyId/chapters/stats] 获取章节统计信息失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// 获取最近的章节
+app.get('/api/stories/:storyId/chapters/recent', async (req, res) => {
+  try {
+    console.log('[GET /api/stories/:storyId/chapters/recent] 收到请求:', {
+      storyId: req.params.storyId,
+      limit: req.query.limit
+    });
+    
+    const { storyId } = req.params;
+    const limit = parseInt(req.query.limit as string || '10');
+    
+    // 使用服务层方法获取最近章节
+    const chapters = await storyService.getRecentChapters(storyId, limit);
     
     res.json(chapters);
   } catch (error: any) {
-    console.error('[GET /api/stories/:storyId/chapters] 获取章节列表失败:', error);
+    console.error('[GET /api/stories/:storyId/chapters/recent] 获取最近章节失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// 获取指定范围的章节
+app.get('/api/stories/:storyId/chapters/range', async (req, res) => {
+  try {
+    console.log('[GET /api/stories/:storyId/chapters/range] 收到请求:', {
+      storyId: req.params.storyId,
+      start: req.query.start,
+      end: req.query.end
+    });
+    
+    const { storyId } = req.params;
+    const start = parseInt(req.query.start as string || '0');
+    const end = parseInt(req.query.end as string || '0');
+    
+    // 验证参数
+    if (start <= 0 || end <= 0 || start < end) {
+      return res.status(400).json({ error: '无效的章节范围' });
+    }
+    
+    // 使用服务层方法获取指定范围的章节
+    const chapters = await storyService.getChaptersByRange(storyId, start, end);
+    
+    res.json(chapters);
+  } catch (error: any) {
+    console.error('[GET /api/stories/:storyId/chapters/range] 获取章节范围失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// 搜索章节
+app.get('/api/stories/:storyId/chapters/search', async (req, res) => {
+  try {
+    console.log('[GET /api/stories/:storyId/chapters/search] 收到请求:', {
+      storyId: req.params.storyId,
+      keyword: req.query.keyword
+    });
+    
+    const { storyId } = req.params;
+    const keyword = req.query.keyword as string || '';
+    
+    // 验证参数
+    if (!keyword.trim()) {
+      return res.status(400).json({ error: '搜索关键词不能为空' });
+    }
+    
+    // 使用服务层方法搜索章节
+    const chapters = await storyService.searchChapters(storyId, keyword);
+    
+    res.json(chapters);
+  } catch (error: any) {
+    console.error('[GET /api/stories/:storyId/chapters/search] 搜索章节失败:', error);
     res.status(500).json({ error: error?.message });
   }
 });

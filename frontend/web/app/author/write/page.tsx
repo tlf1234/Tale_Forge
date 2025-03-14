@@ -265,6 +265,16 @@ export default function AuthorWrite() {
   const [currentChapter, setCurrentChapter] = useState<ChapterType | null>(null)
   // 章节加载状态
   const [isChapterLoading, setIsChapterLoading] = useState(true);
+  // 添加章节分页和折叠相关状态
+  const [totalChapters, setTotalChapters] = useState(0);
+  const [recentChapters, setRecentChapters] = useState<ChapterType[]>([]);
+  const [historicalChapters, setHistoricalChapters] = useState<{start: number, end: number, count: number}[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<number[]>([]);
+  const [showAllChapters, setShowAllChapters] = useState(false);
+  const [isLoadingMoreChapters, setIsLoadingMoreChapters] = useState(false);
+  const [chapterSearchKeyword, setChapterSearchKeyword] = useState('');
+  const [filteredChapters, setFilteredChapters] = useState<ChapterType[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   // 简化的状态管理
   const [content, setContent] = useState('')
@@ -907,7 +917,7 @@ export default function AuthorWrite() {
     setNewChapterTitle('');
   };
 
-  // 加载章节列表的函数
+  // 修改加载章节列表的函数
   const loadChapterList = async () => {
     try {
       setIsChapterLoading(true);
@@ -921,67 +931,209 @@ export default function AuthorWrite() {
       }
       console.log('当前故事ID:', storyId);
       
-      const response = await fetch(`/api/stories/${storyId}/chapters`);
-      
-      // 检查响应内容长度
-      let data;
-      // 尝试解析响应，无论成功与否
-      try {
-        data = await response.json();
-      } catch (parseError) {
-        console.error('解析章节列表数据失败:', parseError);
-        throw new Error('解析章节列表数据失败，请稍后重试');
+      // 1. 获取章节统计信息
+      const statsResponse = await fetch(`/api/stories/${storyId}/chapters/stats`);
+      if (!statsResponse.ok) {
+        throw new Error('获取章节统计信息失败');
       }
-
-      // 检查响应状态
-      if (!response.ok) {
-        // 如果响应包含错误信息，则使用它
-        if (data && data.error) {
-          throw new Error(data.error);
-        } else {
-          throw new Error('获取章节列表失败');
+      
+      const statsData = await statsResponse.json();
+      console.log('章节统计信息:', statsData);
+      
+      // 设置总章节数
+      const total = statsData.total || 0;
+      setTotalChapters(total);
+      
+      // 2. 获取最新的10章
+      const recentResponse = await fetch(`/api/stories/${storyId}/chapters/recent?limit=10`);
+      if (!recentResponse.ok) {
+        throw new Error('获取最新章节失败');
+      }
+      
+      const recentData = await recentResponse.json();
+      console.log('最新章节数据:', recentData);
+      
+      // 确保数据是数组
+      const recentChapters = Array.isArray(recentData) ? recentData : [];
+      
+      // 按照章节序号排序
+      const sortedRecentChapters = recentChapters.sort((a: ChapterType, b: ChapterType) => b.order - a.order);
+      setRecentChapters(sortedRecentChapters);
+      setChapters(sortedRecentChapters); // 设置当前显示的章节
+      
+      // 3. 计算历史章节分组
+      if (total > 10) {
+        const groupSize = 30; // 每组30章
+        const groups = [];
+        
+        // 计算需要多少组
+        const remainingChapters = total - 10;
+        let start = total - 10; // 从最新章节之后的章节开始
+        
+        while (start > 0) {
+          const end = Math.max(1, start - groupSize + 1);
+          groups.push({
+            start,
+            end,
+            count: start - end + 1
+          });
+          start = end - 1;
         }
+        
+        setHistoricalChapters(groups);
+      } else {
+        setHistoricalChapters([]);
       }
       
-      // 确保data是数组
-      if (!Array.isArray(data)) {
-        console.error('章节列表数据格式错误:', data);
-        data = []; // 使用空数组作为默认值
-      }
-      
-      console.log('获取到章节列表:', data);
-      
-      const sortedChapters = data.sort((a: ChapterType, b: ChapterType) => a.order - b.order);
-      setChapters(sortedChapters);
-
-      if (sortedChapters.length === 0) {
+      // 如果有章节，加载第一个章节
+      if (sortedRecentChapters.length > 0) {
+        await loadChapter(sortedRecentChapters[0].id);
+      } else {
         console.log('没有找到章节，等待用户创建...');
-        // 不自动创建章节，等待用户手动创建
         setContent('');
         setCurrentChapterId(null);
         setCurrentChapter(null);
         showSuccess('请点击"+ 新建"按钮创建第一个章节');
-      } else {
-        console.log('找到现有章节，加载第一个章节...');
-        // 确保第一个章节存在且有 id
-        if (sortedChapters[0] && sortedChapters[0].id) {
-          await loadChapter(sortedChapters[0].id);
-        } else {
-          console.error('章节数据无效:', sortedChapters[0]);
-          throw new Error('章节数据无效');
-        }
       }
     } catch (error: any) {
       console.error('加载章节列表失败:', error);
       showError(error, '加载章节列表失败，请稍后重试');
       // 设置一个空的章节列表
       setChapters([]);
+      setRecentChapters([]);
+      setHistoricalChapters([]);
       setContent('');
       setCurrentChapterId(null);
       setCurrentChapter(null);
     } finally {
       setIsChapterLoading(false);
     }
+  };
+
+  // 添加加载更多章节的函数
+  const loadChapterGroup = async (start: number, end: number) => {
+    try {
+      setIsLoadingMoreChapters(true);
+      
+      const storyId = localStorage.getItem('currentStoryId');
+      if (!storyId) {
+        throw new Error('未找到当前故事ID');
+      }
+      
+      const response = await fetch(`/api/stories/${storyId}/chapters/range?start=${start}&end=${end}`);
+      if (!response.ok) {
+        throw new Error('获取章节范围失败');
+      }
+      
+      const data = await response.json();
+      console.log(`获取章节范围 ${start}-${end} 数据:`, data);
+      
+      // 确保数据是数组
+      const rangeChapters = Array.isArray(data) ? data : [];
+      
+      // 按照章节序号排序
+      const sortedRangeChapters = rangeChapters.sort((a: ChapterType, b: ChapterType) => b.order - a.order);
+      
+      // 更新章节列表，添加新加载的章节
+      setChapters(prev => {
+        // 创建一个新数组，包含之前的章节和新加载的章节
+        const newChapters = [...prev];
+        
+        // 添加新加载的章节，避免重复
+        sortedRangeChapters.forEach(chapter => {
+          if (!newChapters.some(ch => ch.id === chapter.id)) {
+            newChapters.push(chapter);
+          }
+        });
+        
+        // 按照章节序号排序
+        return newChapters.sort((a, b) => b.order - a.order);
+      });
+      
+      return sortedRangeChapters;
+    } catch (error) {
+      console.error(`加载章节范围 ${start}-${end} 失败:`, error);
+      showError(error, '加载更多章节失败');
+      return [];
+    } finally {
+      setIsLoadingMoreChapters(false);
+    }
+  };
+
+  // 添加展开章节组的函数
+  const toggleChapterGroup = async (groupIndex: number) => {
+    // 检查是否已经展开
+    if (expandedGroups.includes(groupIndex)) {
+      // 已展开，则折叠
+      setExpandedGroups(prev => prev.filter(idx => idx !== groupIndex));
+    } else {
+      // 未展开，则展开并加载数据
+      const group = historicalChapters[groupIndex];
+      await loadChapterGroup(group.start, group.end);
+      setExpandedGroups(prev => [...prev, groupIndex]);
+    }
+  };
+
+  // 添加显示所有章节的函数
+  const handleShowAllChapters = async () => {
+    setShowAllChapters(true);
+    
+    // 加载所有历史章节组
+    for (let i = 0; i < historicalChapters.length; i++) {
+      if (!expandedGroups.includes(i)) {
+        const group = historicalChapters[i];
+        await loadChapterGroup(group.start, group.end);
+      }
+    }
+    
+    // 展开所有组
+    setExpandedGroups(historicalChapters.map((_, index) => index));
+  };
+
+  // 添加章节搜索函数
+  const handleSearchChapters = async (keyword: string) => {
+    setChapterSearchKeyword(keyword);
+    
+    if (!keyword.trim()) {
+      setIsSearching(false);
+      setFilteredChapters([]);
+      return;
+    }
+    
+    setIsSearching(true);
+    
+    try {
+      const storyId = localStorage.getItem('currentStoryId');
+      if (!storyId) {
+        throw new Error('未找到当前故事ID');
+      }
+      
+      const response = await fetch(`/api/stories/${storyId}/chapters/search?keyword=${encodeURIComponent(keyword)}`);
+      if (!response.ok) {
+        throw new Error('搜索章节失败');
+      }
+      
+      const data = await response.json();
+      console.log('搜索章节结果:', data);
+      
+      // 确保数据是数组
+      const searchResults = Array.isArray(data) ? data : [];
+      
+      // 按照章节序号排序
+      const sortedResults = searchResults.sort((a: ChapterType, b: ChapterType) => b.order - a.order);
+      setFilteredChapters(sortedResults);
+    } catch (error) {
+      console.error('搜索章节失败:', error);
+      showError(error, '搜索章节失败');
+      setFilteredChapters([]);
+    }
+  };
+
+  // 添加清除搜索的函数
+  const clearSearch = () => {
+    setChapterSearchKeyword('');
+    setIsSearching(false);
+    setFilteredChapters([]);
   };
 
   // 加载章节内容
@@ -1026,7 +1178,7 @@ export default function AuthorWrite() {
       
       // 更新显示的字数
       setDisplayWordCount(wordCount);
-
+      
       // 更新状态
       setCurrentChapter(chapter);
       setContent(chapter.content || ''); // 确保content不为null
@@ -1365,7 +1517,6 @@ export default function AuthorWrite() {
     ))
   }
 
-
   // 添加故事大纲
   const addOutline = (title: string, description: string) => {
     if (!currentChapter) return
@@ -1380,7 +1531,6 @@ export default function AuthorWrite() {
     setOutlines([...outlines, newOutline])
     setShowOutlineDialog(false)
   }
-
 
 
   /**
@@ -1450,8 +1600,6 @@ export default function AuthorWrite() {
     <button
       className={`${styles.primaryButton} ${styles.hasChanges}`}
       onClick={async () => {
-        console.log('【保存按钮】点击事件触发');
-        console.log('【保存按钮】currentChapterId:', currentChapterId);
         console.log('【保存按钮】isSaving:', isSaving);
         console.log('【保存按钮】content长度:', content.length);
         try {
@@ -1718,6 +1866,7 @@ export default function AuthorWrite() {
                 
                 {/* 作品选择器 - 只在非设置模式下显示 */}
                 {!showSettings && (
+                  // 作品选择器
                   <div className={styles.storySection}>
                     <div className={styles.storySelectorHeader}>
                       <IconButton
@@ -1733,28 +1882,18 @@ export default function AuthorWrite() {
                       />
                     </div>
                     
-                    {currentStory ? (
-                      <div className={styles.storyCard}>
-                        <h3>{currentStory.title}</h3>
-                        <p className={styles.storyType}>
-                          {STORY_TYPES.find(t => t.id === currentStory.category)?.name || currentStory.category}
-                        </p>
-                        <p className={styles.storyStats}>
-                          字数：{currentStory.wordCount || 0}
-                          {currentStory.targetWordCount > 0 && ` / ${currentStory.targetWordCount}`}
-                        </p>
+                    {/* 当前作品信息 */}
+                    <div className={styles.storyCard} onClick={handleShowStorySelector}>
+                      <div className={styles.storyHeader}>
+                        <h3>{currentStory?.title || '选择作品'}</h3>
+                        <span className={styles.storyCategory}>{currentStory?.category || 'GENERAL'}</span>
                       </div>
-                    ) : (
-                      <div className={styles.noStory}>
-                        <p>请选择要编辑的作品</p>
-                        <button
-                          className={styles.createButton}
-                          onClick={handleShowStorySelector}
-                        >
-                          选择作品
-                        </button>
+                      {currentStory && (
+                        <div className={styles.storyStats}>
+                          <span>字数: {currentStory.wordCount || 0} / {currentStory.targetWordCount || 10000}</span>
                       </div>
                     )}
+                    </div>
 
                     {/* 作品选择器弹窗 */}
                     {showStorySelector && stories.length > 0 && (
@@ -1823,13 +1962,13 @@ export default function AuthorWrite() {
                             padding: '0 4px'
                           }}>
                             {stories.map((story) => (
-                              <div
-                                key={story.id}
-                                onClick={() => handleStorySelect(story)}
-                                style={{
-                                  padding: '20px',
-                                  borderRadius: '12px',
-                                  backgroundColor: currentStory?.id === story.id ? '#f3f4f6' : 'white',
+                                <div
+                                  key={story.id}
+                                  onClick={() => handleStorySelect(story)}
+                                  style={{
+                                    padding: '20px',
+                                    borderRadius: '12px',
+                                    backgroundColor: currentStory?.id === story.id ? '#f3f4f6' : 'white',
                                   cursor: 'pointer',
                                   marginBottom: '16px',
                                   transition: 'all 0.2s',
@@ -1855,7 +1994,7 @@ export default function AuthorWrite() {
                                   alignItems: 'center',
                                   marginBottom: '12px'
                                 }}>
-                                  <h4 style={{
+                                  <h4 style={{ 
                                     margin: 0,
                                     fontSize: '1.125rem',
                                     fontWeight: '600',
@@ -1873,13 +2012,13 @@ export default function AuthorWrite() {
                                   </span>
                                 </div>
                                 
-                                <div style={{
-                                  display: 'flex',
+                                  <div style={{ 
+                                    display: 'flex',
                                   gap: '16px',
-                                  fontSize: '0.875rem',
+                                    fontSize: '0.875rem',
                                   color: '#6b7280',
                                   marginTop: '8px'
-                                }}>
+                                  }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <span style={{ color: '#4b5563', fontWeight: '500' }}>字数:</span>
                                     <span>{story.wordCount.toLocaleString()} / {story.targetWordCount.toLocaleString()}</span>
@@ -1887,11 +2026,11 @@ export default function AuthorWrite() {
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <span style={{ color: '#4b5563', fontWeight: '500' }}>总章节:</span>
                                     <span>{story.chapterCount}</span>
-                                  </div>
+                                </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <span style={{ color: '#10b981', fontWeight: '500' }}>已发布:</span>
                                     <span>{story.publishedChapterCount}</span>
-                                  </div>
+                            </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <span style={{ color: '#f59e0b', fontWeight: '500' }}>草稿:</span>
                                     <span>{story.draftChapterCount}</span>
@@ -1912,43 +2051,278 @@ export default function AuthorWrite() {
                     {/* 章节管理面板 */}
                     {showChapters && currentStory && (
                       <div className={styles.chaptersPanel}>
+                        <div className={styles.chapterManagement}>
+                          <div className={styles.chapterManagementTitle}>
+                            章节管理<span className={styles.chapterCount}>({totalChapters})</span>
+                          </div>
+                          <button
+                            className={styles.createChapterButton}
+                            onClick={() => handleAddChapter()}
+                          >
+                            + 新建章节
+                          </button>
+                        </div>
                        
                         <div className={styles.chapterList}>
-                          <div className={styles.chapterHeader}>
-                            <h2 className={styles.panelTitle}>
-                              章节管理
-                              <span className={styles.chapterCount}>({chapters.length})</span>
-                            </h2>
-                            <div className={styles.headerActions}>
-                              <button className={styles.sortButton}>
-                                <FaSort />
-                              </button>
-                              <button
-                                className={styles.addChapterButton}
-                                onClick={() => handleAddChapter()}
+                          <div className={styles.searchContainer}>
+                            <input
+                              type="text"
+                              className={styles.searchInput}
+                              placeholder="搜索章节..."
+                              value={chapterSearchKeyword}
+                              onChange={(e) => handleSearchChapters(e.target.value)}
+                            />
+                            {chapterSearchKeyword && (
+                              <button 
+                                className={styles.clearSearchButton}
+                                onClick={clearSearch}
+                                title="清除搜索"
                               >
-                                + 新建
+                                <FaTimes />
                               </button>
-                            </div>
+                            )}
                           </div>
                           
-                          {chapters.map((chapter) => (
+                          {isChapterLoading ? (
+                            <div className={styles.loadingChapters}>加载章节中...</div>
+                          ) : (
+                            <>
+                              {isSearching ? (
+                                // 搜索结果
+                                <div className={styles.searchResults}>
+                                  <div className={styles.searchResultsHeader}>
+                                    搜索结果: {filteredChapters.length} 章节
+                                  </div>
+                                  {filteredChapters.length === 0 ? (
+                                    <div className={styles.noSearchResults}>
+                                      没有找到匹配的章节
+                                    </div>
+                                  ) : (
+                                    filteredChapters.map((chapter) => (
+                                      <div
+                                        key={chapter.id}
+                                        className={`${styles.chapterItem} ${
+                                          currentChapter?.id === chapter.id ? styles.activeChapter : ''
+                                        } ${currentChapterId === chapter.id ? styles.selected : ''}`}
+                                        onClick={() => loadChapter(chapter.id)}
+                                      >
+                                        {/* 章节项内容 - 与下面相同 */}
+                                        <div className={styles.chapterMain}>
+                                          {editingChapterId === chapter.id ? (
+                                            <input
+                                              type="text"
+                                              value={chapter.title}
+                                              onChange={(e) => handleChapterUpdate(chapter.id, 'title', e.target.value)}
+                                              className={styles.chapterTitleInput}
+                                              onClick={(e) => e.stopPropagation()}
+                                              autoFocus
+                                              spellCheck="false"
+                                              autoCorrect="off"
+                                              autoCapitalize="off"
+                                            />
+                                          ) : (
+                                            <span className={styles.chapterTitle}>{chapter.title}</span>
+                                          )}
+                                          <div className={styles.chapterInfo}>
+                                            <span className={styles.wordCount}>
+                                              {chapter.wordCount}字
+                                            </span>
+                                            <select
+                                              value={chapter.status}
+                                              onChange={(e) => handleChapterUpdate(chapter.id, 'status', e.target.value)}
+                                              className={styles.chapterStatus}
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <option value="draft">草稿</option>
+                                              <option value="pending">待审核</option>
+                                              <option value="published">已发布</option>
+                                            </select>
+                                          </div>
+                                        </div>
+                                        <div className={styles.chapterActions}>
+                                          {editingChapterId === chapter.id ? (
+                              <button
+                                              className={styles.actionButton}
+                                              onClick={(e) => handleSaveClick(e, chapter.id)}
+                                              title="保存"
+                              >
+                                              <FaSave />
+                              </button>
+                                          ) : (
+                                            <>
+                                              <button
+                                                className={styles.actionButton}
+                                                onClick={(e) => handleEditClick(e, chapter.id)}
+                                                title="编辑"
+                                              >
+                                                <FaPen />
+                                              </button>
+                                              <button
+                                                className={styles.actionButton}
+                                                onClick={(e) => handleDeleteClick(e, chapter.id)}
+                                                title="删除"
+                                              >
+                                                <FaTrash />
+                                              </button>
+                                              {chapter.status !== 'published' && (
+                                                <button
+                                                  className={styles.actionButton}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handlePublishChapter(chapter.id);
+                                                  }}
+                                                  title="发布到区块链"
+                                                >
+                                                  <FaUpload />
+                                                </button>
+                                              )}
+                                            </>
+                                          )}
+                            </div>
+                          </div>
+                                    ))
+                                  )}
+                                </div>
+                              ) : (
+                                // 正常章节列表
+                                <>
+                                  {/* 最新章节 */}
+                                  <div className={styles.chapterSection}>
+                                    <div className={styles.sectionHeader}>
+                                      最新章节
+                                    </div>
+                                    {recentChapters.length === 0 ? (
+                                      <div className={styles.noChapters}>
+                                        暂无章节，请点击"+ 新建"按钮创建第一个章节
+                                      </div>
+                                    ) : (
+                                      recentChapters.map((chapter) => (
                             <div
                               key={chapter.id}
                               className={`${styles.chapterItem} ${
                                 currentChapter?.id === chapter.id ? styles.activeChapter : ''
                               } ${currentChapterId === chapter.id ? styles.selected : ''}`}
-                              onClick={() => {
-                                // 立即设置当前章节，不等待API请求完成
-                                // setCurrentChapterId(chapter.id);
-                                setCurrentChapter(chapter);
-                                // 然后加载章节内容
-                                loadChapter(chapter.id);
-                              }}
-                              data-chapter-id={chapter.id}
-                              data-current-chapter-id={currentChapterId}
-                              data-is-selected={currentChapterId === chapter.id ? 'true' : 'false'}
-                              data-is-active={currentChapter?.id === chapter.id ? 'true' : 'false'}
+                                          onClick={() => loadChapter(chapter.id)}
+                                        >
+                                          <div className={styles.chapterMain}>
+                                            {editingChapterId === chapter.id ? (
+                                              <input
+                                                type="text"
+                                                value={chapter.title}
+                                                onChange={(e) => handleChapterUpdate(chapter.id, 'title', e.target.value)}
+                                                className={styles.chapterTitleInput}
+                                                onClick={(e) => e.stopPropagation()}
+                                                autoFocus
+                                                spellCheck="false"
+                                                autoCorrect="off"
+                                                autoCapitalize="off"
+                                              />
+                                            ) : (
+                                              <span className={styles.chapterTitle}>{chapter.title}</span>
+                                            )}
+                                            <div className={styles.chapterInfo}>
+                                              <span className={styles.wordCount}>
+                                                {chapter.wordCount}字
+                                              </span>
+                                              <select
+                                                value={chapter.status}
+                                                onChange={(e) => handleChapterUpdate(chapter.id, 'status', e.target.value)}
+                                                className={styles.chapterStatus}
+                                                onClick={(e) => e.stopPropagation()}
+                                              >
+                                                <option value="draft">草稿</option>
+                                                <option value="pending">待审核</option>
+                                                <option value="published">已发布</option>
+                                              </select>
+                                            </div>
+                                          </div>
+                                          <div className={styles.chapterActions}>
+                                            {editingChapterId === chapter.id ? (
+                                              <button
+                                                className={styles.actionButton}
+                                                onClick={(e) => handleSaveClick(e, chapter.id)}
+                                                title="保存"
+                                              >
+                                                <FaSave />
+                                              </button>
+                                            ) : (
+                                              <>
+                                                <button
+                                                  className={styles.actionButton}
+                                                  onClick={(e) => handleEditClick(e, chapter.id)}
+                                                  title="编辑"
+                                                >
+                                                  <FaPen />
+                                                </button>
+                                                <button
+                                                  className={styles.actionButton}
+                                                  onClick={(e) => handleDeleteClick(e, chapter.id)}
+                                                  title="删除"
+                                                >
+                                                  <FaTrash />
+                                                </button>
+                                                {chapter.status !== 'published' && (
+                                                  <button
+                                                    className={styles.actionButton}
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      handlePublishChapter(chapter.id);
+                                                    }}
+                                                    title="发布到区块链"
+                                                  >
+                                                    <FaUpload />
+                                                  </button>
+                                                )}
+                                              </>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                  
+                                  {/* 历史章节 */}
+                                  {historicalChapters.length > 0 && (
+                                    <>
+                                      {!showAllChapters && (
+                                        <button 
+                                          className={styles.showMoreButton}
+                                          onClick={handleShowAllChapters}
+                                        >
+                                          展开更多章节 ▼
+                                        </button>
+                                      )}
+                                      
+                                      {showAllChapters && (
+                                        <div className={styles.chapterSection}>
+                                          <div className={styles.sectionHeader}>
+                                            历史章节
+                                          </div>
+                                          
+                                          {historicalChapters.map((group, index) => (
+                                            <div key={`group-${index}`} className={styles.chapterGroup}>
+                                              <div 
+                                                className={styles.groupHeader}
+                                                onClick={() => toggleChapterGroup(index)}
+                                              >
+                                                <span>第{group.end}-{group.start}章</span>
+                                                <span className={styles.groupCount}>[{group.count}章]</span>
+                                                <span className={styles.expandIcon}>
+                                                  {expandedGroups.includes(index) ? '▼' : '▶'}
+                                                </span>
+                                              </div>
+                                              
+                                              {expandedGroups.includes(index) && (
+                                                <div className={styles.groupChapters}>
+                                                  {chapters
+                                                    .filter(ch => ch.order >= group.end && ch.order <= group.start)
+                                                    .map(chapter => (
+                                                      <div
+                                                        key={chapter.id}
+                                                        className={`${styles.chapterItem} ${
+                                                          currentChapter?.id === chapter.id ? styles.activeChapter : ''
+                                                        } ${currentChapterId === chapter.id ? styles.selected : ''}`}
+                                                        onClick={() => loadChapter(chapter.id)}
                             >
                               <div className={styles.chapterMain}>
                                 {editingChapterId === chapter.id ? (
@@ -2024,11 +2398,27 @@ export default function AuthorWrite() {
                               </div>
                             </div>
                           ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </>
+                              )}
+                            </>
+                          )}
                           
                           {/* 添加底部边界区域 */}
                           <div className={styles.chapterListBottomBoundary}>
                             <div className={styles.bottomBoundaryContent}>
-                              {chapters.length > 0 ? "已显示全部章节" : "暂无章节"}
+                              {isSearching 
+                                ? `搜索结果: ${filteredChapters.length} 章节` 
+                                : totalChapters > 0 
+                                  ? (showAllChapters ? "已显示全部章节" : "显示最新章节") 
+                                  : "暂无章节"}
                             </div>
                           </div>
                         </div>
@@ -2039,6 +2429,9 @@ export default function AuthorWrite() {
                           </div>
                           <div className={styles.statItem}>
                             已发布: {chapters.filter(ch => ch.status === 'published').length}
+                          </div>
+                          <div className={styles.statItem}>
+                            草稿: {chapters.filter(ch => ch.status !== 'published').length}
                           </div>
                         </div>
                       </div>
@@ -2217,8 +2610,13 @@ export default function AuthorWrite() {
                         await handleSave();
                       }}
                     />
+                    {/* 添加底部边界区域 */}
+                    <div className={styles.chapterListBottomBoundary}>
+                      <div className={styles.bottomBoundaryContent}>
+                        文档结束
+                      </div>
+                    </div>
                   </div>
-                  {/* 移除下拉按钮 */}
                 </div>
               </div>
 
