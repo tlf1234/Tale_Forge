@@ -855,7 +855,7 @@ export default function AuthorWrite() {
     setShowCreateChapterDialog(true);
   };
 
-  // 添加确认创建章节的函数
+  // 修改添加确认创建章节的函数
   const handleConfirmAddChapter = async () => {
     try {
       console.log('开始创建新章节...');
@@ -872,8 +872,7 @@ export default function AuthorWrite() {
       // 先关闭对话框，避免操作延迟
       setShowCreateChapterDialog(false);
       
-      // 创建章节，这个创建章节实际是在数据库中创建一个章节，
-      // 并不是上链和上分布式存储，只有进行发布时才会把章节元数据和内容才会发布到相关链上和分布式存储。
+      // 创建章节
       const response = await fetch(`/api/stories/${storyId}/chapters`, {
         method: 'POST',
         headers: {
@@ -883,7 +882,7 @@ export default function AuthorWrite() {
           title: newChapterTitle,
           content: '',
           order: chapters.length + 1,
-          wordCount: 0 // 设置初始字数为0
+          wordCount: 0
         }),
       });
       
@@ -894,17 +893,37 @@ export default function AuthorWrite() {
       
       const newChapter = await response.json();
       console.log('创建新章节成功:', newChapter);
-      
-      // 立即更新章节列表
-      const updatedChapters = await updateChapterList();
-      if (updatedChapters) {
-        toast.success('创建章节成功');
-      }else{
-        toast.error('创建章节失败');
-      }
 
+      // 更新章节列表
+      setChapters(prevChapters => {
+        const updatedChapters = [...prevChapters, newChapter];
+        return updatedChapters.sort((a, b) => a.order - b.order);
+      });
+
+      // 更新最新章节列表
+      setRecentChapters(prevRecent => {
+        const updatedRecent = [...prevRecent, newChapter];
+        const sortedRecent = updatedRecent
+          .sort((a, b) => b.order - a.order)
+          .slice(0, 10);
+        return sortedRecent;
+      });
+
+      // 更新总章节数（使用当前章节数加1）
+      setTotalChapters(prevTotal => {
+        const newTotal = prevTotal + 1;
+        console.log('更新总章节数:', newTotal);
+        return newTotal;
+      });
+
+      // 自动加载新创建的章节
+      await loadChapter(newChapter.id);
+
+      toast.success('创建章节成功');
+      
       // 重置标题
       setNewChapterTitle('');
+
     } catch (error) {
       console.error('创建章节失败:', error);
       toast.error(error instanceof Error ? error.message : '创建章节失败，请稍后重试');
@@ -921,54 +940,58 @@ export default function AuthorWrite() {
   const loadChapterList = async () => {
     try {
       setIsChapterLoading(true);
-      console.log('开始加载章节列表...');
+      console.log('【loadChapterList】开始加载章节列表...');
       
       const storyId = localStorage.getItem('currentStoryId');
+      console.log('【loadChapterList】当前故事ID:', storyId);
+      
       if (!storyId) {
-        console.log('未找到当前故事ID，跳过加载章节');
+        console.log('【loadChapterList】未找到当前故事ID，跳过加载章节');
         setIsChapterLoading(false);
         return;
       }
-      console.log('当前故事ID:', storyId);
+
+      // 1. 获取章节列表
+      console.log(`【loadChapterList】请求API: /api/stories/${storyId}/chapters?limit=10`);
+      const response = await fetch(`/api/stories/${storyId}/chapters?limit=10`);
+      console.log('【loadChapterList】API响应状态:', response.status);
       
-      // 1. 获取章节统计信息
-      const statsResponse = await fetch(`/api/stories/${storyId}/chapters/stats`);
-      if (!statsResponse.ok) {
-        throw new Error('获取章节统计信息失败');
+      if (!response.ok) {
+        throw new Error(`获取章节列表失败: ${response.status}`);
       }
       
-      const statsData = await statsResponse.json();
-      console.log('章节统计信息:', statsData);
+      const chapters = await response.json();
+      console.log('【loadChapterList】API返回数据:', chapters);
       
-      // 设置总章节数
-      const total = statsData.total || 0;
+      // 确保chapters是数组
+      if (!Array.isArray(chapters)) {
+        throw new Error('API返回的数据格式不正确');
+      }
+      
+      // 更新总章节数
+      const total = chapters.length;
       setTotalChapters(total);
+      console.log('【loadChapterList】设置总章节数:', total);
       
-      // 2. 获取最新的10章
-      const recentResponse = await fetch(`/api/stories/${storyId}/chapters/recent?limit=10`);
-      if (!recentResponse.ok) {
-        throw new Error('获取最新章节失败');
-      }
+      // 按序号排序，最新的在前面
+      const sortedRecentChapters = chapters.sort((a, b) => b.order - a.order);
+      console.log('【loadChapterList】排序后的最新章节:', sortedRecentChapters);
       
-      const recentData = await recentResponse.json();
-      console.log('最新章节数据:', recentData);
-      
-      // 确保数据是数组
-      const recentChapters = Array.isArray(recentData) ? recentData : [];
-      
-      // 按照章节序号排序
-      const sortedRecentChapters = recentChapters.sort((a: ChapterType, b: ChapterType) => b.order - a.order);
-      setRecentChapters(sortedRecentChapters);
-      setChapters(sortedRecentChapters); // 设置当前显示的章节
-      
-      // 3. 计算历史章节分组
+      // 更新最新章节列表和全部章节列表
+      setRecentChapters(sortedRecentChapters.slice(0, 10)); // 只取前10章
+      setChapters(sortedRecentChapters);
+      setFilteredChapters([]); // 清空搜索结果
+      setChapterSearchKeyword(''); // 清空搜索关键词
+      setIsSearching(false); // 重置搜索状态
+      console.log('【loadChapterList】已更新章节状态');
+
+      // 2. 计算历史章节分组
       if (total > 10) {
+        console.log('【loadChapterList】开始计算历史章节分组...');
         const groupSize = 30; // 每组30章
         const groups = [];
         
-        // 计算需要多少组
-        const remainingChapters = total - 10;
-        let start = total - 10; // 从最新章节之后的章节开始
+        let start = total - 10; // 减去已加载的10章
         
         while (start > 0) {
           const end = Math.max(1, start - groupSize + 1);
@@ -980,36 +1003,37 @@ export default function AuthorWrite() {
           start = end - 1;
         }
         
+        console.log('【loadChapterList】计算出的历史章节分组:', groups);
         setHistoricalChapters(groups);
       } else {
+        console.log('【loadChapterList】章节总数不足10，无需分组');
         setHistoricalChapters([]);
       }
-      
-      // 如果有章节，加载第一个章节
-      if (sortedRecentChapters.length > 0) {
+
+      // 3. 如果当前没有选中的章节，且有章节存在，则加载第一个章节
+      if (!currentChapterId && sortedRecentChapters.length > 0) {
+        console.log('【loadChapterList】准备加载第一个章节:', sortedRecentChapters[0].id);
         await loadChapter(sortedRecentChapters[0].id);
-      } else {
-        console.log('没有找到章节，等待用户创建...');
-        setContent('');
-        setCurrentChapterId(null);
-        setCurrentChapter(null);
-        showSuccess('请点击"+ 新建"按钮创建第一个章节');
       }
-    } catch (error: any) {
-      console.error('加载章节列表失败:', error);
+
+    } catch (error) {
+      console.error('【loadChapterList】加载章节列表失败:', error);
       showError(error, '加载章节列表失败，请稍后重试');
-      // 设置一个空的章节列表
+      // 重置所有相关状态
       setChapters([]);
       setRecentChapters([]);
       setHistoricalChapters([]);
-      setContent('');
-      setCurrentChapterId(null);
-      setCurrentChapter(null);
+      setTotalChapters(0);
+      setFilteredChapters([]);
+      setChapterSearchKeyword('');
+      setIsSearching(false);
     } finally {
       setIsChapterLoading(false);
+      console.log('【loadChapterList】章节加载完成');
     }
   };
 
+  // 下面的这些功能需要验证一下。
   // 添加加载更多章节的函数
   const loadChapterGroup = async (start: number, end: number) => {
     try {
@@ -1136,64 +1160,59 @@ export default function AuthorWrite() {
     setFilteredChapters([]);
   };
 
-  // 加载章节内容
+  // 添加一个 ref 来保存章节列表的滚动位置
+  const chapterListRef = useRef<HTMLDivElement>(null);
+
+  // 加载章节内容的函数
   const loadChapter = async (chapterId: string) => {
     try {
-      // 立即设置当前章节ID，以便立即更新UI
-      setCurrentChapterId(chapterId);
-      setIsChapterLoading(true);
+      // 如果点击的是当前章节，不做任何操作
+      if (chapterId === currentChapterId) {
+        return null;
+      }
 
-      console.log('【loadChapter】函数被调用，章节ID:', chapterId);
-      
-      // 先清空编辑器内容，避免显示旧内容
-      setContent('');
-      setLastSavedContent('');
-      
+      // 保存当前滚动位置
+      const scrollPosition = chapterListRef.current?.scrollTop;
+
+      // 先获取章节内容，成功后再更新状态
       const storyId = localStorage.getItem('currentStoryId');
       if (!storyId) {
         throw new Error('未找到当前故事');
       }
-      
-      // 获取章节内容
+
       const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`);
-      
-      // 如果响应不成功，直接抛出错误
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `加载章节失败 (${response.status})`);
       }
-      
-      // 响应成功，解析数据
-      const chapter = await response.json().catch(error => {
-        console.error('解析章节数据失败:', error);
-        throw new Error('章节数据格式错误');
-      });
-      
-      console.log('【loadChapter】API返回的章节:', chapter);
-      console.log('【loadChapter】API返回的章节:', chapter ? chapter.title : '未返回章节');
-      
+
+      const chapter = await response.json();
       const wordCount = calculateWordCount(chapter.content || '');
       chapter.wordCount = wordCount;
-      console.log('【loadChapter】章节字数:', wordCount);
-      
-      // 更新显示的字数
-      setDisplayWordCount(wordCount);
-      
-      // 更新状态
-      setCurrentChapter(chapter);
-      setContent(chapter.content || ''); // 确保content不为null
+
+      // 成功获取数据后，再更新状态
+      setCurrentChapterId(chapterId);
+      setIsChapterLoading(true);
+      setContent(chapter.content || '');
       setLastSavedContent(chapter.content || '');
+      setCurrentChapter(chapter);
+      setDisplayWordCount(wordCount);
       setHasUnsavedChanges(false);
 
-     
+      // 恢复滚动位置
+      if (scrollPosition !== undefined && chapterListRef.current) {
+        requestAnimationFrame(() => {
+          if (chapterListRef.current) {
+            chapterListRef.current.scrollTop = scrollPosition;
+          }
+        });
+      }
 
+      setIsChapterLoading(false);
       return chapter;
     } catch (error) {
-
       showError(error, '加载章节失败，请稍后重试');
       return null;
-    } finally {
-      setIsChapterLoading(false);
     }
   };
 
@@ -1413,20 +1432,30 @@ export default function AuthorWrite() {
         throw new Error('删除失败');
       }
       
-      // 如果删除的是当前章节，清空编辑器
+      // 更新所有相关状态
+      setChapters(prevChapters => prevChapters.filter(ch => ch.id !== chapterToDelete));
+      setRecentChapters(prevRecent => prevRecent.filter(ch => ch.id !== chapterToDelete));
+      setFilteredChapters(prevFiltered => prevFiltered.filter(ch => ch.id !== chapterToDelete));
+      setTotalChapters(prev => Math.max(0, prev - 1));
+      
+      // 如果删除的是当前章节，清空编辑器并重置相关状态
       if (currentChapter?.id === chapterToDelete) {
         setContent('');
         setCurrentChapter(null);
+        setCurrentChapterId(null);
+        setHasUnsavedChanges(false);
+        setLastSavedContent('');
+        setDisplayWordCount(0);
       }
-      
-      // 更新章节列表
-      await updateChapterList();
       
       // 关闭对话框
       setShowDeleteDialog(false);
       setChapterToDelete(null);
       
       showSuccess('删除成功');
+
+      // 重新加载章节列表以确保数据同步
+      await loadChapterList();
     } catch (error) {
       showError(error, '删除失败');
     }
@@ -1448,11 +1477,102 @@ export default function AuthorWrite() {
     return text.replace(/\s+/g, '').length;
   }, []);
 
+  // 添加章节标题状态管理
+  const [editingTitle, setEditingTitle] = useState('');
+
+  // 修改章节更新函数
+  const handleChapterUpdate = async (chapterId: string, field: keyof ChapterType, value: any) => {
+    try {
+      const storyId = localStorage.getItem('currentStoryId');
+      if (!storyId) {
+        throw new Error('未找到当前故事');
+      }
+
+      // 发送更新请求到服务器
+      const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          [field]: value,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('更新章节失败');
+      }
+
+      const updatedChapter = await response.json();
+      console.log('章节更新成功:', updatedChapter);
+
+      // 更新本地状态
+      setChapters(prevChapters => 
+        prevChapters.map(ch => 
+          ch.id === chapterId ? { ...ch, [field]: value } : ch
+        )
+      );
+
+      // 更新最新章节列表
+      setRecentChapters(prevRecent => 
+        prevRecent.map(ch => 
+          ch.id === chapterId ? { ...ch, [field]: value } : ch
+        )
+      );
+
+      // 如果是当前正在编辑的章节，也更新currentChapter
+      if (currentChapter?.id === chapterId) {
+        setCurrentChapter(updatedChapter);
+      }
+
+      toast.success('更新成功');
+    } catch (error) {
+      console.error('更新章节失败:', error);
+      toast.error('更新失败，请重试');
+      
+      // 如果失败，回滚本地状态
+      loadChapterList();
+    }
+  };
+
   // 处理编辑章节按钮点击
-  const handleEditClick = (e: React.MouseEvent, chapterId: string) => {
+  const handleEditClick = (e: React.MouseEvent, chapterId: string, currentTitle: string) => {
     e.stopPropagation();
     setEditingChapterId(chapterId);
-  }
+  };
+
+  // 处理标题输入变更
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // 限制标题长度为50个字符
+    if (e.target.value.length <= 50) {
+      setEditingTitle(e.target.value);
+    }
+  };
+
+  // 处理标题输入框按键事件
+  const handleTitleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>, chapterId: string) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const value = e.currentTarget.value.trim();
+      if (value) {
+        await handleChapterUpdate(chapterId, 'title', value);
+        setEditingChapterId(null);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setEditingChapterId(null);
+    }
+  };
+
+  // 处理标题编辑完成
+  const handleTitleBlur = async (e: React.FocusEvent<HTMLInputElement>, chapterId: string) => {
+    const value = e.target.value.trim();
+    const chapter = chapters.find(ch => ch.id === chapterId);
+    if (value && chapter && value !== chapter.title) {
+      await handleChapterUpdate(chapterId, 'title', value);
+    }
+    setEditingChapterId(null);
+  };
 
   // 处理章节保存按钮点击
   const handleSaveClick = async (e: React.MouseEvent, chapterId: string) => {
@@ -1509,13 +1629,6 @@ export default function AuthorWrite() {
     setChapterToDelete(chapterId);
     setShowDeleteDialog(true);
   };
-
-  // 修改章节更新函数
-  const handleChapterUpdate = (chapterId: string, field: keyof ChapterType, value: any) => {
-    setChapters(chapters.map(ch => 
-      ch.id === chapterId ? { ...ch, [field]: value } : ch
-    ))
-  }
 
   // 添加故事大纲
   const addOutline = (title: string, description: string) => {
@@ -2063,7 +2176,7 @@ export default function AuthorWrite() {
                           </button>
                         </div>
                        
-                        <div className={styles.chapterList}>
+                        <div className={styles.chapterList} ref={chapterListRef}>
                           <div className={styles.searchContainer}>
                             <input
                               type="text"
@@ -2111,14 +2224,13 @@ export default function AuthorWrite() {
                                           {editingChapterId === chapter.id ? (
                                             <input
                                               type="text"
-                                              value={chapter.title}
-                                              onChange={(e) => handleChapterUpdate(chapter.id, 'title', e.target.value)}
+                                              defaultValue={chapter.title}
+                                              onKeyDown={(e) => handleTitleKeyDown(e, chapter.id)}
+                                              onBlur={(e) => handleTitleBlur(e, chapter.id)}
                                               className={styles.chapterTitleInput}
                                               onClick={(e) => e.stopPropagation()}
                                               autoFocus
-                                              spellCheck="false"
-                                              autoCorrect="off"
-                                              autoCapitalize="off"
+                                              maxLength={50}
                                             />
                                           ) : (
                                             <span className={styles.chapterTitle}>{chapter.title}</span>
@@ -2152,7 +2264,7 @@ export default function AuthorWrite() {
                                             <>
                                               <button
                                                 className={styles.actionButton}
-                                                onClick={(e) => handleEditClick(e, chapter.id)}
+                                                onClick={(e) => handleEditClick(e, chapter.id, chapter.title)}
                                                 title="编辑"
                                               >
                                                 <FaPen />
@@ -2208,14 +2320,13 @@ export default function AuthorWrite() {
                                             {editingChapterId === chapter.id ? (
                                               <input
                                                 type="text"
-                                                value={chapter.title}
-                                                onChange={(e) => handleChapterUpdate(chapter.id, 'title', e.target.value)}
+                                                defaultValue={chapter.title}
+                                                onKeyDown={(e) => handleTitleKeyDown(e, chapter.id)}
+                                                onBlur={(e) => handleTitleBlur(e, chapter.id)}
                                                 className={styles.chapterTitleInput}
                                                 onClick={(e) => e.stopPropagation()}
                                                 autoFocus
-                                                spellCheck="false"
-                                                autoCorrect="off"
-                                                autoCapitalize="off"
+                                                maxLength={50}
                                               />
                                             ) : (
                                               <span className={styles.chapterTitle}>{chapter.title}</span>
@@ -2249,7 +2360,7 @@ export default function AuthorWrite() {
                                               <>
                                                 <button
                                                   className={styles.actionButton}
-                                                  onClick={(e) => handleEditClick(e, chapter.id)}
+                                                  onClick={(e) => handleEditClick(e, chapter.id, chapter.title)}
                                                   title="编辑"
                                                 >
                                                   <FaPen />
@@ -2328,14 +2439,13 @@ export default function AuthorWrite() {
                                 {editingChapterId === chapter.id ? (
                                   <input
                                     type="text"
-                                    value={chapter.title}
-                                    onChange={(e) => handleChapterUpdate(chapter.id, 'title', e.target.value)}
+                                    defaultValue={chapter.title}
+                                    onKeyDown={(e) => handleTitleKeyDown(e, chapter.id)}
+                                    onBlur={(e) => handleTitleBlur(e, chapter.id)}
                                     className={styles.chapterTitleInput}
                                     onClick={(e) => e.stopPropagation()}
                                     autoFocus
-                                    spellCheck="false"
-                                    autoCorrect="off"
-                                    autoCapitalize="off"
+                                    maxLength={50}
                                   />
                                 ) : (
                                   <span className={styles.chapterTitle}>{chapter.title}</span>
@@ -2369,7 +2479,7 @@ export default function AuthorWrite() {
                                   <>
                                     <button
                                       className={styles.actionButton}
-                                      onClick={(e) => handleEditClick(e, chapter.id)}
+                                      onClick={(e) => handleEditClick(e, chapter.id, chapter.title)}
                                       title="编辑"
                                     >
                                       <FaPen />

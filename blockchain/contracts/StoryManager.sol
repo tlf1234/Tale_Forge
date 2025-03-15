@@ -16,9 +16,9 @@ contract StoryManager is Ownable, ReentrancyGuard {
         uint256 id; // 故事ID
         address author; // 作者地址
         string title; // 故事标题
-        string description; // 故事描述
+        string description; // 故事描述 （这个应该改为cid）
         string coverCid; // 封面CID
-        string contentCid; // 内容CID
+        // string contentCid; // 内容CID
         uint32 chapterCount; // 章节数量
         bool isCompleted; // 是否完成
         uint256 createdAt; // 创建时间
@@ -279,12 +279,13 @@ contract StoryManager is Ownable, ReentrancyGuard {
 
 
     // 更新章节（这个需要我们平台调用，防止作弊,不存在作弊可能，web项目都是在后端）
-    //这里少了一个插图参数Cid参数，而且是数组，可以多张。
+    //这里少了一个插图参数Cid参数，而且是数组，可以多张(不管是内容cid还是插图cid都放到后端数据库就行，
+    // 不用放到区块链上)。
     function updateChapter(
         uint256 storyId,
         uint32 chapterNumber,
-        string memory contentCid,  //这个不需要，或者用一个数据保存，实际上不需要最好
         uint256 newWords   //新增文字数。
+        // string memory contentCid,  //这个不需要，或者用一个数据保存，实际上不需要最好
     ) external storyExists(storyId) onlyAuthor(storyId) nonReentrant {
         Story storage story = stories[storyId];
         require(!story.isCompleted, "Story is completed");
@@ -295,7 +296,7 @@ contract StoryManager is Ownable, ReentrancyGuard {
         
         // 更新章节信息
         story.chapterCount = chapterNumber;
-        story.contentCid = contentCid;   
+        // story.contentCid = contentCid;   
         story.updatedAt = block.timestamp;
         
         // 更新字数
@@ -306,7 +307,7 @@ contract StoryManager is Ownable, ReentrancyGuard {
         // 更新挖矿算力
         updateMiningPower(storyId);
         
-        emit ChapterUpdated(storyId, chapterNumber, contentCid, newWords, block.timestamp);
+        emit ChapterUpdated(storyId, chapterNumber, newWords, block.timestamp);
     }
 
     // 完成故事
