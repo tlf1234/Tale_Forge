@@ -24,11 +24,18 @@ export async function POST(
       );
     }
     
-    const { authorAddress } = requestBody;
+    const { authorAddress, txHash } = requestBody;
     
     if (!authorAddress) {
       return NextResponse.json(
         { error: '缺少作者地址' },
+        { status: 400 }
+      );
+    }
+
+    if (!txHash) {
+      return NextResponse.json(
+        { error: '缺少交易哈希' },
         { status: 400 }
       );
     }
@@ -39,7 +46,7 @@ export async function POST(
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ authorAddress })
+      body: JSON.stringify({ authorAddress, txHash })
     });
     
     // 尝试解析响应，处理可能的解析错误

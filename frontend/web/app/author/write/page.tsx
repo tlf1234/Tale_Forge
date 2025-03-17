@@ -24,7 +24,8 @@ import {
   FaMoneyBill,
   FaInfoCircle,
   FaCheck,
-  FaHeading
+  FaHeading,
+  FaExclamationTriangle
 } from 'react-icons/fa'
 import { toast } from 'react-hot-toast'
 import { Eye as EyeIcon, EyeOff as EyeOffIcon, FileText, BarChart2 } from 'lucide-react'
@@ -37,6 +38,7 @@ import { ethers } from 'ethers'
 
 import { CONTRACT_ADDRESSES,CONTRACT_ABIS } from '@/constants/contracts'
 import { Story as StoryType, Chapter as ChapterType, Author, StoryStats } from '@/types/story'
+import { IoClose, IoWarning, IoRocket } from 'react-icons/io5'
 
 // 扩展 Story 类型
 interface Story extends StoryType {
@@ -237,6 +239,9 @@ export default function AuthorWrite() {
   const pathname = usePathname()
   const { address } = useAccount()
   
+  // 发布确认对话框状态
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false)
+  const [chapterToPublish, setChapterToPublish] = useState<string | null>(null)
 
   // 作品信息状态
   const [storyInfo, setStoryInfo] = useState({
@@ -398,6 +403,16 @@ export default function AuthorWrite() {
     setShowSettings(false);
   };
 
+  // 添加no-scroll类到body元素。去除创作界面外层的滚动条
+  useEffect(() => {
+    // 添加no-scroll类到body元素
+    document.body.classList.add('no-scroll');
+    
+    // 组件卸载时移除no-scroll类
+    return () => {
+      document.body.classList.remove('no-scroll');
+    };
+  }, []);
   
   /**
    * 作品创建及加载相关 
@@ -1033,7 +1048,7 @@ export default function AuthorWrite() {
     }
   };
 
-  // 下面的这些功能需要验证一下。
+  // 下面的这些功能需要验证一下。。。。。
   // 添加加载更多章节的函数
   const loadChapterGroup = async (start: number, end: number) => {
     try {
@@ -1223,9 +1238,18 @@ export default function AuthorWrite() {
       return;
     }
 
+    // 显示发布确认对话框
+    setChapterToPublish(chapterId);
+    setShowPublishConfirm(true);
+  };
+
+  // 添加确认发布的处理函数
+  const handleConfirmPublish = async () => {
+    if (!chapterToPublish || !address) return;
+
     try {
       // 先保存最新内容
-      await handleSaveClick({ stopPropagation: () => {} } as React.MouseEvent, chapterId);
+      await handleSaveClick({ stopPropagation: () => {} } as React.MouseEvent, chapterToPublish);
 
       const storyId = localStorage.getItem('currentStoryId');
       if (!storyId) {
@@ -1233,7 +1257,7 @@ export default function AuthorWrite() {
       }
 
       // 获取当前章节
-      const currentChapter = chapters.find(ch => ch.id === chapterId);
+      const currentChapter = chapters.find(ch => ch.id === chapterToPublish);
       if (!currentChapter) {
         throw new Error('未找到当前章节');
       }
@@ -1274,12 +1298,16 @@ export default function AuthorWrite() {
         signer
       );
 
-      // 调用合约的 updateChapter 函数
+       // 获取链上当前章节总数
+      //  const story = await storyManagerContract.stories(storyChainId);
+       const nextCount = story.chapterCount.toNumber() + 1;
+
+      // 调用合约的 updateChapter 函数（注意该合约已经改了，后面需要重新编译及部署）
       const tx = await storyManagerContract.updateChapter(
         storyChainId,           // 故事的链上ID
-        currentChapter.order,    // 章节序号
-        currentChapter.title,    // 章节标题
-        '',                      // 内容摘要，这里不使用 contentCid
+        nextCount,    // 章节数目
+        // currentChapter.title,    // 章节标题
+        // '',                      // 内容摘要，这里不使用 contentCid
         wordCount                // 章节字数
       );
 
@@ -1292,7 +1320,7 @@ export default function AuthorWrite() {
       console.log('章节上链成功，交易哈希:', receipt.transactionHash);
 
       // 使用 API 客户端发布章节，同时传递交易哈希
-      const publishResponse = await fetch(`/api/stories/${storyId}/chapters/${chapterId}/publish`, {
+      const publishResponse = await fetch(`/api/stories/${storyId}/chapters/${chapterToPublish}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1313,8 +1341,15 @@ export default function AuthorWrite() {
       
       // 更新章节列表
       await updateChapterList();
+
+      // 关闭确认对话框
+      setShowPublishConfirm(false);
+      setChapterToPublish(null);
     } catch (error: any) {
       showError(error, '发布章节失败');
+      // 关闭确认对话框
+      setShowPublishConfirm(false);
+      setChapterToPublish(null);
     }
   };
 
@@ -1372,13 +1407,35 @@ export default function AuthorWrite() {
       const savedChapter = await saveResponse.json();
       console.log('【handleSave】保存成功，返回数据:', savedChapter);
       
+      // 更新当前章节
       setCurrentChapter(savedChapter);
-      setChapters(chapters.map(ch => 
-        ch.id === savedChapter.id ? savedChapter : ch
-      ));
+      
+      // 更新章节列表中的字数
+      setChapters(prevChapters => 
+        prevChapters.map(ch => 
+          ch.id === savedChapter.id ? { ...ch, wordCount: savedChapter.wordCount } : ch
+        )
+      );
+      
+      // 更新最新章节列表中的字数
+      setRecentChapters(prevRecent => 
+        prevRecent.map(ch => 
+          ch.id === savedChapter.id ? { ...ch, wordCount: savedChapter.wordCount } : ch
+        )
+      );
+      
+      // 如果在搜索结果中，也更新搜索结果中的字数
+      if (isSearching) {
+        setFilteredChapters(prevFiltered => 
+          prevFiltered.map(ch => 
+            ch.id === savedChapter.id ? { ...ch, wordCount: savedChapter.wordCount } : ch
+          )
+        );
+      }
       
       setLastSavedContent(content);
       setHasUnsavedChanges(false);
+      setDisplayWordCount(wordCount); // 更新显示的字数
       
       localStorage.removeItem(`draft_${currentChapterId}`);
       showSuccess('保存成功');
@@ -1390,7 +1447,7 @@ export default function AuthorWrite() {
     } finally {
       setIsSaving(false);
     }
-  }, [currentChapterId, content, isSaving, currentChapter, chapters]);
+  }, [currentChapterId, content, isSaving, currentChapter, chapters, isSearching]);
 
   // 更新章节列表函数
   const updateChapterList = async () => {
@@ -1422,6 +1479,17 @@ export default function AuthorWrite() {
       if (!storyId) {
         throw new Error('未找到当前故事');
       }
+
+      // 获取要删除的章节信息
+      const chapterToBeDeleted = chapters.find(ch => ch.id === chapterToDelete);
+      if (!chapterToBeDeleted) {
+        throw new Error('未找到要删除的章节');
+      }
+
+      // 检查章节状态，如果是已发布状态则不允许删除
+      if (chapterToBeDeleted.status === 'published') {
+        throw new Error('已发布的章节不能删除');
+      }
       
       // 使用 API 客户端删除章节
       const response = await fetch(`/api/stories/${storyId}/chapters/${chapterToDelete}`, {
@@ -1429,7 +1497,8 @@ export default function AuthorWrite() {
       });
       
       if (!response.ok) {
-        throw new Error('删除失败');
+        const errorData = await response.json();
+        throw new Error(errorData.error || '删除失败');
       }
       
       // 更新所有相关状态
@@ -1458,6 +1527,9 @@ export default function AuthorWrite() {
       await loadChapterList();
     } catch (error) {
       showError(error, '删除失败');
+      // 关闭对话框
+      setShowDeleteDialog(false);
+      setChapterToDelete(null);
     }
   };
 
@@ -1940,6 +2012,7 @@ export default function AuthorWrite() {
     setDisplayWordCount(initialWordCount);
   }, [content]); // 只在 content 变化时更新
 
+  
 
   /*
     页面渲染
@@ -1950,6 +2023,7 @@ export default function AuthorWrite() {
       description="连接钱包以开始您的创作"
       icon={<FaPen className="w-10 h-10 text-indigo-600" />}
     >
+
       <div className={styles.container}>
         {showTipDialog && (
           <TipDialog
@@ -2269,13 +2343,16 @@ export default function AuthorWrite() {
                                               >
                                                 <FaPen />
                                               </button>
-                                              <button
-                                                className={styles.actionButton}
-                                                onClick={(e) => handleDeleteClick(e, chapter.id)}
-                                                title="删除"
-                                              >
-                                                <FaTrash />
-                                              </button>
+                                              {/* 只有非已发布状态的章节才显示删除按钮 */}
+                                              {chapter.status !== 'published' && (
+                                                <button
+                                                  className={styles.actionButton}
+                                                  onClick={(e) => handleDeleteClick(e, chapter.id)}
+                                                  title="删除"
+                                                >
+                                                  <FaTrash />
+                                                </button>
+                                              )}
                                               {chapter.status !== 'published' && (
                                                 <button
                                                   className={styles.actionButton}
@@ -2365,13 +2442,16 @@ export default function AuthorWrite() {
                                                 >
                                                   <FaPen />
                                                 </button>
-                                                <button
-                                                  className={styles.actionButton}
-                                                  onClick={(e) => handleDeleteClick(e, chapter.id)}
-                                                  title="删除"
-                                                >
-                                                  <FaTrash />
-                                                </button>
+                                                {/* 只有非已发布状态的章节才显示删除按钮 */}
+                                                {chapter.status !== 'published' && (
+                                                  <button
+                                                    className={styles.actionButton}
+                                                    onClick={(e) => handleDeleteClick(e, chapter.id)}
+                                                    title="删除"
+                                                  >
+                                                    <FaTrash />
+                                                  </button>
+                                                )}
                                                 {chapter.status !== 'published' && (
                                                   <button
                                                     className={styles.actionButton}
@@ -2484,13 +2564,16 @@ export default function AuthorWrite() {
                                     >
                                       <FaPen />
                                     </button>
-                                    <button
-                                      className={styles.actionButton}
-                                      onClick={(e) => handleDeleteClick(e, chapter.id)}
-                                      title="删除"
-                                    >
-                                      <FaTrash />
-                                    </button>
+                                    {/* 只有非已发布状态的章节才显示删除按钮 */}
+                                    {chapter.status !== 'published' && (
+                                      <button
+                                        className={styles.actionButton}
+                                        onClick={(e) => handleDeleteClick(e, chapter.id)}
+                                        title="删除"
+                                      >
+                                        <FaTrash />
+                                      </button>
+                                    )}
                                     {chapter.status !== 'published' && (
                                       <button
                                         className={styles.actionButton}
@@ -2956,6 +3039,7 @@ export default function AuthorWrite() {
           </>
         )}
       </div>
+    
       {/* 创建章节对话框 - 美化版 */}
       {showCreateChapterDialog && (
         <div className={styles.modalOverlay}>
@@ -3020,6 +3104,56 @@ export default function AuthorWrite() {
           </div>
         </div>
       )}
+      {showPublishConfirm && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modernModal}>
+            <div className={styles.modernModalHeader}>
+              <h3>确认发布章节</h3>
+              <button 
+                className={styles.modernCloseButton}
+                onClick={() => setShowPublishConfirm(false)}
+              >
+                <IoClose />
+              </button>
+            </div>
+            
+            <div className={styles.modernModalBody}>
+              <div className={styles.chapterPreview}>
+                <h4>章节预览</h4>
+                <div className={styles.previewContent}>
+                  <p><strong>标题:</strong> {currentChapter?.title}</p>
+                  <p><strong>字数:</strong> {displayWordCount} 字</p>
+                </div>
+              </div>
+
+              <div className={styles.warningSection}>
+                <ul className={styles.warningList}>
+                  <li>发布后章节内容将无法修改</li>
+                  <li>发布操作需要支付gas费用</li>
+                  <li>请确保章节内容已经完善</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className={styles.modernModalFooter}>
+              <button
+                className={styles.modernCancelButton}
+                onClick={() => setShowPublishConfirm(false)}
+              >
+                取消
+              </button>
+              <button
+                className={styles.modernConfirmButton}
+                onClick={handleConfirmPublish}
+              >
+                <IoRocket className={styles.buttonIcon} />
+                确认发布
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
     </WalletRequired>
   )
 }

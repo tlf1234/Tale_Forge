@@ -429,14 +429,8 @@ app.post('/api/stories/:storyId/chapters/:chapterId/publish', async (req, res) =
       return res.status(400).json({ error: '缺少作者地址' });
     }
     
-    // 调用发布章节方法
-    const chapter = await storyService.publishChapter(chapterId, authorAddress, storyId);
-    
-    // 如果提供了交易哈希，更新章节的交易哈希
-    if (txHash && chapter) {
-      // 使用 storyService 更新章节的交易哈希
-      await storyService.updateChapter(chapterId, { txHash }, storyId);
-    }
+    // 调用发布章节方法，同时传入交易哈希
+    const chapter = await storyService.publishChapter(chapterId, authorAddress, storyId, txHash);
     
     res.json(chapter);
   } catch (error: any) {

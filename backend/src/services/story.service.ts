@@ -391,7 +391,7 @@ export class StoryService {
 
 
   // 发布章节
-  async publishChapter(id: string, authorAddress: string, storyId?: string) {
+  async publishChapter(id: string, authorAddress: string, storyId?: string, txHash?: string) {
     // 如果提供了 storyId，先验证章节是否属于该故事
     if (storyId) {
       const chapter = await prisma.chapter.findUnique({
@@ -444,6 +444,7 @@ export class StoryService {
         data: {
           status: 'PUBLISHED',
           contentCID,
+          txHash,  // 添加交易哈希
           updatedAt: new Date()
         }
       })
@@ -458,7 +459,6 @@ export class StoryService {
     title?: string
     content?: string
     order?: number
-    txHash?: string
     wordCount?: number
   }, storyId?: string) {
     // 如果提供了 storyId，先验证章节是否属于该故事

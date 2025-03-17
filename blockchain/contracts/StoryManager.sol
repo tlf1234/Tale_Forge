@@ -15,10 +15,11 @@ contract StoryManager is Ownable, ReentrancyGuard {
     struct Story {
         uint256 id; // 故事ID
         address author; // 作者地址
+       
         string title; // 故事标题
         string description; // 故事描述 （这个应该改为cid）
         string coverCid; // 封面CID
-        // string contentCid; // 内容CID
+        // string contentCid; // 内容CID  如果是用所有章节CID组合的哈希值，可以另设一个方法
         uint32 chapterCount; // 章节数量
         bool isCompleted; // 是否完成
         uint256 createdAt; // 创建时间
@@ -280,7 +281,7 @@ contract StoryManager is Ownable, ReentrancyGuard {
 
     // 更新章节（这个需要我们平台调用，防止作弊,不存在作弊可能，web项目都是在后端）
     //这里少了一个插图参数Cid参数，而且是数组，可以多张(不管是内容cid还是插图cid都放到后端数据库就行，
-    // 不用放到区块链上)。
+    // 不用放到区块链上,因为会消耗极大的存储空间)。
     function updateChapter(
         uint256 storyId,
         uint32 chapterNumber,

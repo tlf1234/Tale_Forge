@@ -4,22 +4,25 @@
 
 @import 'react-image-crop/dist/ReactCrop.css';
 
-/* 禁用html和body元素的滚动条和滚动效果 */
+/* 默认允许滚动，特定页面可以通过添加no-scroll类来禁用滚动 */
 @layer base {
   html, body {
-    overflow: hidden;
     height: 100%;
     width: 100%;
-    position: fixed;
-    inset: 0;
   }
 }
 
+/* 创作界面等需要禁用滚动的页面可以使用此类 */
+.no-scroll {
+  overflow: hidden !important;
+  position: fixed !important;
+  inset: 0 !important;
+}
 :root {
   /* 颜色系统 */
-  --color-primary: 37, 99, 235;     /* #2563eb - 主色蓝 */
-  --color-secondary: 120, 119, 198; /* #7877C6 - 辅色紫 */
-  --color-accent: 249, 115, 22;     /* #F97316 - 强调橙 */
+  --color-primary: 37, 99, 235;     /* #2563eb - 主色�?*/
+  --color-secondary: 120, 119, 198; /* #7877C6 - 辅色�?*/
+  --color-accent: 249, 115, 22;     /* #F97316 - 强调�?*/
   
   /* 中性色 */
   --color-text-primary: 26, 26, 26;    /* #1A1A1A */
@@ -28,7 +31,7 @@
   --color-border: 238, 238, 238;         /* #EEEEEE */
   --color-background: 248, 249, 250;     /* #F8F9FA */
   
-  /* 功能色 */
+  /* 功能�?*/
   --color-success: 34, 197, 94;     /* #22C55E */
   --color-warning: 234, 179, 8;     /* #EAB308 */
   --color-error: 239, 68, 68;       /* #EF4444 */
@@ -161,7 +164,7 @@ main {
   border: 2px solid #e5e7eb;
 }
 
-/* 禁用拼写检查 - 增强版 */
+/* 禁用拼写检�?- 增强�?*/
 [contenteditable="true"],
 [contenteditable="true"] *,
 input, textarea, 
@@ -178,7 +181,7 @@ input, textarea,
   spellcheck: false !important;
 }
 
-/* 移除拼写错误的红色下划线 - 增强版 */
+/* 移除拼写错误的红色下划线 - 增强�?*/
 [contenteditable="true"]::-webkit-spelling-error,
 [contenteditable="true"] *::-webkit-spelling-error,
 input::-webkit-spelling-error,
@@ -210,3 +213,4 @@ textarea::-webkit-grammar-error,
   text-decoration: none !important;
   background-color: transparent !important;
 }
+
