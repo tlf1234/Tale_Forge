@@ -167,10 +167,12 @@ export class StoryService {
     category: string
     tags?: string[]
     targetWordCount: number
+    chainId?: string  // 添加链上ID字段
   }) {
     console.log('[StoryService.saveStory] 开始保存故事:', {
       title: data.title,
-      authorAddress: data.authorAddress
+      authorAddress: data.authorAddress,
+      chainId: data.chainId  // 添加链上ID日志
     })
 
     try {
@@ -203,8 +205,9 @@ export class StoryService {
           wordCount: data.content.length,
           targetWordCount: data.targetWordCount,
           isNFT: false,
-          published: false
-        },
+          published: false,
+          chainId: data.chainId ? parseInt(data.chainId) : null
+        } as any,  // 添加类型断言
         include: {
           author: {
             select: {
@@ -274,45 +277,74 @@ export class StoryService {
 
   // 获取故事详情
   async getStory(id: string) {
-    // 1. 获取数据库中的基本信息
-    const story = await prisma.story.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        contentCID: true,
-        cover: true,
-        authorId: true,
-        status: true,
-        category: true,
-        tags: true,
-        wordCount: true,
-        targetWordCount: true,
-        createdAt: true,
-        updatedAt: true,
-        author: {
-          select: {
-            id: true,
-            address: true,
-            authorName: true,
-            avatar: true
-          }
-        },
-        _count: {
-          select: {
-            likes: true,
-            comments: true,
-            favorites: true
+    console.log('[StoryService.getStory] 开始获取故事:', { id });
+
+    try {
+      // 1. 获取数据库中的基本信息
+      const story = await prisma.story.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          contentCID: true,
+          cover: true,
+          authorId: true,
+          status: true,
+          category: true,
+          tags: true,
+          wordCount: true,
+          targetWordCount: true,
+          createdAt: true,
+          updatedAt: true,
+          nftAddress: true,  // NFT合约地址
+          chainId: true,     // 链上故事ID
+          author: {
+            select: {
+              id: true,
+              address: true,
+              authorName: true,
+              avatar: true
+            }
+          },
+          _count: {
+            select: {
+              likes: true,
+              comments: true,
+              favorites: true
+            }
           }
         }
-      }
-    })
+      }) as any;  // 添加类型断言
 
-    // 2. 内容按需从 IPFS 获取
-    if (story) {
-      const content = await getFromIPFS(story.contentCID)
-      return { ...story, content }
+      console.log('[StoryService.getStory] 数据库查询结果:', {
+        found: !!story,
+        storyId: story?.id,
+        title: story?.title,
+        status: story?.status,
+        nftAddress: story?.nftAddress,
+        chainId: story?.chainId,
+        authorAddress: story?.authorId
+      });
+
+      if (!story) {
+        console.log('[StoryService.getStory] 故事不存在:', { id });
+        return null;
+      }
+
+      // 2. 内容按需从 IPFS 获取
+      if (story) {
+        console.log('[StoryService.getStory] 开始从IPFS获取内容:', { contentCID: story.contentCID });
+        const content = await getFromIPFS(story.contentCID);
+        console.log('[StoryService.getStory] IPFS内容获取成功:', { 
+          contentLength: content?.length,
+          hasContent: !!content 
+        });
+        return { ...story, content };
+      }
+    } catch (error) {
+      console.error('[StoryService.getStory] 获取故事失败:', error);
+      throw error;
     }
   }
 

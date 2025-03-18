@@ -218,6 +218,9 @@ app.get('/api/stories', async (req, res) => {
 // 获取故事详情路由
 app.get('/api/stories/:id', async (req, res) => {
   try {
+    console.log('[GET /api/stories/:id] 收到请求:', {
+      id: req.params.id
+    })
     const { id } = req.params;
     const story = await storyService.getStory(id);
     res.json(story);

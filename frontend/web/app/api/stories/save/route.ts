@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
         coverCid,
         category,
         tags,
-        targetWordCount
+        targetWordCount,
+        chainId
       } = await req.json()
 
 
@@ -42,7 +43,8 @@ export async function POST(req: NextRequest) {
             coverCid,
             category,
             tags,
-            targetWordCount
+            targetWordCount,
+            chainId
         })
       })
   

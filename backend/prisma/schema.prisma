@@ -47,7 +47,7 @@ model Story {
   title         String    // 标题
   description   String    // 描述
   cover         String?   // 封面图片
-  contentCID    String    // IPFS内容ID
+  contentCID    String    // IPFS内容ID  （这个实际是descriptionCID）
   wordCount     Int       @default(0) // 字数
   targetWordCount Int     @default(10000) // 目标字数
   status        StoryStatus @default(DRAFT) // 状态
@@ -55,6 +55,7 @@ model Story {
   tags          String[]  // 标签
   isNFT         Boolean   @default(false) // 是否已铸造NFT
   nftAddress    String?   // NFT合约地址
+  chainId       Int?      // 链上故事ID（重要，用于关联链上数据）
   published     Boolean   @default(false) // 是否已发布
   authorId      String
   author        User      @relation(fields: [authorId], references: [id])
@@ -68,6 +69,7 @@ model Story {
   updatedAt     DateTime  @updatedAt // 更新时间
 
   @@index([authorId])
+  @@index([chainId])
 }
 
 // 章节模型

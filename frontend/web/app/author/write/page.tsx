@@ -233,6 +233,32 @@ const TipDialog = ({ message, onClose }: { message: string; onClose: () => void 
   </div>
 );
 
+// 成功确认弹窗组件
+const SuccessDialog = ({ message, onClose }: { message: string; onClose: () => void }) => (
+  <div className={styles.modal}>
+    <div className={styles.modalContent}>
+      <div className={styles.modalHeader}>
+        <h2 className={styles.modalTitle}>操作成功</h2>
+        <button 
+          className={styles.closeButton}
+          onClick={onClose}
+        >
+          ×
+        </button>
+      </div>
+      <div className={styles.modalText}>{message}</div>
+      <div className={styles.modalFooter}>
+        <button
+          className={`${styles.button} ${styles.primaryButton}`}
+          onClick={onClose}
+        >
+          确认
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 // 作者写作页面
 export default function AuthorWrite() {
   const router = useRouter()
@@ -346,6 +372,10 @@ export default function AuthorWrite() {
   // 在状态管理部分添加新的状态
   const [showTipDialog, setShowTipDialog] = useState(false);
 
+  // 成功对话框状态
+const [successMessage, setSuccessMessage] = useState('');
+const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+
   // 在状态管理部分添加新的状态
   const [createStatus, setCreateStatus] = useState<CreateStatus | null>(null)
   const [createProgress, setCreateProgress] = useState(0)
@@ -380,6 +410,12 @@ export default function AuthorWrite() {
     toast.success(message);
   };
 
+  // 成功提示函数
+  const showCreateSuccess = (message: string) => {
+    setSuccessMessage(message);
+    setShowSuccessDialog(true);
+  };
+
   // 修改确认对话框函数
   const showConfirm = (message: string): boolean => {
     return window.confirm(message);
@@ -403,7 +439,7 @@ export default function AuthorWrite() {
     setShowSettings(false);
   };
 
-  // 添加no-scroll类到body元素。去除创作界面外层的滚动条
+  // 添加no-scroll类到body元素。去除创作界面外层的滚动条（注意这里还能优化，）
   useEffect(() => {
     // 添加no-scroll类到body元素
     document.body.classList.add('no-scroll');
@@ -416,7 +452,6 @@ export default function AuthorWrite() {
   
   /**
    * 作品创建及加载相关 
-   * 
   */
   // 修改加载时机
   useEffect(() => {
@@ -718,6 +753,9 @@ export default function AuthorWrite() {
           throw new Error('未检测到钱包');
         }
 
+                // 在调用智能合约前
+        setCreateStatus(CreateStatus.CREATING_CONTRACT);
+        setCreateProgress(40);
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
         
@@ -737,8 +775,17 @@ export default function AuthorWrite() {
         );
         
         console.log('等待交易确认...');
+        setCreateProgress(60);
         const receipt = await tx.wait();
         console.log('故事创建成功！交易收据:', receipt);
+        setCreateProgress(80);
+
+        // 从交易收据中获取新创建的故事ID
+        const newStoryId = receipt.events?.find((e: any) => e.event === 'StoryCreated')?.args?.storyId;
+        if (!newStoryId) {
+          throw new Error('无法获取新创建的故事ID');
+        }
+        console.log('新创建的故事链上ID:', newStoryId);
 
         // 保存到数据库
         console.log('开始保存到数据库，发送数据:', {
@@ -754,6 +801,8 @@ export default function AuthorWrite() {
           targetWordCount: storyInfo.targetWordCount
         });
 
+        setCreateStatus(CreateStatus.SAVING_DATABASE);
+        setCreateProgress(90);
         const saveResponse = await fetch('/api/stories/save', {
           method: 'POST',
           headers: {
@@ -769,42 +818,49 @@ export default function AuthorWrite() {
             coverCid,
             category: storyInfo.type,
             tags: storyInfo.tags,
-            targetWordCount: storyInfo.targetWordCount
+            targetWordCount: storyInfo.targetWordCount,
+            chainId: newStoryId.toString() // 确保转换为字符串
           })
         });
 
-        let saveData;
-        try {
-          saveData = await saveResponse.json();
-          console.log('数据库保存响应:', saveData);
-          
-          if (!saveResponse.ok) {
-            console.error('保存失败，HTTP状态:', saveResponse.status);
-            throw new Error(saveData.message || '保存失败');
-          }
-
-          if (saveData.success) {
-            setCreateStatus(CreateStatus.COMPLETED);
-            setCreateProgress(100);
-            
-            // 显示成功提示
-            toast.success('作品创建成功！');
-            
-            // 关闭弹窗
-            setShowCreateConfirm(false);
-            
-            // 跳转到作品详情页
-            router.push(`/author/stories/${saveData.data.id}`);
-          }
-        } catch (error: unknown) {
-          console.error('保存到数据库失败:', error);
-          throw new Error(typeof error === 'object' && error && 'message' in error ? (error.message as string) : '保存失败');
+        if (!saveResponse.ok) {
+          const errorData = await saveResponse.json();
+          throw new Error(errorData.error || '保存故事失败');
         }
 
-        const story = saveData.data;
-        console.log('保存到数据库成功:', story);
+        const savedStory = await saveResponse.json();
+        console.log('故事保存成功:', savedStory);
         
-        return story;
+        // 重置创建状态
+        setCreateStatus(CreateStatus.COMPLETED);
+        setCreateProgress(100);
+        // 关闭创建确认弹窗
+        setShowCreateConfirm(false);
+        // 显示成功提示
+        showCreateSuccess('作品创建成功！');
+      
+        // 刷新作品列表
+        try {
+          await loadStories();
+          console.log('作品列表已更新');
+        } catch (error) {
+          console.error('刷新作品列表失败:', error);
+        }
+
+        // 重置创建状态
+        setStoryInfo({
+          title: '',
+          description: '',
+          type: '',
+          tags: [],
+          targetWordCount: 100000,
+          isFree: true,
+          price: 0,
+          coverImage: '',
+          isSerial: true  // 添加这一行
+        });
+        
+        return savedStory;
       } catch (error) {
         console.error('创建故事失败:', error);
         throw error;
@@ -861,7 +917,6 @@ export default function AuthorWrite() {
    * 并不是以写作为主的在线工具软件。要先明白这一原则，不要开发走偏了。
    * 增加一个文件加载显示功能，以方便作者用其它写作软件写好文章后直接加载进来，方便发布。
   */
-
 
   // 添加章节的处理函数
   const handleAddChapter = async (volumeId?: string) => {
@@ -1234,7 +1289,33 @@ export default function AuthorWrite() {
   // 处理章节发布按钮点击
   const handlePublishChapter = async (chapterId: string) => {
     if (!address) {
-      toast.error('请先连接钱包');
+      toast.error('请先连接钱包', {
+        style: {
+          background: '#fff',
+          color: '#333',
+          padding: '16px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        },
+        position: 'top-center',
+      });
+      return;
+    }
+
+    // 检查是否是当前选定的章节
+    if (chapterId !== currentChapterId) {
+      toast.error('请先选定要发布的章节', {
+        style: {
+          background: '#fff',
+          color: '#333',
+          padding: '16px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        },
+        position: 'top-center',
+        icon: '⚠️',
+        duration: 3000,
+      });
       return;
     }
 
@@ -1243,7 +1324,7 @@ export default function AuthorWrite() {
     setShowPublishConfirm(true);
   };
 
-  // 添加确认发布的处理函数
+  // 确认发布的处理函数
   const handleConfirmPublish = async () => {
     if (!chapterToPublish || !address) return;
 
@@ -1270,14 +1351,21 @@ export default function AuthorWrite() {
       if (!storyResponse.ok) {
         throw new Error('获取故事信息失败');
       }
+
       const story = await storyResponse.json();
+      console.log('【handleConfirmPublish】故事信息:', story);
       
-      if (!story || !story.nftAddress) {
-        throw new Error('故事未上链或链上 ID 不存在');
+      if (!story) {
+        throw new Error('故事不存在');
       }
 
-      const storyChainId = parseInt(story.nftAddress);
-      if (!storyChainId) {
+      if (!story.chainId) {
+        throw new Error('故事未上链，请先在区块链上发布故事');
+      }
+
+      console.log('【handleConfirmPublish】故事链上 ID:', story.chainId);
+      const storyChainId = story.chainId;
+      if (!storyChainId || isNaN(storyChainId)) {
         throw new Error('无效的故事链上 ID');
       }
 
@@ -1536,9 +1624,22 @@ export default function AuthorWrite() {
   // 添加字数计算函数
   const calculateWordCount = (content: string): number => {
     if (!content) return 0;
-    // 移除HTML标签和空白字符，保留纯文本内容
-    const plainText = content.replace(/<[^>]*>/g, '').replace(/\s+/g, '');
-    return plainText.length;
+    
+    // 移除HTML标签
+    const plainText = content.replace(/<[^>]*>/g, '');
+    
+    // 匹配中文字符（包括中文标点）
+    const chineseChars = (plainText.match(/[\u4e00-\u9fa5]|[\u3000-\u303f]|[\uff00-\uffef]/g) || []).length;
+    
+    // 匹配英文单词（包括数字）
+    const englishWords = plainText
+      .replace(/[\u4e00-\u9fa5]|[\u3000-\u303f]|[\uff00-\uffef]/g, ' ') // 移除中文字符
+      .trim()
+      .split(/\s+/)
+      .filter(word => word.length > 0).length;
+    
+    // 返回中文字符数和英文单词数之和
+    return chineseChars + englishWords;
   };
 
   // 获取当前编辑器字数
@@ -1803,7 +1904,6 @@ export default function AuthorWrite() {
   </div>
   )
 
-  
   // 修改内容变更处理
   const handleContentChange = useCallback((newContent: string) => {
     console.log('【write/page】handleContentChange 被调用，内容长度:', newContent.length);
@@ -2031,7 +2131,15 @@ export default function AuthorWrite() {
             onClose={() => setShowTipDialog(false)}
           />
         )}
-        
+
+        {/* 成功提示对话框 */}
+        {showSuccessDialog && (
+          <SuccessDialog
+            message={successMessage}
+            onClose={() => setShowSuccessDialog(false)}
+          />
+        )}
+                
         {/* 添加错误提示对话框 */}
         {errorMessage && (
           <ErrorDialog
@@ -2901,6 +3009,7 @@ export default function AuthorWrite() {
 
               {/* 作品创建确认弹窗 */}
               {showCreateConfirm && (
+                
                 <div className={styles.previewOverlay}>
                   <div className={styles.previewPanel}>
                     <div className={styles.previewHeader}>
@@ -3104,6 +3213,7 @@ export default function AuthorWrite() {
           </div>
         </div>
       )}
+      {/* 发布章节确认弹窗 */}
       {showPublishConfirm && (
         <div className={styles.modalOverlay}>
           <div className={styles.modernModal}>
@@ -3121,8 +3231,8 @@ export default function AuthorWrite() {
               <div className={styles.chapterPreview}>
                 <h4>章节预览</h4>
                 <div className={styles.previewContent}>
-                  <p><strong>标题:</strong> {currentChapter?.title}</p>
-                  <p><strong>字数:</strong> {displayWordCount} 字</p>
+                  <p>{currentChapter?.title}</p>
+                  <p>{displayWordCount} 字</p>
                 </div>
               </div>
 
