@@ -1038,18 +1038,28 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
         throw new Error('API返回的数据格式不正确');
       }
       
+      // 转换章节状态为小写
+      const processedChapters = chapters.map(chapter => ({
+        ...chapter,
+        status: chapter.status?.toLowerCase() || 'draft' // 将状态转为小写，如果为空则默认为'draft'
+      }));
+      console.log('【loadChapterList】处理后的章节数据:', processedChapters);
+      
       // 更新总章节数
-      const total = chapters.length;
+      const total = processedChapters.length;
       setTotalChapters(total);
       console.log('【loadChapterList】设置总章节数:', total);
       
-      // 按序号排序，最新的在前面
-      const sortedRecentChapters = chapters.sort((a, b) => b.order - a.order);
-      console.log('【loadChapterList】排序后的最新章节:', sortedRecentChapters);
+      // 按照章节顺序排序，保留原始章节状态
+      const sortedChapters = [...processedChapters].sort((a, b) => a.order - b.order);
+      console.log('【loadChapterList】按顺序排序后的章节:', sortedChapters);
+      
+      // 最新的章节在前面，用于显示在"最新章节"区域
+      const sortedRecentChapters = [...processedChapters].sort((a, b) => b.order - a.order).slice(0, 10);
       
       // 更新最新章节列表和全部章节列表
-      setRecentChapters(sortedRecentChapters.slice(0, 10)); // 只取前10章
-      setChapters(sortedRecentChapters);
+      setRecentChapters(sortedRecentChapters); // 只取前10章
+      setChapters(sortedChapters);
       setFilteredChapters([]); // 清空搜索结果
       setChapterSearchKeyword(''); // 清空搜索关键词
       setIsSearching(false); // 重置搜索状态
@@ -1233,13 +1243,21 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   // 添加一个 ref 来保存章节列表的滚动位置
   const chapterListRef = useRef<HTMLDivElement>(null);
 
-  // 加载章节内容的函数
+  // 在组件的状态声明部分
+  const [loadingChapterIds, setLoadingChapterIds] = useState<Set<string>>(new Set());
+
+  // 修改 loadChapter 函数中的 Set 操作
   const loadChapter = async (chapterId: string) => {
     try {
-      // 如果点击的是当前章节，不做任何操作
       if (chapterId === currentChapterId) {
         return null;
       }
+
+      setLoadingChapterIds((prev: Set<string>) => {
+        const newSet = new Set(prev);
+        newSet.add(chapterId);
+        return newSet;
+      });
 
       // 保存当前滚动位置
       const scrollPosition = chapterListRef.current?.scrollTop;
@@ -1279,8 +1297,21 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       }
 
       setIsChapterLoading(false);
+      // 移除加载状态
+      setLoadingChapterIds((prev: Set<string>) => {
+        const newSet = new Set(prev);
+        newSet.delete(chapterId);
+        return newSet;
+      });
+
       return chapter;
     } catch (error) {
+      // 发生错误时也要移除加载状态
+      setLoadingChapterIds((prev: Set<string>) => {
+        const newSet = new Set(prev);
+        newSet.delete(chapterId);
+        return newSet;
+      });
       showError(error, '加载章节失败，请稍后重试');
       return null;
     }
@@ -1329,55 +1360,91 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
     if (!chapterToPublish || !address) return;
 
     try {
-      // 先保存最新内容
-      await handleSaveClick({ stopPropagation: () => {} } as React.MouseEvent, chapterToPublish);
+      console.log('【handleConfirmPublish】开始处理发布，章节ID:', chapterToPublish);
 
+      // 检查章节内容和字数
+      const wordCount = calculateWordCount(content || '');
+      if (!content || content.trim().length === 0 || wordCount === 0) {
+        throw new Error('章节内容不能为空，请添加有效内容后再发布');
+      }
+      console.log('【handleConfirmPublish】章节字数:', wordCount);
+
+      // 设置初始进度
+      setIsCreating(true);
+      setCreateProgress(0);
+      
       const storyId = localStorage.getItem('currentStoryId');
       if (!storyId) {
         throw new Error('未找到当前故事');
       }
+      console.log('【handleConfirmPublish】当前故事ID:', storyId);
+      
+      // 提前获取故事信息并验证作者身份 - 10%进度
+      console.log('【handleConfirmPublish】准备获取故事信息并验证作者身份');
+      setCreateStatus(CreateStatus.IDLE);
+      setCreateProgress(10);
+      
+      const storyResponse = await fetch(`/api/stories/${storyId}`);
+      if (!storyResponse.ok) {
+        throw new Error('获取故事信息失败');
+      }
+
+      const storyData = await storyResponse.json();
+      console.log('【handleConfirmPublish】故事信息:', storyData);
+      
+      if (!storyData) {
+        throw new Error('故事不存在');
+      }
+
+      console.log('【handleConfirmPublish】故事作者ID:', storyData.authorId);
+      console.log('【handleConfirmPublish】当前钱包地址:', address);  
+      // 验证作者身份
+      if (storyData.author.address !== address) {
+        console.error('【handleConfirmPublish】作者身份验证失败', {
+          storyAuthorId: storyData.authorId,
+          currentAddress: address
+        });
+        throw new Error('只有作者才能发布章节');
+      }
+      console.log('【handleConfirmPublish】作者身份验证通过');
+      
+      // 检查故事是否已上链
+      if (!storyData.chainId) {
+        throw new Error('故事未上链，请先在区块链上发布故事');
+      }
+
+      console.log('【handleConfirmPublish】故事链上 ID:', storyData.chainId);
+      const storyChainId = storyData.chainId;
+      if (!storyChainId || isNaN(storyChainId)) {
+        throw new Error('无效的故事链上 ID');
+      }
+      
+      // 先保存最新内容 - 20%进度
+      setCreateProgress(20);
+      await handleSaveClick({ stopPropagation: () => {} } as React.MouseEvent, chapterToPublish);
+      console.log('【handleConfirmPublish】已保存最新内容');
 
       // 获取当前章节
       const currentChapter = chapters.find(ch => ch.id === chapterToPublish);
       if (!currentChapter) {
         throw new Error('未找到当前章节');
       }
+      console.log('【handleConfirmPublish】当前章节信息:', currentChapter);
 
-      // 计算章节字数
-      const wordCount = content ? content.length : 0;
-
-      // 获取故事的链上 ID
-      const storyResponse = await fetch(`/api/stories/${storyId}`);
-      if (!storyResponse.ok) {
-        throw new Error('获取故事信息失败');
-      }
-
-      const story = await storyResponse.json();
-      console.log('【handleConfirmPublish】故事信息:', story);
-      
-      if (!story) {
-        throw new Error('故事不存在');
-      }
-
-      if (!story.chainId) {
-        throw new Error('故事未上链，请先在区块链上发布故事');
-      }
-
-      console.log('【handleConfirmPublish】故事链上 ID:', story.chainId);
-      const storyChainId = story.chainId;
-      if (!storyChainId || isNaN(storyChainId)) {
-        throw new Error('无效的故事链上 ID');
-      }
-
-      // 调用合约上传章节数据
+  
+      // 调用合约上传章节数据 - 30%进度
       showSuccess('正在将章节数据上传到区块链...');
+      setCreateStatus(CreateStatus.UPLOADING);
+      setCreateProgress(30);
+      console.log('【handleConfirmPublish】准备上传章节数据到区块链');
 
       // 检查是否有可用的以太坊提供者
       if (!window.ethereum) {
         throw new Error('未检测到以太坊钱包，请安装 MetaMask 或其他兼容的钱包');
       }
 
-      // 获取合约实例
+      // 获取合约实例 - 40%进度
+      setCreateProgress(40);
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
       const storyManagerContract = new ethers.Contract(
@@ -1385,29 +1452,55 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
         CONTRACT_ABIS.StoryManager,
         signer
       );
+      console.log('【handleConfirmPublish】合约实例已创建');
 
-       // 获取链上当前章节总数
-      //  const story = await storyManagerContract.stories(storyChainId);
-       const nextCount = story.chapterCount.toNumber() + 1;
+      // 获取链上当前章节总数 - 50%进度
+      setCreateStatus(CreateStatus.CREATING_CONTRACT);
+      setCreateProgress(50);
+      console.log('【handleConfirmPublish】准备获取链上章节总数, storyChainId:', storyChainId);
+      const chainStory = await storyManagerContract.stories(storyChainId);
+      console.log('【handleConfirmPublish】链上故事数据:', chainStory);
+      
+      // 检查chapterCount的类型并正确处理
+      const currentCount = typeof chainStory.chapterCount === 'object' && chainStory.chapterCount.toNumber 
+        ? chainStory.chapterCount.toNumber() 
+        : Number(chainStory.chapterCount);
+      const nextCount = currentCount + 1;
+      console.log('【handleConfirmPublish】当前章节数:', currentCount, '下一章节数:', nextCount);
 
-      // 调用合约的 updateChapter 函数（注意该合约已经改了，后面需要重新编译及部署）
+      // 调用合约的 updateChapter 函数 - 60%进度
+      setCreateProgress(60);
+      console.log('【handleConfirmPublish】准备调用合约updateChapter函数');
+      console.log('【handleConfirmPublish】章节字数:', wordCount);
       const tx = await storyManagerContract.updateChapter(
         storyChainId,           // 故事的链上ID
         nextCount,    // 章节数目
         // currentChapter.title,    // 章节标题
-        // '',                      // 内容摘要，这里不使用 contentCid
+        '',                      // 内容摘要，这里不使用 contentCid
         wordCount                // 章节字数
       );
+      console.log('【handleConfirmPublish】交易已提交:', tx.hash);
 
       showSuccess('交易已提交，等待确认...');
       
-      // 等待交易确认
+      // 等待交易确认 - 70%进度
+      setCreateProgress(70);
+      console.log('【handleConfirmPublish】等待交易确认');
       const receipt = await tx.wait();
+      console.log('【handleConfirmPublish】交易已确认:', receipt);
       
       showSuccess('章节数据已成功上传到区块链！');
       console.log('章节上链成功，交易哈希:', receipt.transactionHash);
 
-      // 使用 API 客户端发布章节，同时传递交易哈希
+      // 使用 API 客户端发布章节，同时传递交易哈希 - 80%进度
+      setCreateStatus(CreateStatus.SAVING_DATABASE);
+      setCreateProgress(80);
+      console.log('【handleConfirmPublish】准备调用API发布章节, 参数:', {
+        storyId, 
+        chapterToPublish, 
+        authorAddress: address, 
+        txHash: receipt.transactionHash
+      });
       const publishResponse = await fetch(`/api/stories/${storyId}/chapters/${chapterToPublish}`, {
         method: 'POST',
         headers: {
@@ -1418,26 +1511,77 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
           txHash: receipt.transactionHash // 将交易哈希传递给后端
         })
       });
+      console.log('【handleConfirmPublish】API响应状态:', publishResponse.status);
 
       if (!publishResponse.ok) {
         const errorData = await publishResponse.json();
+        console.error('【handleConfirmPublish】API返回错误:', errorData);
         throw new Error(errorData.error || '发布失败');
       }
 
+      // 更新章节列表 - 90%进度
+      setCreateProgress(90);
       const publishedChapter = await publishResponse.json();
-      showSuccess('章节已发布成功');
+      console.log('【handleConfirmPublish】发布成功，返回数据:', publishedChapter);
       
       // 更新章节列表
+      console.log('【handleConfirmPublish】准备更新章节列表');
       await updateChapterList();
+      
+      // 更新本地状态中的章节状态
+      console.log('【handleConfirmPublish】更新本地章节状态');
+      // 更新chapters状态
+      setChapters(prevChapters => 
+        prevChapters.map(ch => 
+          ch.id === chapterToPublish 
+            ? { ...ch, status: 'published' } 
+            : ch
+        )
+      );
+      
+      // 更新recentChapters状态
+      setRecentChapters(prevRecent => 
+        prevRecent.map(ch => 
+          ch.id === chapterToPublish 
+            ? { ...ch, status: 'published' } 
+            : ch
+        )
+      );
+      
+      // 如果在搜索结果中，也更新搜索结果中的状态
+      if (isSearching) {
+        setFilteredChapters(prevFiltered => 
+          prevFiltered.map(ch => 
+            ch.id === chapterToPublish 
+              ? { ...ch, status: 'published' } 
+              : ch
+          )
+        );
+      }
+      
+      console.log('【handleConfirmPublish】章节列表已更新');
+
+      // 完成 - 100%进度
+      setCreateStatus(CreateStatus.COMPLETED);
+      setCreateProgress(100);
+      // showSuccess('章节已发布成功');
+      // 显示成功提示
+      showCreateSuccess('章节已发布成功!');
 
       // 关闭确认对话框
       setShowPublishConfirm(false);
       setChapterToPublish(null);
+      console.log('【handleConfirmPublish】已关闭确认对话框，流程完成');
     } catch (error: any) {
+      console.error('【handleConfirmPublish】发布失败:', error);
+      setCreateStatus(CreateStatus.FAILED);
+      setCreateProgress(0);
       showError(error, '发布章节失败');
       // 关闭确认对话框
       setShowPublishConfirm(false);
       setChapterToPublish(null);
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -1883,23 +2027,28 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
     >
       {isPreview ? <FaEye className={styles.icon} /> : <FaEyeSlash className={styles.icon} />}
     </button>
-    <button
-      className={`${styles.primaryButton} ${styles.hasChanges}`}
-      onClick={async () => {
-        console.log('【保存按钮】isSaving:', isSaving);
-        console.log('【保存按钮】content长度:', content.length);
-        try {
-          const result = await handleSave();
-          console.log('【保存按钮】保存结果:', result);
-        } catch (error) {
-          console.error('【保存按钮】保存出错:', error);
-        }
-      }}
-    >
-      <FaSave />
-      {isSaving ? '保存中...' : '保存'}
-    </button>
-    
+    {currentChapter?.status?.toLowerCase() === 'published' ? (
+      <div className={styles.publishedHint}>
+        <FaCheck />
+        已发布
+      </div>
+    ) : (
+      <button
+        className={`${styles.primaryButton} ${hasContentChanged ? styles.hasChanges : ''} ${isSaving ? styles.saving : ''}`}
+        onClick={async () => {
+          try {
+            const result = await handleSave();
+            console.log('【保存按钮】保存结果:', result);
+          } catch (error) {
+            console.error('【保存按钮】保存出错:', error);
+          }
+        }}
+        disabled={isSaving || currentChapter?.status?.toLowerCase() === 'published'}
+      >
+        <FaSave />
+        {isSaving ? '保存中...' : '保存'}
+      </button>
+    )}
   </div>
   </div>
   )
@@ -2321,11 +2470,11 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <span style={{ color: '#4b5563', fontWeight: '500' }}>总章节:</span>
                                     <span>{story.chapterCount}</span>
-                                </div>
+                                  </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <span style={{ color: '#10b981', fontWeight: '500' }}>已发布:</span>
                                     <span>{story.publishedChapterCount}</span>
-                            </div>
+                                  </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <span style={{ color: '#f59e0b', fontWeight: '500' }}>草稿:</span>
                                     <span>{story.draftChapterCount}</span>
@@ -2424,57 +2573,60 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                             <select
                                               value={chapter.status}
                                               onChange={(e) => handleChapterUpdate(chapter.id, 'status', e.target.value)}
-                                              className={styles.chapterStatus}
+                                              className={`${styles.chapterStatus} ${chapter.status === 'published' ? styles.published : ''}`}
                                               onClick={(e) => e.stopPropagation()}
+                                              disabled={chapter.status === 'published'}
                                             >
                                               <option value="draft">草稿</option>
                                               <option value="pending">待审核</option>
                                               <option value="published">已发布</option>
                                             </select>
+                                            {chapter.status === 'published' && loadingChapterIds.has(chapter.id) && (
+                                              <div className={styles.loadingIndicator} />
+                                            )}
                                           </div>
-                                        </div>
-                                        <div className={styles.chapterActions}>
-                                          {editingChapterId === chapter.id ? (
-                              <button
-                                              className={styles.actionButton}
-                                              onClick={(e) => handleSaveClick(e, chapter.id)}
-                                              title="保存"
-                              >
-                                              <FaSave />
-                              </button>
-                                          ) : (
-                                            <>
+                                          <div className={styles.chapterActions}>
+                                            {editingChapterId === chapter.id && chapter.status !== 'published' ? (
                                               <button
                                                 className={styles.actionButton}
-                                                onClick={(e) => handleEditClick(e, chapter.id, chapter.title)}
-                                                title="编辑"
+                                                onClick={(e) => handleSaveClick(e, chapter.id)}
+                                                title="保存"
                                               >
-                                                <FaPen />
+                                                <FaSave />
                                               </button>
-                                              {/* 只有非已发布状态的章节才显示删除按钮 */}
-                                              {chapter.status !== 'published' && (
-                                                <button
-                                                  className={styles.actionButton}
-                                                  onClick={(e) => handleDeleteClick(e, chapter.id)}
-                                                  title="删除"
-                                                >
-                                                  <FaTrash />
-                                                </button>
-                                              )}
-                                              {chapter.status !== 'published' && (
-                                                <button
-                                                  className={styles.actionButton}
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handlePublishChapter(chapter.id);
-                                                  }}
-                                                  title="发布到区块链"
-                                                >
-                                                  <FaUpload />
-                                                </button>
-                                              )}
-                                            </>
-                                          )}
+                                            ) : (
+                                              <>
+                                                {chapter.status !== 'published' && (
+                                                  <>
+                                                    <button
+                                                      className={styles.actionButton}
+                                                      onClick={(e) => handleEditClick(e, chapter.id, chapter.title)}
+                                                      title="编辑"
+                                                    >
+                                                      <FaPen />
+                                                    </button>
+                                                    <button
+                                                      className={styles.actionButton}
+                                                      onClick={(e) => handleDeleteClick(e, chapter.id)}
+                                                      title="删除"
+                                                    >
+                                                      <FaTrash />
+                                                    </button>
+                                                    <button
+                                                      className={styles.actionButton}
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handlePublishChapter(chapter.id);
+                                                      }}
+                                                      title="发布到区块链"
+                                                    >
+                                                      <FaUpload />
+                                                    </button>
+                                                  </>
+                                                )}
+                                              </>
+                                            )}
+                                          </div>
                             </div>
                           </div>
                                     ))
@@ -2499,8 +2651,8 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                               className={`${styles.chapterItem} ${
                                 currentChapter?.id === chapter.id ? styles.activeChapter : ''
                               } ${currentChapterId === chapter.id ? styles.selected : ''}`}
-                                          onClick={() => loadChapter(chapter.id)}
-                                        >
+                              onClick={() => loadChapter(chapter.id)}
+                              >
                                           <div className={styles.chapterMain}>
                                             {editingChapterId === chapter.id ? (
                                               <input
@@ -2523,17 +2675,21 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                               <select
                                                 value={chapter.status}
                                                 onChange={(e) => handleChapterUpdate(chapter.id, 'status', e.target.value)}
-                                                className={styles.chapterStatus}
+                                                className={`${styles.chapterStatus} ${chapter.status === 'published' ? styles.published : ''}`}
                                                 onClick={(e) => e.stopPropagation()}
+                                                disabled={chapter.status === 'published'}
                                               >
                                                 <option value="draft">草稿</option>
                                                 <option value="pending">待审核</option>
                                                 <option value="published">已发布</option>
                                               </select>
+                                              {chapter.status === 'published' && loadingChapterIds.has(chapter.id) && (
+                                                <div className={styles.loadingIndicator} />
+                                              )}
                                             </div>
                                           </div>
                                           <div className={styles.chapterActions}>
-                                            {editingChapterId === chapter.id ? (
+                                            {editingChapterId === chapter.id && chapter.status !== 'published' ? (
                                               <button
                                                 className={styles.actionButton}
                                                 onClick={(e) => handleSaveClick(e, chapter.id)}
@@ -2543,34 +2699,33 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                               </button>
                                             ) : (
                                               <>
-                                                <button
-                                                  className={styles.actionButton}
-                                                  onClick={(e) => handleEditClick(e, chapter.id, chapter.title)}
-                                                  title="编辑"
-                                                >
-                                                  <FaPen />
-                                                </button>
-                                                {/* 只有非已发布状态的章节才显示删除按钮 */}
                                                 {chapter.status !== 'published' && (
-                                                  <button
-                                                    className={styles.actionButton}
-                                                    onClick={(e) => handleDeleteClick(e, chapter.id)}
-                                                    title="删除"
-                                                  >
-                                                    <FaTrash />
-                                                  </button>
-                                                )}
-                                                {chapter.status !== 'published' && (
-                                                  <button
-                                                    className={styles.actionButton}
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      handlePublishChapter(chapter.id);
-                                                    }}
-                                                    title="发布到区块链"
-                                                  >
-                                                    <FaUpload />
-                                                  </button>
+                                                  <>
+                                                    <button
+                                                      className={styles.actionButton}
+                                                      onClick={(e) => handleEditClick(e, chapter.id, chapter.title)}
+                                                      title="编辑"
+                                                    >
+                                                      <FaPen />
+                                                    </button>
+                                                    <button
+                                                      className={styles.actionButton}
+                                                      onClick={(e) => handleDeleteClick(e, chapter.id)}
+                                                      title="删除"
+                                                    >
+                                                      <FaTrash />
+                                                    </button>
+                                                    <button
+                                                      className={styles.actionButton}
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handlePublishChapter(chapter.id);
+                                                      }}
+                                                      title="发布到区块链"
+                                                    >
+                                                      <FaUpload />
+                                                    </button>
+                                                  </>
                                                 )}
                                               </>
                                             )}
@@ -2622,8 +2777,8 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                                           currentChapter?.id === chapter.id ? styles.activeChapter : ''
                                                         } ${currentChapterId === chapter.id ? styles.selected : ''}`}
                                                         onClick={() => loadChapter(chapter.id)}
-                            >
-                              <div className={styles.chapterMain}>
+                                                      >
+                                <div className={styles.chapterMain}>
                                 {editingChapterId === chapter.id ? (
                                   <input
                                     type="text"
@@ -2641,21 +2796,25 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                 <div className={styles.chapterInfo}>
                                   <span className={styles.wordCount}>
                                     {chapter.wordCount}字
-          </span>
+                                  </span>
                                   <select
                                     value={chapter.status}
                                     onChange={(e) => handleChapterUpdate(chapter.id, 'status', e.target.value)}
-                                    className={styles.chapterStatus}
+                                    className={`${styles.chapterStatus} ${chapter.status === 'published' ? styles.published : ''}`}
                                     onClick={(e) => e.stopPropagation()}
+                                    disabled={chapter.status === 'published'}
                                   >
                                     <option value="draft">草稿</option>
                                     <option value="pending">待审核</option>
                                     <option value="published">已发布</option>
                                   </select>
+                                  {chapter.status === 'published' && loadingChapterIds.has(chapter.id) && (
+                                    <div className={styles.loadingIndicator} />
+                                  )}
                                 </div>
                               </div>
                               <div className={styles.chapterActions}>
-                                {editingChapterId === chapter.id ? (
+                                {editingChapterId === chapter.id && chapter.status !== 'published' ? (
                                   <button
                                     className={styles.actionButton}
                                     onClick={(e) => handleSaveClick(e, chapter.id)}
@@ -2665,34 +2824,33 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                   </button>
                                 ) : (
                                   <>
-                                    <button
-                                      className={styles.actionButton}
-                                      onClick={(e) => handleEditClick(e, chapter.id, chapter.title)}
-                                      title="编辑"
-                                    >
-                                      <FaPen />
-                                    </button>
-                                    {/* 只有非已发布状态的章节才显示删除按钮 */}
                                     {chapter.status !== 'published' && (
-                                      <button
-                                        className={styles.actionButton}
-                                        onClick={(e) => handleDeleteClick(e, chapter.id)}
-                                        title="删除"
-                                      >
-                                        <FaTrash />
-                                      </button>
-                                    )}
-                                    {chapter.status !== 'published' && (
-                                      <button
-                                        className={styles.actionButton}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handlePublishChapter(chapter.id);
-                                        }}
-                                        title="发布到区块链"
-                                      >
-                                        <FaUpload />
-                                      </button>
+                                      <>
+                                        <button
+                                          className={styles.actionButton}
+                                          onClick={(e) => handleEditClick(e, chapter.id, chapter.title)}
+                                          title="编辑"
+                                        >
+                                          <FaPen />
+                                        </button>
+                                        <button
+                                          className={styles.actionButton}
+                                          onClick={(e) => handleDeleteClick(e, chapter.id)}
+                                          title="删除"
+                                        >
+                                          <FaTrash />
+                                        </button>
+                                        <button
+                                          className={styles.actionButton}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handlePublishChapter(chapter.id);
+                                          }}
+                                          title="发布到区块链"
+                                        >
+                                          <FaUpload />
+                                        </button>
+                                      </>
                                     )}
                                   </>
                                 )}
@@ -2904,11 +3062,13 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                       key={currentChapterId || undefined}
                       initialContent={content}
                       onChange={handleContentChange}
-                      editable={!isPreview}
+                      editable={!isPreview && currentChapter?.status !== 'published'}
                       className={isPreview ? styles.previewContent : styles.content}
-                      placeholder="开始创作你的故事..."
+                      placeholder={currentChapter?.status === 'published' ? '该章节已发布，无法编辑' : '开始创作你的故事...'}
                       onSave={async () => {
-                        await handleSave();
+                        if (currentChapter?.status !== 'published') {
+                          await handleSave();
+                        }
                       }}
                     />
                     {/* 添加底部边界区域 */}
@@ -3041,7 +3201,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                         <h3 className={styles.previewTitle}>{storyInfo.title}</h3>
                         <span className={styles.previewType}>
                           {STORY_TYPES.find(t => t.id === storyInfo.type)?.name || '未选择类型'}
-            </span>
+                        </span>
                         <div className={styles.previewDescription}>
                           {storyInfo.description || '暂无简介'}
                         </div>
@@ -3082,8 +3242,8 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                           {createStatus === CreateStatus.SAVING_DATABASE && '正在保存数据...'}
                           {createStatus === CreateStatus.COMPLETED && '创建完成！'}
                         </div>
-        </div>
-      )}
+                      </div>
+                    )}
                     <div className={styles.previewActions}>
                       <button
                         className={styles.cancelButton}
@@ -3109,7 +3269,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                           </>
                         )}
                       </button>
-    </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -3159,7 +3319,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                 className={styles.modernCloseButton}
                 onClick={handleCancelAddChapter}
                 aria-label="关闭"
-              >
+                >
                 <FaTimes />
               </button>
             </div>
@@ -3222,19 +3382,70 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
               <button 
                 className={styles.modernCloseButton}
                 onClick={() => setShowPublishConfirm(false)}
-              >
+                >
                 <IoClose />
               </button>
             </div>
             
             <div className={styles.modernModalBody}>
+               {/* 添加前一章节信息显示 */}
+               <div className={styles.previousChapter}>
+                <h4>前一发布章节</h4>
+                {(() => {
+                  // 获取所有章节，按照order排序
+                  const sortedChapters = [...chapters].sort((a, b) => a.order - b.order);
+                  // 找到当前章节的索引
+                  const currentIndex = currentChapter ? sortedChapters.findIndex(ch => ch.id === currentChapter.id) : -1;
+                  // 查找当前章节之前的已发布章节
+                  let prevPublishedChapter = null;
+                  if (currentIndex > 0) {
+                    for (let i = currentIndex - 1; i >= 0; i--) {
+                      if (sortedChapters[i].status.toLowerCase() === 'published') {
+                        prevPublishedChapter = sortedChapters[i];
+                        break;
+                      }
+                    }
+                  }
+                  return prevPublishedChapter ? (
+                    <div className={styles.prevChapterContent}>
+                      <p><strong>{prevPublishedChapter.title}</strong></p>
+                      <p>第 {prevPublishedChapter.order} 章 · {prevPublishedChapter.wordCount} 字</p>
+                    </div>
+                  ) : (
+                    <div className={styles.prevChapterContent}>
+                      <p className={styles.noPrevChapter}>无已发布章节</p>
+                    </div>
+                  );
+                })()}
+              </div>
+
               <div className={styles.chapterPreview}>
-                <h4>章节预览</h4>
+                <h4>当前发布章节</h4>
                 <div className={styles.previewContent}>
                   <p>{currentChapter?.title}</p>
                   <p>{displayWordCount} 字</p>
                 </div>
               </div>
+
+             
+              {isCreating && (
+                <div className={styles.publishProgress}>
+                  <div className={styles.progressBar}>
+                    <div 
+                      className={styles.progressFill} 
+                      style={{ width: `${createProgress}%` }}
+                    />
+                  </div>
+                  <div className={styles.progressStatus}>
+                    {createStatus === CreateStatus.IDLE && '准备发布...'}
+                    {createStatus === CreateStatus.UPLOADING && '正在上传到区块链...'}
+                    {createStatus === CreateStatus.CREATING_CONTRACT && '正在创建合约...'}
+                    {createStatus === CreateStatus.SAVING_DATABASE && '正在保存数据...'}
+                    {createStatus === CreateStatus.COMPLETED && '发布完成！'}
+                    {createStatus === CreateStatus.FAILED && '发布失败'}
+                  </div>
+                </div>
+              )}
 
               <div className={styles.warningSection}>
                 <ul className={styles.warningList}>

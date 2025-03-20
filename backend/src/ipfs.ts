@@ -163,17 +163,19 @@ export async function uploadToIPFS(content: string | Buffer): Promise<string> {
     const pinata = new pinataSDK(key.apiKey, key.apiSecret);
 
     try {
-      // 创建临时文件
-      const tempPath = join(tmpdir(), `ipfs-${Date.now()}.txt`)
-      writeFileSync(tempPath, content)
+      // 将内容包装在对象中
+      const data = {
+        content: content instanceof Buffer ? content.toString('base64') : content,
+        timestamp: Date.now()
+      }
 
-      const readableStreamForFile = createReadStream(tempPath)
       const options = {
         pinataMetadata: {
           name: `TaleForge-${Date.now()}`
         }
       }
-      const result = await pinata.pinFileToIPFS(readableStreamForFile, options)
+
+      const result = await pinata.pinJSONToIPFS(data, options)
       keyManager.markKeyUsed(key);
       return result.IpfsHash;
     } catch (error: any) {
@@ -216,7 +218,13 @@ export async function getFromIPFS(cid: string): Promise<string> {
 
         if (response.status === 200) {
           keyManager.markKeyUsed(key);
-          return response.data;
+          // 解析 JSON 响应并返回内容
+          const data = response.data;
+          if (typeof data === 'object' && data.content) {
+            return data.content;
+          }
+          // 如果不是预期的格式，直接返回原始数据
+          return typeof data === 'string' ? data : JSON.stringify(data);
         }
 
         throw new Error(`Unexpected response status: ${response.status}`);

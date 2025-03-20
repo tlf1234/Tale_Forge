@@ -407,13 +407,46 @@
 }
 
 .chapterStatus {
-  padding: 0.1rem 0.2rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.25rem;
-  font-size: 0.65rem;
-  color: #64748b;
-  background: white;
-  height: 1.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  border: 1px solid #e5e7eb;
+  background-color: white;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.chapterStatus:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  background-color: #f3f4f6;
+}
+
+.chapterStatus.published {
+  background-color: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .chapterStatus {
+    background-color: #1e293b;
+    border-color: #334155;
+    color: #e5e7eb;
+  }
+
+  .chapterStatus:disabled {
+    background-color: #0f172a;
+    opacity: 0.7;
+  }
+
+  .chapterStatus.published {
+    background-color: #064e3b;
+    border-color: #059669;
+    color: #a7f3d0;
+  }
 }
 
 .chapterActions {
@@ -679,6 +712,48 @@
   background: #94a3b8;
   cursor: not-allowed;
   opacity: 0.7;
+  position: relative;
+}
+
+.primaryButton.published {
+  background: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.7;
+  position: relative;
+}
+
+.primaryButton.published:hover {
+  background: #9ca3af;
+}
+
+/* 添加发布状态提示 */
+.publishedHint {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.8rem;
+  background: #047857;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .primaryButton.published {
+    background: #4b5563;
+  }
+  
+  .primaryButton.published:hover {
+    background: #4b5563;
+  }
+  
+  .publishedHint {
+    background: #065f46;
+  }
 }
 
 .primaryButton.hasChanges:hover:not(:disabled) {
@@ -1194,22 +1269,28 @@
 
 .chapterStatus {
   padding: 0.25rem 0.5rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.25rem;
+  border-radius: 0.375rem;
   font-size: 0.75rem;
-  color: #64748b;
-  background: white;
-}
-
-.vipLabel {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.75rem;
-  color: #64748b;
+  border: 1px solid #e5e7eb;
+  background-color: white;
+  color: #374151;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
+.chapterStatus:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  background-color: #f3f4f6;
+}
+
+.chapterStatus.published {
+  background-color: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+}
+
+/* 深色模式适配 */
 @media (prefers-color-scheme: dark) {
   .outlineItem,
   .volumeHeader {
@@ -1237,6 +1318,23 @@
   .wordCount,
   .vipLabel {
     color: #94a3b8;
+  }
+
+  .chapterStatus {
+    background-color: #1e293b;
+    border-color: #334155;
+    color: #e5e7eb;
+  }
+
+  .chapterStatus:disabled {
+    background-color: #0f172a;
+    opacity: 0.7;
+  }
+
+  .chapterStatus.published {
+    background-color: #064e3b;
+    border-color: #059669;
+    color: #a7f3d0;
   }
 }
 
@@ -2750,11 +2848,14 @@
   margin-right: 0.5rem;
 }
 
+/* 章节发布预览样式 */
 .chapterPreview {
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  background: #f0f5ff;
+  border: 1px solid #bfdbfe;
   border-radius: 0.75rem;
-  padding: 0.75rem;
+  padding: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
 }
 
 .chapterPreview h4 {
@@ -2781,11 +2882,15 @@
 }
 
 .previewContent p:first-child {
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #1e3a8a;
 }
 
 .previewContent p:last-child {
   margin-top: 0;
+  color: #4b5563;
 }
 
 .previewContent strong {
@@ -2795,16 +2900,27 @@
 /* 深色模式适配 */
 @media (prefers-color-scheme: dark) {
   .chapterPreview {
-    background: #1e293b;
-    border-color: #334155;
+    background: #1e3a8a;
+    border-color: #3b82f6;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
   }
 
   .chapterPreview h4 {
-    color: #f1f5f9;
+    color: #93c5fd;
   }
 
   .previewContent {
-    color: #cbd5e1;
+    background: #1e293b;
+    border-color: #334155;
+    color: #e2e8f0;
+  }
+  
+  .previewContent p:first-child {
+    color: #60a5fa;
+  }
+  
+  .previewContent p:last-child {
+    color: #94a3b8;
   }
 }
 
@@ -2854,3 +2970,94 @@
 .buttonIcon {
   font-size: 1rem;
 }
+
+/* 前一已发布章节样式 */
+.previousChapter {
+  background: #f8f9ff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  margin-top: 0rem;
+  margin-bottom: 1rem;
+}
+
+.previousChapter h4 {
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0 0 0.5rem 0;
+}
+
+.prevChapterContent {
+  color: #334155;
+  font-size: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.prevChapterContent p {
+  margin: 0.1rem 0;
+}
+
+.prevChapterContent p strong {
+  font-weight: 600;
+}
+
+.noPrevChapter {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .previousChapter {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  .previousChapter h4 {
+    color: #f1f5f9;
+  }
+  
+  .prevChapterContent {
+    color: #cbd5e1;
+  }
+
+  .noPrevChapter {
+    color: #64748b;
+  }
+}
+
+/* 章节加载指示器样式 */
+.loadingIndicator {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(99, 102, 241, 0.2);  /* 更改为主题色的透明版本 */
+  border-top-color: #4f46e5;  /* 保持主题色 */
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-left: auto;
+  margin-right: 8px;
+  align-self: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px rgba(79, 70, 229, 0.2);  /* 添加发光效果 */
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .loadingIndicator {
+    border-color: rgba(129, 140, 248, 0.2);  /* 深色模式下使用更亮的主题色的透明版本 */
+    border-top-color: #818cf8;  /* 深色模式下使用更亮的主题色 */
+    box-shadow: 0 0 8px rgba(129, 140, 248, 0.3);  /* 深色模式下的发光效果 */
+  }
+}
+
+

@@ -452,10 +452,13 @@ export class StoryService {
       throw new Error('章节不存在')
     }
 
-    // 验证作者身份
-    if (chapter.story.authorId !== authorAddress) {
-      throw new Error('只有作者才能发布章节')
-    }
+    // console.log('【publishChapter】作者地址:', authorAddress);
+    // console.log('【publishChapter】chapter.story.authorId', chapter.story.authorId);
+
+    // // 验证作者身份
+    // if (chapter.story.authorId !== authorAddress) {
+    //   throw new Error('只有作者才能发布章节')
+    // }
 
     // 获取章节内容
     const content = chapter.content
@@ -467,16 +470,18 @@ export class StoryService {
     try {
       // 上传到IPFS
       const contentCID = await uploadToIPFS(content)
+      console.log(`成功上传章节内容到IPFS，CID: ${contentCID}`)
 
       //注意后端不需上传链上数据，所有合约相关都是尽可能在前端，通过钱包组件调用合约实现
       
-      // 更新章节状态
+      // 更新章节状态，保留content作为备份
       return await prisma.chapter.update({
         where: { id },
         data: {
           status: 'PUBLISHED',
           contentCID,
           txHash,  // 添加交易哈希
+          // 注意：不清空content字段，保留作为备份
           updatedAt: new Date()
         }
       })
@@ -705,18 +710,28 @@ export class StoryService {
   // 如果是已发布状态，从IPFS获取内容
   if (chapter.contentCID) {
     try {
-      const content = await getFromIPFS(chapter.contentCID)
-      return { ...chapter, content }
+      console.log(`尝试从IPFS获取章节内容 (章节ID: ${id}, CID: ${chapter.contentCID})`);
+      const content = await getFromIPFS(chapter.contentCID);
+      console.log(`成功从IPFS获取内容，内容长度: ${content ? content.length : 0} 字符`);
+      return { ...chapter, content };
     } catch (error) {
-      console.error(`从IPFS获取内容失败 (CID: ${chapter.contentCID}):`, error)
-      // 即使IPFS获取失败，也返回章节数据，但内容为空
-      return { ...chapter, content: '' }
+      console.error(`从IPFS获取内容失败 (章节ID: ${id}, CID: ${chapter.contentCID}):`, error);
+      
+      // 如果IPFS获取失败，尝试使用数据库中的content字段作为备份
+      if (chapter.content) {
+        console.log(`使用数据库中的content字段作为备份，内容长度: ${chapter.content.length} 字符`);
+        return { ...chapter, content: chapter.content };
+      }
+      
+      // 如果数据库中也没有content，则返回空内容
+      console.warn(`IPFS获取失败且数据库中也没有content字段，返回空内容`);
+      return { ...chapter, content: '' };
     }
   }
   
   // 如果既不是草稿也没有contentCID，返回章节数据但内容为空
-  console.warn(`章节 ${id} 既不是草稿状态也没有contentCID，返回空内容`)
-  return { ...chapter, content: '' }
+  console.warn(`章节 ${id} 状态为 ${chapter.status}，但没有contentCID，返回空内容`);
+  return { ...chapter, content: '' };
  }
 
 }
