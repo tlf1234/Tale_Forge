@@ -74,7 +74,7 @@ export async function GET(
     }
     
     // 调用后端API获取章节列表
-    const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}/chapters?page=${page}&limit=${limit}`);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/stories/${storyId}/chapters?page=${page}&limit=${limit}`);
     
     // 检查响应状态
     if (!response.ok) {

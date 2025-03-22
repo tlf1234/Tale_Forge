@@ -1,46 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // 后端 API 基础 URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // 获取章节统计信息
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
+  const storyId = params.id;
+  if (!storyId) {
+    return new Response('Missing story ID', { status: 400 });
+  }
+
+  console.log('[GET /api/stories/:storyId/chapters/stats] 收到请求:', {
+    storyId,
+    url: request.url
+  });
+
   try {
-    const storyId = params.id;
+    // const response = await fetch(
+    //   `${process.env.NEXT_PUBLIC_API_URL}/api/stories/${storyId}/chapters/stats`,
+    //   {
+    //     method: 'GET',
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //     },
+    //   }
+    // );
+
+   const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/stories/${storyId}/chapters/stats`);
+  
     
-    // 验证故事ID
-    if (!storyId) {
-      return NextResponse.json({ error: '故事ID不能为空' }, { status: 400 });
-    }
+    console.log('[GET /api/stories/:storyId/chapters/stats] 后端API URL:', 
+      `${process.env.NEXT_PUBLIC_API_URL}/api/stories/${storyId}/chapters/stats`
+    );
     
-    // 调用后端API获取章节统计信息
-    const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}/chapters/stats`);
-    
-    // 检查响应状态
+    console.log('[GET /api/stories/:storyId/chapters/stats] 后端响应状态:', response.status);
+
     if (!response.ok) {
-      let errorMessage = '获取章节统计信息失败';
-      try {
-        const errorData = await response.json();
-        if (errorData && errorData.error) {
-          errorMessage = errorData.error;
-        }
-      } catch (parseError) {
-        console.error('解析错误响应失败:', parseError);
-      }
-      
-      return NextResponse.json({ error: errorMessage }, { status: response.status });
+      throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
     }
-    
-    // 解析响应数据
+
     const statsData = await response.json();
-    
-    // 返回统计信息
-    return NextResponse.json(statsData);
+    console.log('[GET /api/stories/:storyId/chapters/stats] 后端响应数据:', JSON.stringify(statsData));
+
+    return Response.json(statsData);
   } catch (error) {
-    console.error('获取章节统计信息失败:', error);
-    return NextResponse.json({ error: '获取章节统计信息失败' }, { status: 500 });
+    console.error('[GET /api/stories/:storyId/chapters/stats] 错误:', error);
+    return new Response(JSON.stringify({ error: 'Failed to fetch chapter stats' }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   }
 } 

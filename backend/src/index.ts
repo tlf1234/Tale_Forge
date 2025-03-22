@@ -285,29 +285,10 @@ app.get('/api/stories/:storyId/chapters', async (req, res) => {
   }
 });
 
-// 获取章节统计信息
-app.get('/api/stories/:storyId/chapters/stats', async (req, res) => {
-  try {
-    console.log('[GET /api/stories/:storyId/chapters/stats] 收到请求:', {
-      storyId: req.params.storyId
-    });
-    
-    const { storyId } = req.params;
-    
-    // 使用服务层方法获取章节统计信息
-    const stats = await storyService.getChapterStats(storyId);
-    
-    res.json(stats);
-  } catch (error: any) {
-    console.error('[GET /api/stories/:storyId/chapters/stats] 获取章节统计信息失败:', error);
-    res.status(500).json({ error: error?.message });
-  }
-});
-
 // 获取最近的章节
 app.get('/api/stories/:storyId/chapters/recent', async (req, res) => {
   try {
-    console.log('[GET /api/stories/:storyId/chapters/recent] 收到请求:', {
+    console.log('[GET /api/stories/:storyId/chapters/recent] recent收到请求:', {
       storyId: req.params.storyId,
       limit: req.query.limit
     });
@@ -324,6 +305,29 @@ app.get('/api/stories/:storyId/chapters/recent', async (req, res) => {
     res.status(500).json({ error: error?.message });
   }
 });
+
+// 获取章节统计信息
+app.get('/api/stories/:storyId/chapters/stats', async (req, res) => {
+  console.log('[GET /api/stories/:storyId/chapters/stats] 收到请求:', {
+    storyId: req.params.storyId});
+  try {
+    console.log('[GET /api/stories/:storyId/chapters/stats] 收到请求:', {
+      storyId: req.params.storyId
+    });
+    
+    const { storyId } = req.params;
+    
+    // 使用服务层方法获取章节统计信息
+    const stats = await storyService.getChapterStats(storyId);
+    console.log('[GET /api/stories/:storyId/chapters/stats] 返回结果:', stats)
+    
+    res.json(stats);
+  } catch (error: any) {
+    console.error('[GET /api/stories/:storyId/chapters/stats] 获取章节统计信息失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
 
 // 获取指定范围的章节
 app.get('/api/stories/:storyId/chapters/range', async (req, res) => {
@@ -396,6 +400,9 @@ app.get('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
     res.status(500).json({ error: error?.message });
   }
 });
+
+
+
 
 // （保存章节）更新章节（新路由，包含 storyId）
 app.put('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {

@@ -1021,9 +1021,9 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
         return;
       }
 
-      // 1. 获取章节列表
-      console.log(`【loadChapterList】请求API: /api/stories/${storyId}/chapters?limit=10`);
-      const response = await fetch(`/api/stories/${storyId}/chapters?limit=10`);
+      // 1. 获取最新章节列表
+      console.log(`【loadChapterList】请求API: /api/stories/${storyId}/chapters/recent?limit=10`);
+      const response = await fetch(`/api/stories/${storyId}/chapters/recent?limit=10`);
       console.log('【loadChapterList】API响应状态:', response.status);
       
       if (!response.ok) {
@@ -1038,49 +1038,72 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
         throw new Error('API返回的数据格式不正确');
       }
       
-      // 转换章节状态为小写
+      // 处理后的章节数据已经是最新的章节在前面（降序排列）
       const processedChapters = chapters.map(chapter => ({
         ...chapter,
         status: chapter.status?.toLowerCase() || 'draft' // 将状态转为小写，如果为空则默认为'draft'
       }));
       console.log('【loadChapterList】处理后的章节数据:', processedChapters);
       
+      // 2. 获取章节统计信息（总数）
+      console.log(`【loadChapterList】请求API: /api/stories/${storyId}/chapters/stats`);
+      const statsResponse = await fetch(`/api/stories/${storyId}/chapters/stats`);
+      
+      if (!statsResponse.ok) {
+        throw new Error(`获取章节统计信息失败: ${statsResponse.status}`);
+      }
+      
+      const stats = await statsResponse.json();
+      console.log('【loadChapterList】章节统计信息状态stats:', stats);
+      
       // 更新总章节数
-      const total = processedChapters.length;
+      const total = stats.total || processedChapters.length;
       setTotalChapters(total);
       console.log('【loadChapterList】设置总章节数:', total);
       
-      // 按照章节顺序排序，保留原始章节状态
-      const sortedChapters = [...processedChapters].sort((a, b) => a.order - b.order);
-      console.log('【loadChapterList】按顺序排序后的章节:', sortedChapters);
+      // 保留原始章节顺序（已经是最新的在前面）
+      const sortedRecentChapters = [...processedChapters];
+      console.log('【loadChapterList】最新章节:', sortedRecentChapters);
       
-      // 最新的章节在前面，用于显示在"最新章节"区域
-      const sortedRecentChapters = [...processedChapters].sort((a, b) => b.order - a.order).slice(0, 10);
+      // 全部章节按照升序排列，用于完整显示
+      const sortedChapters = [...processedChapters].sort((a, b) => a.order - b.order);
+      console.log('【loadChapterList】按顺序排序后的全部章节:', sortedChapters);
       
       // 更新最新章节列表和全部章节列表
-      setRecentChapters(sortedRecentChapters); // 只取前10章
-      setChapters(sortedChapters);
+      setRecentChapters(sortedRecentChapters); // 保持API返回的顺序（最新的在前）
+      setChapters(sortedChapters); // 全部章节按升序排列
       setFilteredChapters([]); // 清空搜索结果
       setChapterSearchKeyword(''); // 清空搜索关键词
       setIsSearching(false); // 重置搜索状态
       console.log('【loadChapterList】已更新章节状态');
 
-      // 2. 计算历史章节分组
+      // 3. 计算历史章节分组
       if (total > 10) {
         console.log('【loadChapterList】开始计算历史章节分组...');
         const groupSize = 30; // 每组30章
         const groups = [];
         
-        let start = total - 10; // 减去已加载的10章
+        // 计算历史章节的开始序号：总数 - 已显示的最新章节数量
+        const latestChapterOrderMin = Math.min(...processedChapters.map(c => c.order)); // 最新显示章节中序号最小的
         
-        while (start > 0) {
-          const end = Math.max(1, start - groupSize + 1);
-          groups.push({
-            start,
-            end,
-            count: start - end + 1
-          });
-          start = end - 1;
+        console.log('【loadChapterList】当前显示的最小章节序号:', latestChapterOrderMin);
+        
+        // 历史章节从小于当前显示最小序号的章节开始
+        let currentOrder = latestChapterOrderMin - 1;
+        
+        while (currentOrder > 0) {
+          const end = currentOrder;
+          const start = Math.max(1, end - groupSize + 1);
+          
+          if (start <= end) {
+            groups.push({
+              start: end,
+              end: start,
+              count: end - start + 1
+            });
+          }
+          
+          currentOrder = start - 1;
         }
         
         console.log('【loadChapterList】计算出的历史章节分组:', groups);
@@ -1132,8 +1155,11 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       const data = await response.json();
       console.log(`获取章节范围 ${start}-${end} 数据:`, data);
       
-      // 确保数据是数组
-      const rangeChapters = Array.isArray(data) ? data : [];
+      // 确保数据是数组并处理状态大小写
+      const rangeChapters = Array.isArray(data) ? data.map(chapter => ({
+        ...chapter,
+        status: chapter.status?.toLowerCase() as 'draft' | 'pending' | 'published'  // 转换状态为小写
+      })) : [];
       
       // 按照章节序号排序
       const sortedRangeChapters = rangeChapters.sort((a: ChapterType, b: ChapterType) => b.order - a.order);
@@ -2021,7 +2047,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
   <div className={styles.toolbarRight}>
     <button
-      className={`${styles.iconButton} ${isPreview ? styles.active : ''}`}
+                                                                                                                                                                                                                                                                                             className={`${styles.iconButton} ${isPreview ? styles.active : ''}`}
       onClick={() => setIsPreview(!isPreview)}
       title="预览"
     >

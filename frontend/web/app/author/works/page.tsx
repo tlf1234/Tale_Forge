@@ -24,6 +24,23 @@ interface Work {
   description: string;
 }
 
+// API 返回的故事类型
+interface Story {
+  id: string;
+  title: string;
+  coverCid?: string;
+  category: string;
+  status: string;
+  wordCount: number;
+  description?: string;
+  updatedAt: string;
+  stats?: {
+    viewCount: number;
+    likeCount: number;
+    commentCount: number;
+  };
+}
+
 export default function WorksPage() {
   const router = useRouter()
   const [works, setWorks] = useState<Work[]>([])
@@ -32,38 +49,41 @@ export default function WorksPage() {
   const [statusFilter, setStatusFilter] = useState<Work['status'] | 'all'>('all')
 
   // 加载作品列表
-  useEffect(() => {
-    const loadWorks = async () => {
-      try {
-        setLoading(true)
-        // TODO: 从合约加载作品列表
-
-        
-        const mockWorks: Work[] = [
-          {
-            id: '1',
-            title: '魔法世界历险记',
-            cover: '/images/book-cover-1.jpg',
-            type: '奇幻',
-            status: 'published',
-            wordCount: 50000,
-            viewCount: 1200,
-            likeCount: 350,
-            commentCount: 45,
-            updateTime: '2024-02-10',
-            isSerial: true,
-            description: '一个关于魔法世界的精彩故事...'
-          },
-          // 更多模拟数据...
-        ]
-        setWorks(mockWorks)
-      } catch (error) {
-        console.error('加载作品列表失败:', error)
-      } finally {
-        setLoading(false)
+  const loadWorks = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/stories')
+      if (!response.ok) {
+        throw new Error('Failed to fetch stories')
       }
+      const data = await response.json()
+      const stories = data.stories || []
+      
+      // 将API返回的数据转换为页面需要的格式
+      const formattedWorks: Work[] = stories.map((story: Story) => ({
+        id: story.id,
+        title: story.title,
+        cover: story.coverCid ? `https://ipfs.io/ipfs/${story.coverCid}` : '/images/default-cover.jpg',
+        type: story.category,
+        status: story.status.toLowerCase() as Work['status'],
+        wordCount: story.wordCount || 0,
+        viewCount: story.stats?.viewCount || 0,
+        likeCount: story.stats?.likeCount || 0,
+        commentCount: story.stats?.commentCount || 0,
+        updateTime: new Date(story.updatedAt).toLocaleDateString(),
+        isSerial: true, // 默认为连载
+        description: story.description || '暂无简介'
+      }))
+      
+      setWorks(formattedWorks)
+    } catch (error) {
+      console.error('加载作品列表失败:', error)
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     loadWorks()
   }, [])
 
@@ -188,8 +208,23 @@ export default function WorksPage() {
                               <FiEdit className="w-5 h-5" />
                             </button>
                             <button
-                              onClick={() => {
-                                // TODO: 实现删除功能
+                              onClick={async () => {
+                                if (!confirm('确定要删除这个作品吗？此操作不可恢复。')) {
+                                  return;
+                                }
+                                try {
+                                  const response = await fetch(`/api/stories/${work.id}`, {
+                                    method: 'DELETE',
+                                  });
+                                  if (!response.ok) {
+                                    throw new Error('删除作品失败');
+                                  }
+                                  // 重新加载作品列表
+                                  loadWorks();
+                                } catch (error) {
+                                  console.error('删除作品失败:', error);
+                                  alert('删除作品失败，请稍后重试');
+                                }
                               }}
                               className="p-2 text-gray-600 hover:text-red-600 rounded-full hover:bg-red-50"
                             >

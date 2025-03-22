@@ -408,6 +408,18 @@ export class StoryService {
     content: string
     order: number
   }) {
+    // 检查是否已存在相同序号的章节
+    const existingChapter = await prisma.chapter.findFirst({
+      where: {
+        storyId,
+        order: data.order
+      }
+    });
+
+    if (existingChapter) {
+      throw new Error(`已存在第 ${data.order} 章节，请选择其他章节序号`);
+    }
+
     // 创建草稿章节，直接保存内容到数据库
     return await prisma.chapter.create({
       data: {
@@ -573,12 +585,38 @@ export class StoryService {
 
   // 获取章节统计信息
   async getChapterStats(storyId: string) {
-    // 获取章节总数
-    const totalCount = await prisma.chapter.count({
+    console.log(`[getChapterStats] 开始获取故事 ${storyId} 的章节统计信息`);
+    
+    // 获取所有章节和它们的状态信息
+    const chapters = await prisma.chapter.findMany({
       where: {
         storyId: storyId
+      },
+      select: {
+        id: true,
+        status: true,
+        title: true // 添加标题便于识别
       }
     });
+    
+    console.log(`[getChapterStats] 所有章节数量: ${chapters.length}`);
+    
+    // 更详细地记录每个章节的状态
+    chapters.forEach((chapter, index) => {
+      console.log(`[getChapterStats] 章节 ${index+1}: ID=${chapter.id}, 标题=${chapter.title}, 状态=${chapter.status}`);
+    });
+    
+    // 获取章节总数
+    const totalCount = chapters.length;
+    
+    // 统计各种状态的章节数量
+    const statusCounts = chapters.reduce((acc, chapter) => {
+      const status = chapter.status || 'UNKNOWN';
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    console.log(`[getChapterStats] 各状态章节数量:`, statusCounts);
     
     // 获取已发布章节数
     const publishedCount = await prisma.chapter.count({
@@ -588,43 +626,77 @@ export class StoryService {
       }
     });
     
-    // 获取草稿章节数
+    console.log(`[getChapterStats] PUBLISHED 章节数: ${publishedCount}`);
+    
+    // 获取草稿章节数 - 这里原来可能有问题
     const draftCount = await prisma.chapter.count({
       where: {
         storyId: storyId,
-        status: {
-          not: 'PUBLISHED'
-        }
+        status: 'DRAFT'  // 明确指定为DRAFT而不是not PUBLISHED
       }
     });
     
+    console.log(`[getChapterStats] DRAFT 章节数: ${draftCount}`);
+    console.log(`[getChapterStats] 统计结果: 总计=${totalCount}, 已发布=${publishedCount}, 草稿=${draftCount}`);
+    
+    // 检查数据一致性
+    if (publishedCount + draftCount !== totalCount) {
+      console.warn(`[getChapterStats] ⚠️ 数据不一致! 总数(${totalCount}) ≠ 已发布(${publishedCount}) + 草稿(${draftCount})`);
+      console.warn(`[getChapterStats] 可能存在未定义的状态值，详情:`, statusCounts);
+    }
+    
+    // 返回统计信息
     return {
       total: totalCount,
       published: publishedCount,
-      draft: draftCount
+      draft: draftCount,
+      statusCounts: statusCounts
     };
   }
   
   // 获取最近的章节
   async getRecentChapters(storyId: string, limit: number = 10) {
-    return await prisma.chapter.findMany({
-      where: {
-        storyId: storyId
-      },
-      orderBy: {
-        order: 'desc' // 按章节序号降序排列
-      },
-      take: limit,
-      select: {
-        id: true,
-        title: true,
-        order: true,
-        status: true,
-        wordCount: true,
-        createdAt: true,
-        updatedAt: true
+    console.log(`[getRecentChapters] 开始获取故事 ${storyId} 的最近章节，限制数量: ${limit}`);
+    
+    try {
+      const chapters = await prisma.chapter.findMany({
+        where: {
+          storyId: storyId
+        },
+        orderBy: {
+          order: 'desc' // 按章节序号降序排列
+        },
+        take: limit,
+        select: {
+          id: true,
+          title: true,
+          order: true,
+          status: true,
+          wordCount: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      });
+      
+      console.log(`[getRecentChapters] 查询到 ${chapters.length} 个章节`);
+      console.log(`[getRecentChapters] 章节序号范围: ${chapters.length > 0 ? `${chapters[chapters.length-1].order} 到 ${chapters[0].order}` : '无章节'}`);
+      
+      // 打印章节详情
+      if (chapters.length > 0) {
+        console.table(chapters.map(c => ({
+          id: c.id.substring(0, 8),
+          order: c.order,
+          title: c.title,
+          status: c.status,
+          wordCount: c.wordCount
+        })));
       }
-    });
+      
+      return chapters;
+    } catch (error) {
+      console.error(`[getRecentChapters] 获取故事章节失败:`, error);
+      throw error;
+    }
   }
   
   // 获取指定范围的章节
