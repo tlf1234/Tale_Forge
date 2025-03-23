@@ -116,7 +116,7 @@ const ReadContent: React.FC<ReadContentProps> = ({ id }) => {
         id,
         title: chapter.title,
         author: chapter.author,
-        coverImage: chapter.coverImage || '/default-cover.jpg',
+        coverImage: chapter.coverImage || '/images/story-default-cover.jpg',
         readProgress: 0
       })
       setIsInShelf(true)

@@ -12,6 +12,7 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import type { Story } from '@/types/story'
 import { CATEGORIES, SORT_OPTIONS } from '@/constants/story'
 
+//配置数据
 const TOP_EARNING_STORIES = [
   {
     id: 1,
@@ -24,7 +25,7 @@ const TOP_EARNING_STORIES = [
     floorPrice: 0.5,
     totalEarnings: 2.8,
     miningRewards: 1.2,
-    coverImage: "/images/story-1.jpg"
+    coverImage: `https://picsum.photos/800/600?random=1`
   },
   {
     id: 2,
@@ -37,7 +38,7 @@ const TOP_EARNING_STORIES = [
     floorPrice: 0.3,
     totalEarnings: 1.5,
     miningRewards: 0.8,
-    coverImage: "/images/story-2.jpg"
+    coverImage: `https://picsum.photos/800/600?random=2`
   },
   {
     id: 3,
@@ -50,7 +51,7 @@ const TOP_EARNING_STORIES = [
     floorPrice: 0.2,
     totalEarnings: 0.9,
     miningRewards: 0.5,
-    coverImage: "/images/story-3.jpg"
+    coverImage: `https://picsum.photos/800/600?random=3`
   },
   {
     id: 4,
@@ -63,7 +64,7 @@ const TOP_EARNING_STORIES = [
     floorPrice: 0.15,
     totalEarnings: 0.6,
     miningRewards: 0.3,
-    coverImage: "/images/story-4.jpg"
+    coverImage: `https://picsum.photos/800/600?random=4`
   },
   {
     id: 5,
@@ -76,7 +77,7 @@ const TOP_EARNING_STORIES = [
     floorPrice: 0.12,
     totalEarnings: 0.4,
     miningRewards: 0.2,
-    coverImage: "/images/story-5.jpg"
+    coverImage: `https://picsum.photos/800/600?random=5`
   },
   {
     id: 6,
@@ -89,7 +90,7 @@ const TOP_EARNING_STORIES = [
     floorPrice: 0.1,
     totalEarnings: 0.3,
     miningRewards: 0.15,
-    coverImage: "/images/story-6.jpg"
+    coverImage: `https://picsum.photos/800/600?random=6`
   },
   {
     id: 7,
@@ -102,7 +103,7 @@ const TOP_EARNING_STORIES = [
     floorPrice: 0.08,
     totalEarnings: 0.25,
     miningRewards: 0.12,
-    coverImage: "/images/story-7.jpg"
+    coverImage: `https://picsum.photos/800/600?random=7`
   },
   {
     id: 8,
@@ -115,7 +116,7 @@ const TOP_EARNING_STORIES = [
     floorPrice: 0.06,
     totalEarnings: 0.2,
     miningRewards: 0.1,
-    coverImage: "/images/story-8.jpg"
+    coverImage: `https://picsum.photos/800/600?random=8`
   }
 ]
 
@@ -191,23 +192,28 @@ export default function Home() {
             </Link>
           </div>
           
-          <div className={styles.flexRow} style={{ marginBottom: '2rem' }}>
+          <div className={styles.grid}>
             {isLoading ? (
               <LoadingSpinner />
             ) : error ? (
               <p className="text-red-500 text-center">{error}</p>
             ) : (
-              <CategoryFilter 
-                categories={CATEGORIES}
-                stories={latestStories.map(story => ({
-                  id: Number(story.id),
-                  title: story.title,
-                  description: story.description,
-                  coverImage: story.coverCid ? `https://gateway.pinata.cloud/ipfs/${story.coverCid}` : '/images/default-cover.jpg',
-                  author: story.author.name || story.author.address,
-                  category: story.category
-                }))}
-              />
+              latestStories.map(story => (
+                <StoryCard
+                  key={story.id}
+                  id={story.id}
+                  title={story.title}
+                  description={story.description}
+                  coverImage={story.coverCid ? `https://ipfs.io/ipfs/${story.coverCid}` : '/images/story-default-cover.jpg'}
+                  author={story.author}
+                  category={story.category}
+                  stats={{
+                    views: story.stats?.views || 0,
+                    likes: story.stats?.likes || 0,
+                    comments: story.stats?.comments || 0
+                  }}
+                />
+              ))
             )}
           </div>
         </div>
@@ -230,11 +236,12 @@ export default function Home() {
               </svg>
             </Link>
           </div>
-          <div className="grid grid-cols-3 gap-6">
-            {TOP_EARNING_STORIES.slice(0, 6).map(story => (
+          <div className={styles.grid}>
+            {TOP_EARNING_STORIES.slice(0, 8).map(story => (
               <RankingItem 
                 key={story.id}
                 {...story}
+                coverImage={story.coverImage || '/images/default-story-cover.png'}
               />
             ))}
           </div>

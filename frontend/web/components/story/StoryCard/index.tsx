@@ -19,7 +19,7 @@ interface StoryCardProps {
   }
 }
 
-const DEFAULT_COVER = '/images/default-cover.jpg'
+const DEFAULT_COVER = '/images/story-default-cover.jpg'
 
 export function StoryCard({
   id,

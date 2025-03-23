@@ -55,7 +55,7 @@ export class SyncService {
       const contentCid = await uploadToIPFS(JSON.stringify(contentData))
 
       // 3. 处理封面图片
-      let coverCid = 'https://tale-forge.com/images/story-default-cover.jpg'
+      let coverCid = '/images/story-default-cover.jpg'
       if (data.coverImage) {
         if (data.coverImage.startsWith('data:image')) {
           console.log('[SyncService.prepareStoryCreation] 上传封面到IPFS...')
@@ -259,7 +259,7 @@ export class SyncService {
             title: story.title || '',
             authorId: story.author || '',
             contentHash: story.contentCid || '',
-            coverCid: story.coverCid || 'https://tale-forge.com/images/story-default-cover.jpg',
+            coverCid: story.coverCid || '/images/story-default-cover.jpg',
             createdAt: story.createdAt ? new Date(story.createdAt.toNumber() * 1000) : new Date(),
             updatedAt: story.lastUpdate ? new Date(story.lastUpdate.toNumber() * 1000) : new Date()
           }

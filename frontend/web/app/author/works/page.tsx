@@ -76,7 +76,7 @@ export default function WorksPage() {
       const formattedWorks: Work[] = stories.map((story: Story) => ({
         id: story.id,
         title: story.title,
-        cover: story.coverCid ? `https://ipfs.io/ipfs/${story.coverCid}` : '/images/default-cover.jpg',
+        cover: story.coverCid ? `https://ipfs.io/ipfs/${story.coverCid}` : '/images/story-default-cover.jpg',
         type: story.category,
         status: 'published',  // 默认设置为已发布状态
         wordCount: story.wordCount || 0,

@@ -243,7 +243,7 @@ export default function StoriesPage() {
               >
                 <div className="relative h-48 w-full">
                   <Image
-                    src={story.coverCid ? `https://ipfs.io/ipfs/${story.coverCid}` : '/images/default-cover.jpg'}
+                    src={story.coverCid ? `https://ipfs.io/ipfs/${story.coverCid}` : '/images/story-default-cover.jpg'}
                     alt={story.title}
                     fill
                     className="object-cover transition-transform duration-300 group-hover:scale-105"

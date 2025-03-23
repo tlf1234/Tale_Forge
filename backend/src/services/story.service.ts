@@ -391,7 +391,7 @@ export class StoryService {
       // 为没有封面的作品添加默认封面
       const processedStories = stories.map(story => ({
         ...story,
-        cover: story.cover || 'https://tale-forge.com/images/story-default-cover.jpg'
+        cover: story.cover || '/images/story-default-cover.jpg'
       }))
 
       return { stories: processedStories, total }

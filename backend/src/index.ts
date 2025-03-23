@@ -200,13 +200,16 @@ app.get('/api/stories', async (req, res) => {
     query: req.query
   })
   try {
-    const { category, authorId, skip, take, orderBy } = req.query;
+    const { category, authorId, sortBy, limit = '10', page = '1' } = req.query;
+    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const take = parseInt(limit as string);
+    
     const stories = await storyService.getStories({
       category: category as string,
       authorId: authorId as string,
-      skip: Number(skip),
-      take: Number(take),
-      orderBy: orderBy as string
+      skip: isNaN(skip) ? 0 : skip,
+      take: isNaN(take) ? 10 : take,
+      orderBy: sortBy === 'latest' ? 'createdAt' : undefined
     });
     console.log('Sending response:', stories) // 调试用
     res.json(stories);
