@@ -87,6 +87,7 @@ npm install prisma --save-dev
 ```bash
 npx prisma generate
 ```
+taskkill /F /IM node.exe  （进程占用）
 
 3. 创建数据库表：
 ```bash

@@ -201,13 +201,11 @@ export class StoryService {
           authorId: author.id,
           category: data.category,
           tags: data.tags || [],
-          status: 'DRAFT',
           wordCount: data.content.length,
           targetWordCount: data.targetWordCount,
           isNFT: false,
-          published: false,
           chainId: data.chainId ? parseInt(data.chainId) : null
-        } as any,  // 添加类型断言
+        },
         include: {
           author: {
             select: {
@@ -290,7 +288,6 @@ export class StoryService {
           contentCID: true,
           cover: true,
           authorId: true,
-          status: true,
           category: true,
           tags: true,
           wordCount: true,
@@ -315,13 +312,12 @@ export class StoryService {
             }
           }
         }
-      }) as any;  // 添加类型断言
+      });
 
       console.log('[StoryService.getStory] 数据库查询结果:', {
         found: !!story,
         storyId: story?.id,
         title: story?.title,
-        status: story?.status,
         nftAddress: story?.nftAddress,
         chainId: story?.chainId,
         authorAddress: story?.authorId
@@ -352,53 +348,58 @@ export class StoryService {
   async getStories(params: {
     category?: string
     authorId?: string
-    status?: StoryStatus
     skip?: number
     take?: number
     orderBy?: string
   }) {
-    const { category, authorId, status, skip = 0, take = 10, orderBy = 'createdAt' } = params
+    console.log('[StoryService.getStories] 开始获取故事列表:', params)
 
-    const where: Prisma.StoryWhereInput = {}
-    if (category) where.category = category
-    if (authorId) where.authorId = authorId
-    if (status) where.status = status
+    try {
+      const { category, authorId, skip = 0, take = 10, orderBy } = params
+      const where = {
+        ...(category && { category }),
+        ...(authorId && { authorId })
+      }
 
-    const [total, stories] = await Promise.all([
-      prisma.story.count({ where }),
-      prisma.story.findMany({
-        where,
-        skip,
-        take,
-        orderBy: { [orderBy]: 'desc' },
-        include: {
-          author: true,
-          _count: {
-            select: {
-              likes: true,
-              comments: true,
-              favorites: true
+      const [total, stories] = await Promise.all([
+        prisma.story.count({ where }),
+        prisma.story.findMany({
+          where,
+          skip,
+          take,
+          include: {
+            author: {
+              select: {
+                id: true,
+                address: true,
+                authorName: true,
+                avatar: true
+              }
+            },
+            _count: {
+              select: {
+                likes: true,
+                comments: true,
+                favorites: true
+              }
             }
-          }
-        }
-      })
-    ])
+          },
+          orderBy: orderBy ? { [orderBy]: 'desc' } : { createdAt: 'desc' }
+        })
+      ])
 
-    return {
-      stories,
-      total,
-      currentPage: Math.floor(skip / take) + 1,
-      totalPages: Math.ceil(total / take)
+      // 为没有封面的作品添加默认封面
+      const processedStories = stories.map(story => ({
+        ...story,
+        cover: story.cover || 'https://tale-forge.com/images/story-default-cover.jpg'
+      }))
+
+      return { stories: processedStories, total }
+    } catch (error) {
+      console.error('[StoryService.getStories] 获取失败:', error)
+      throw error
     }
   }
-
-  // 删除故事
-  async deleteStory(id: string) {
-    return await prisma.story.delete({
-      where: { id }
-    })
-  }
-
   /*
   章节相关
   */

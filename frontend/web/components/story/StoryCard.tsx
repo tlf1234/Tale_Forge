@@ -15,10 +15,10 @@ interface StoryCardProps {
     address: string
   }
   category: string
-  stats: {
-    views: number
-    likes: number
-    comments: number
+  stats?: {
+    likes?: number
+    comments?: number
+    favorites?: number
   }
   isNFT?: boolean
 }
@@ -30,7 +30,7 @@ export function StoryCard({
   coverImage, 
   author,
   category,
-  stats,
+  stats = {},
   isNFT = false
 }: StoryCardProps) {
   return (
@@ -59,9 +59,9 @@ export function StoryCard({
 
         <div className="flex justify-between items-center text-sm text-gray-500">
           <div className="flex space-x-4">
-            <span>{stats.views} 阅读</span>
-            <span>{stats.likes} 喜欢</span>
-            <span>{stats.comments} 评论</span>
+            <span>{stats.likes || 0} 喜欢</span>
+            <span>{stats.comments || 0} 评论</span>
+            <span>{stats.favorites || 0} 收藏</span>
           </div>
           {isNFT && (
             <span className="px-2 py-1 bg-blue-100 text-blue-600 rounded-full text-xs">

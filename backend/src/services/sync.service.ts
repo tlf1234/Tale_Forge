@@ -164,7 +164,6 @@ export class SyncService {
           description: content.description,
           contentCID: storyData.contentHash,
           cover: storyData.coverCid,
-          status: this.mapChainStatusToDBStatus(storyData.status),
           updatedAt: new Date(Number(storyData.lastUpdate) * 1000)
         },
         create: {
@@ -176,7 +175,6 @@ export class SyncService {
           authorId: storyData.authorId,
           category: content.category || 'GENERAL',
           tags: content.tags || [],
-          status: this.mapChainStatusToDBStatus(storyData.status),
           createdAt: new Date(Number(storyData.createdAt) * 1000),
           updatedAt: new Date(Number(storyData.lastUpdate) * 1000)
         }
@@ -255,14 +253,13 @@ export class SyncService {
           const story = await storyManager.stories(storyId)
           console.log(`[SyncService.syncAuthorStoriesAsync] 作品 ID ${storyId} 链上数据:`, story)
 
-          // 安全地处理数据（）
+          // 安全地处理数据
           const storyData = {
             id: storyId.toString(),
             title: story.title || '',
             authorId: story.author || '',
             contentHash: story.contentCid || '',
             coverCid: story.coverCid || 'https://tale-forge.com/images/story-default-cover.jpg',
-            status: this.mapChainStatusToDBStatus(Number(story.status || 0)),
             createdAt: story.createdAt ? new Date(story.createdAt.toNumber() * 1000) : new Date(),
             updatedAt: story.lastUpdate ? new Date(story.lastUpdate.toNumber() * 1000) : new Date()
           }
@@ -312,7 +309,6 @@ export class SyncService {
               description: content.description || '',
               contentCID: storyData.contentHash,
               cover: storyData.coverCid,
-              status: storyData.status,
               updatedAt: storyData.updatedAt
             },
             create: {
@@ -324,7 +320,6 @@ export class SyncService {
               authorId: author.id,
               category: content.category || 'GENERAL',
               tags: content.tags || [],
-              status: storyData.status,
               createdAt: storyData.createdAt,
               updatedAt: storyData.updatedAt,
               wordCount: 0,
@@ -382,19 +377,6 @@ export class SyncService {
 
       throw error
     }
-  }
-
-  /**
-   * 将链上状态映射为数据库状态
-   */
-  private mapChainStatusToDBStatus(chainStatus: number): 'DRAFT' | 'PUBLISHED' | 'COMPLETED' | 'SUSPENDED' {
-    const statusMap: { [key: number]: 'DRAFT' | 'PUBLISHED' | 'COMPLETED' | 'SUSPENDED' } = {
-      0: 'DRAFT',
-      1: 'PUBLISHED',
-      2: 'COMPLETED',
-      3: 'SUSPENDED'
-    }
-    return statusMap[chainStatus] || 'DRAFT'
   }
 
   //上传章节数据到链上(后端不考虑用合约写入功能，所有合约相关都是尽可能在前端，通过钱包组件调用合约实现)

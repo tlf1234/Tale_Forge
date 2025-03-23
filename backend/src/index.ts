@@ -194,15 +194,16 @@ app.get('/api/authors/:address/stories', async (req, res) => {
 })
 
 
-//TODO
 // 获取故事列表路由
 app.get('/api/stories', async (req, res) => {
+  console.log('[GET /api/stories] 收到请求:', {
+    query: req.query
+  })
   try {
-    const { category, authorId, status, skip, take, orderBy } = req.query;
+    const { category, authorId, skip, take, orderBy } = req.query;
     const stories = await storyService.getStories({
       category: category as string,
       authorId: authorId as string,
-      status: status as StoryStatus,
       skip: Number(skip),
       take: Number(take),
       orderBy: orderBy as string
