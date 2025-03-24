@@ -14,7 +14,7 @@ export interface SearchResult {
   title: string;
   author: string;
   description: string;
-  cover: string;
+  coverCid: string;
   wordCount: number;
   status: 'ongoing' | 'completed' | 'hiatus';
   tags: string[];

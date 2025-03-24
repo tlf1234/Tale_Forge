@@ -162,7 +162,7 @@ export class StoryService {
     content: string
     coverImage?: string
     authorAddress: string
-    contentCid: string
+    contentCID: string
     coverCid: string
     category: string
     tags?: string[]
@@ -196,8 +196,8 @@ export class StoryService {
         data: {
           title: data.title,
           description: data.description,
-          contentCID: data.contentCid,
-          cover: data.coverCid,
+          coverCid: data.coverCid,
+          contentCID: data.contentCID,
           authorId: author.id,
           category: data.category,
           tags: data.tags || [],
@@ -254,7 +254,7 @@ export class StoryService {
     // 2. 处理封面更新
     if (data.coverImage) {
       const buffer = Buffer.from(await data.coverImage.arrayBuffer())
-      updateData.cover = await uploadToIPFS(buffer)
+      updateData.coverCid = await uploadToIPFS(buffer)
     }
 
     // 3. 更新其他字段
@@ -285,8 +285,8 @@ export class StoryService {
           id: true,
           title: true,
           description: true,
+          coverCid: true,
           contentCID: true,
-          cover: true,
           authorId: true,
           category: true,
           tags: true,
@@ -336,7 +336,25 @@ export class StoryService {
           contentLength: content?.length,
           hasContent: !!content 
         });
-        return { ...story, content };
+        return {
+          id: story.id,
+          title: story.title,
+          description: story.description,
+          coverCid: story.coverCid || '/images/story-default-cover.jpg',
+          content,
+          wordCount: story.wordCount,
+          targetWordCount: story.targetWordCount,
+          createdAt: story.createdAt,
+          updatedAt: story.updatedAt,
+          nftAddress: story.nftAddress,
+          chainId: story.chainId,
+          author: story.author,
+          category: story.category,
+          tags: story.tags,
+          likes: story._count.likes,
+          comments: story._count.comments,
+          favorites: story._count.favorites
+        };
       }
     } catch (error) {
       console.error('[StoryService.getStory] 获取故事失败:', error);
@@ -391,7 +409,7 @@ export class StoryService {
       // 为没有封面的作品添加默认封面
       const processedStories = stories.map(story => ({
         ...story,
-        cover: story.cover || '/images/story-default-cover.jpg'
+        coverCid: story.coverCid || '/images/story-default-cover.jpg'
       }))
 
       return { stories: processedStories, total }

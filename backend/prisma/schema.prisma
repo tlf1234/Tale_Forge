@@ -46,7 +46,7 @@ model Story {
   id            String    @id @default(cuid())
   title         String    // 标题
   description   String    // 描述
-  cover         String?   // 封面图片
+  coverCid      String?   // 封面图片CID
   contentCID    String    // IPFS内容ID  （这个实际是descriptionCID）
   wordCount     Int       @default(0) // 字数
   targetWordCount Int     @default(10000) // 目标字数

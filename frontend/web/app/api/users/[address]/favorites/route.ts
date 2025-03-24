@@ -35,15 +35,17 @@ export async function GET(
       },
     })
 
+    const formattedFavorites = favorites.map(fav => ({
+      id: fav.id,
+      storyId: fav.storyId,
+      title: fav.story.title,
+      author: fav.story.author.authorName || 'Unknown',
+      coverCid: fav.story.coverCid,
+      createdAt: fav.createdAt,
+    }))
+
     return NextResponse.json({
-      favorites: favorites.map(fav => ({
-        id: fav.id,
-        storyId: fav.storyId,
-        title: fav.story.title,
-        author: fav.story.author.authorName || 'Unknown',
-        cover: fav.story.cover,
-        createdAt: fav.createdAt,
-      })),
+      favorites: formattedFavorites,
     })
   } catch (error) {
     console.error('Error fetching favorites:', error)

@@ -1,4 +1,4 @@
-# Tale Forge - Web3小说创作平台
+# Tale Forge - Web3新一代小说创作与分享平台
 
 Tale Forge是一个基于BNB Chain的去中心化小说创作平台，为作者提供创作、发布和变现的一站式解决方案。
 

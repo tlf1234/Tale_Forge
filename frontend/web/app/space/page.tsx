@@ -34,7 +34,7 @@ function SpacePageContent() {
   const READING_HISTORY = Array.from({ length: 6 }, (_, i) => ({
     id: i + 1,
     title: `作品${i + 1}`,
-    cover: `https://picsum.photos/300/400?random=${i + 10}`,
+    coverCid: Math.random().toString(36).substring(7),
     author: `作家${Math.floor(Math.random() * 20) + 1}`,
     lastRead: new Date(Date.now() - Math.random() * 10000000000).toLocaleDateString(),
     duration: Math.floor(Math.random() * 120) + '分钟'
@@ -98,11 +98,10 @@ function SpacePageContent() {
             {READING_HISTORY.map(history => (
               <Link href={`/stories/${history.id}`} key={history.id} className={styles.historyItem}>
                 <Image
-                  src={history.cover}
+                  src={history.coverCid ? `https://ipfs.io/ipfs/${history.coverCid}` : '/images/story-default-cover.jpg'}
                   alt={history.title}
-                  width={60}
-                  height={80}
-                  className={styles.historyCover}
+                  fill
+                  className="object-cover"
                 />
                 <div className={styles.historyInfo}>
                   <h3 className={styles.historyTitle}>{history.title}</h3>

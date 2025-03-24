@@ -37,7 +37,7 @@ export interface PublishedData {
 export interface Author {
   id: string
   address: string
-  name: string
+  authorName?: string
   avatar?: string
   bio?: string
 }

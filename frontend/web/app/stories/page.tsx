@@ -48,11 +48,58 @@ export default function StoriesPage() {
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<StoriesResponse | null>(null)
   const [stories, setStories] = useState<Story[]>([])
+  const [storyImages, setStoryImages] = useState<{ [key: string]: string }>({})
+  const [mounted, setMounted] = useState(false)
 
   const category = searchParams.get('category') || 'all'
   const sortBy = searchParams.get('sort') || 'latest'
   const page = Number(searchParams.get('page')) || 1
   const search = searchParams.get('search') || ''
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // 获取 IPFS 图片内容
+  const fetchIPFSImage = async (cid: string) => {
+    try {
+      console.log(`[IPFS] 开始获取图片: ${cid}`)
+      const response = await fetch(`https://blue-casual-wombat-745.mypinata.cloud/ipfs/${cid}`)
+      console.log(`[IPFS] 响应状态: ${response.status}`)
+      const text = await response.text()
+      console.log(`[IPFS] 获取到的内容长度: ${text.length}`)
+      
+      // 检查返回的内容是否已经是 base64 图片
+      if (text.startsWith('data:image')) {
+        console.log(`[IPFS] 返回的内容已经是 base64 图片格式`)
+        return text
+      }
+      
+      // 如果不是 base64 图片，尝试解析 JSON
+      try {
+        const data = JSON.parse(text)
+        console.log(`[IPFS] JSON 解析成功:`, {
+          hasContent: !!data.content,
+          contentType: typeof data.content,
+          contentLength: data.content?.length
+        })
+        
+        if (data.content) {
+          console.log(`[IPFS] 使用 content 字段作为图片内容`)
+          return data.content
+        }
+      } catch (jsonError) {
+        console.log(`[IPFS] JSON 解析失败，使用原始内容:`, jsonError)
+      }
+      
+      // 如果都不是，返回原始内容
+      console.log(`[IPFS] 使用原始内容作为图片`)
+      return text
+    } catch (error) {
+      console.error('[IPFS] 获取图片失败:', error)
+      return null
+    }
+  }
 
   useEffect(() => {
     async function loadStories() {
@@ -88,6 +135,27 @@ export default function StoriesPage() {
         
         // 设置故事列表
         setStories(Array.isArray(result.stories) ? result.stories : [])
+        
+        // 获取所有 IPFS 图片
+        const ipfsStories = result.stories.filter((story: Story) => story.coverCid?.startsWith('Qm'))
+        console.log(`[IPFS] 需要加载 ${ipfsStories.length} 个 IPFS 图片`)
+        
+        const imagePromises = ipfsStories.map(async (story: Story) => {
+          console.log(`[IPFS] 开始处理故事 ${story.id} 的封面: ${story.coverCid}`)
+          const imageContent = await fetchIPFSImage(story.coverCid!)
+          if (imageContent) {
+            console.log(`[IPFS] 成功获取故事 ${story.id} 的封面图片`)
+            setStoryImages(prev => ({
+              ...prev,
+              [story.coverCid!]: imageContent
+            }))
+          } else {
+            console.log(`[IPFS] 获取故事 ${story.id} 的封面图片失败`)
+          }
+        })
+
+        await Promise.all(imagePromises)
+        console.log('[IPFS] 所有图片加载完成，当前图片缓存:', Object.keys(storyImages))
         
         console.log('【作品列表】加载完成，更新状态')
       } catch (err) {
@@ -127,6 +195,10 @@ export default function StoriesPage() {
     const params = new URLSearchParams(searchParams)
     params.set('page', newPage.toString())
     router.push(`/stories?${params.toString()}`)
+  }
+
+  if (!mounted) {
+    return null
   }
 
   if (isLoading) {
@@ -243,7 +315,13 @@ export default function StoriesPage() {
               >
                 <div className="relative h-48 w-full">
                   <Image
-                    src={story.coverCid ? `https://ipfs.io/ipfs/${story.coverCid}` : '/images/story-default-cover.jpg'}
+                    src={
+                      story.coverCid?.startsWith('data:image') 
+                        ? story.coverCid
+                        : story.coverCid?.startsWith('Qm') 
+                          ? storyImages[story.coverCid] || `https://blue-casual-wombat-745.mypinata.cloud/ipfs/${story.coverCid}`
+                          : '/images/story-default-cover.jpg'
+                    }
                     alt={story.title}
                     fill
                     className="object-cover transition-transform duration-300 group-hover:scale-105"
@@ -266,17 +344,17 @@ export default function StoriesPage() {
                       {story.author.avatar ? (
                         <Image 
                           src={story.author.avatar} 
-                          alt={story.author.name || '作者'} 
+                          alt={story.author.authorName || '作者'} 
                           width={24} 
                           height={24} 
                           className="rounded-full"
                         />
                       ) : (
                         <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs">
-                          {(story.author.name || 'A')[0].toUpperCase()}
+                          {(story.author.authorName || 'A')[0].toUpperCase()}
                         </div>
                       )}
-                      <span className="text-sm text-gray-700">{story.author.name || '匿名作者'}</span>
+                      <span className="text-sm text-gray-700">{story.author?.authorName || story.author?.address?.slice(0, 6) + '...' + story.author?.address?.slice(-4) || '匿名作者'}</span>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1 text-gray-500">

@@ -134,10 +134,52 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [latestStories, setLatestStories] = useState<Story[]>([])
   const [mounted, setMounted] = useState(false)
+  const [storyImages, setStoryImages] = useState<{ [key: string]: string }>({})
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // 获取 IPFS 图片内容
+  const fetchIPFSImage = async (cid: string) => {
+    try {
+      console.log(`[IPFS] 开始获取图片: ${cid}`)
+      const response = await fetch(`https://blue-casual-wombat-745.mypinata.cloud/ipfs/${cid}`)
+      console.log(`[IPFS] 响应状态: ${response.status}`)
+      const text = await response.text()
+      console.log(`[IPFS] 获取到的内容长度: ${text.length}`)
+      
+      // 检查返回的内容是否已经是 base64 图片
+      if (text.startsWith('data:image')) {
+        console.log(`[IPFS] 返回的内容已经是 base64 图片格式`)
+        return text
+      }
+      
+      // 如果不是 base64 图片，尝试解析 JSON
+      try {
+        const data = JSON.parse(text)
+        console.log(`[IPFS] JSON 解析成功:`, {
+          hasContent: !!data.content,
+          contentType: typeof data.content,
+          contentLength: data.content?.length
+        })
+        
+        if (data.content) {
+          console.log(`[IPFS] 使用 content 字段作为图片内容`)
+          return data.content
+        }
+      } catch (jsonError) {
+        console.log(`[IPFS] JSON 解析失败，使用原始内容:`, jsonError)
+      }
+      
+      // 如果都不是，返回原始内容
+      console.log(`[IPFS] 使用原始内容作为图片`)
+      return text
+    } catch (error) {
+      console.error('[IPFS] 获取图片失败:', error)
+      return null
+    }
+  }
 
   useEffect(() => {
     async function loadStories() {
@@ -148,13 +190,58 @@ export default function Home() {
           sortBy: 'latest',
           limit: 8
         })
-        console.log('API Response:', result)
+        console.log('[Stories] API 响应:', {
+          storiesCount: result?.stories?.length,
+          stories: result?.stories?.map((s: Story) => ({
+            id: s.id,
+            title: s.title,
+            description: s.description,
+            coverCid: s.coverCid,
+            contentCid: s.contentCid,
+            wordCount: s.wordCount,
+            targetWordCount: s.targetWordCount,
+            category: s.category,
+            isNFT: s.isNFT,
+            author: {
+              id: s.author?.id,
+              address: s.author?.address,
+              name: s.author?.authorName,
+              avatar: s.author?.avatar,
+              bio: s.author?.bio
+            },
+            stats: s.stats,
+            createdAt: s.createdAt,
+            updatedAt: s.updatedAt
+          }))
+        })
+        
         if (!result || !result.stories) {
           throw new Error('Invalid API response')
         }
         setLatestStories(result.stories)
+
+        // 获取所有 IPFS 图片
+        const ipfsStories = result.stories.filter((story: Story) => story.coverCid?.startsWith('Qm'))
+        console.log(`[IPFS] 需要加载 ${ipfsStories.length} 个 IPFS 图片`)
+        
+        const imagePromises = ipfsStories.map(async (story: Story) => {
+          console.log(`[IPFS] 开始处理故事 ${story.id} 的封面: ${story.coverCid}`)
+          const imageContent = await fetchIPFSImage(story.coverCid!)
+          if (imageContent) {
+            console.log(`[IPFS] 成功获取故事 ${story.id} 的封面图片`)
+            setStoryImages(prev => ({
+              ...prev,
+              [story.coverCid!]: imageContent
+            }))
+          } else {
+            console.log(`[IPFS] 获取故事 ${story.id} 的封面图片失败`)
+          }
+        })
+
+        await Promise.all(imagePromises)
+        console.log('[IPFS] 所有图片加载完成，当前图片缓存:', Object.keys(storyImages))
       } catch (err) {
-        console.error('Error:', err)
+        console.error('[Stories] 加载失败:', err)
         setError('获取作品列表失败，请稍后重试')
       } finally {
         setIsLoading(false)
@@ -204,14 +291,20 @@ export default function Home() {
                   id={story.id}
                   title={story.title}
                   description={story.description}
-                  coverImage={story.coverCid ? `https://ipfs.io/ipfs/${story.coverCid}` : '/images/story-default-cover.jpg'}
-                  author={story.author}
-                  category={story.category}
-                  stats={{
-                    views: story.stats?.views || 0,
-                    likes: story.stats?.likes || 0,
-                    comments: story.stats?.comments || 0
+                  coverImage={
+                    story.coverCid?.startsWith('data:image') 
+                      ? story.coverCid
+                      : story.coverCid?.startsWith('Qm') 
+                        ? storyImages[story.coverCid] || '/images/story-default-cover.jpg'
+                        : '/images/story-default-cover.jpg'
+                  }
+                  author={{
+                    name: story.author?.authorName || story.author?.address?.slice(0, 6) + '...' + story.author?.address?.slice(-4) || '匿名作者',
+                    address: story.author?.address || ''
                   }}
+                  category={story.category}
+                  stats={story.stats}
+                  isNFT={story.isNFT}
                 />
               ))
             )}

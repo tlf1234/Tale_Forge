@@ -8,6 +8,7 @@ import { FiUser, FiBook, FiHeart } from 'react-icons/fi'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function AuthorPage({ params }: { params: { address: string } }) {
   const [isFollowing, setIsFollowing] = useState(false)
@@ -166,9 +167,10 @@ export default function AuthorPage({ params }: { params: { address: string } }) 
                 >
                   <div className="bg-gray-50 rounded-lg p-4 transition-colors duration-200 hover:bg-gray-100">
                     <div className="aspect-w-16 aspect-h-9 mb-3">
-                      <img
-                        src={story.cover || '/images/story-default-cover.jpg'}
+                      <Image
+                        src={story.coverCid ? `https://ipfs.io/ipfs/${story.coverCid}` : '/images/story-default-cover.jpg'}
                         alt={story.title}
+                        fill
                         className="object-cover rounded-lg"
                       />
                     </div>

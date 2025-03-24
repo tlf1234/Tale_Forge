@@ -163,7 +163,7 @@ export class SyncService {
           title: storyData.title,
           description: content.description,
           contentCID: storyData.contentHash,
-          cover: storyData.coverCid,
+          coverCid: storyData.coverCid,
           updatedAt: new Date(Number(storyData.lastUpdate) * 1000)
         },
         create: {
@@ -171,7 +171,7 @@ export class SyncService {
           title: storyData.title,
           description: content.description,
           contentCID: storyData.contentHash,
-          cover: storyData.coverCid,
+          coverCid: storyData.coverCid,
           authorId: storyData.authorId,
           category: content.category || 'GENERAL',
           tags: content.tags || [],
@@ -308,7 +308,7 @@ export class SyncService {
               title: storyData.title,
               description: content.description || '',
               contentCID: storyData.contentHash,
-              cover: storyData.coverCid,
+              coverCid: storyData.coverCid,
               updatedAt: storyData.updatedAt
             },
             create: {
@@ -316,7 +316,7 @@ export class SyncService {
               title: storyData.title,
               description: content.description || '',
               contentCID: storyData.contentHash,
-              cover: storyData.coverCid,
+              coverCid: storyData.coverCid,
               authorId: author.id,
               category: content.category || 'GENERAL',
               tags: content.tags || [],

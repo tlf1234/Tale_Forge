@@ -13,7 +13,7 @@ import styles from './page.module.css'
 interface Work {
   id: string;
   title: string;
-  cover: string;
+  coverImage: string;
   type: string;
   status: 'draft' | 'published' | 'reviewing';
   wordCount: number;
@@ -29,7 +29,7 @@ interface Work {
 interface Story {
   id: string;
   title: string;
-  coverCid?: string;
+  coverCid: string;
   category: string;
   status: string;
   wordCount: number;
@@ -76,7 +76,7 @@ export default function WorksPage() {
       const formattedWorks: Work[] = stories.map((story: Story) => ({
         id: story.id,
         title: story.title,
-        cover: story.coverCid ? `https://ipfs.io/ipfs/${story.coverCid}` : '/images/story-default-cover.jpg',
+        coverImage: story.coverCid ? `https://ipfs.io/ipfs/${story.coverCid}` : '/images/story-default-cover.jpg',
         type: story.category,
         status: 'published',  // 默认设置为已发布状态
         wordCount: story.wordCount || 0,
@@ -245,7 +245,7 @@ export default function WorksPage() {
                     <div className="flex items-start gap-6">
                       <div className="relative w-32 h-44 flex-shrink-0 rounded-lg overflow-hidden shadow-sm">
                         <Image
-                          src={work.cover}
+                          src={work.coverImage}
                           alt={work.title}
                           fill
                           className="object-cover transition-transform duration-200 hover:scale-105"

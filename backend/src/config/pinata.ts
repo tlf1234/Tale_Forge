@@ -13,6 +13,8 @@ export interface PinataKeyConfig {
 // 使用注册账户生成的pinata的gateway
 export const PINATA_GATEWAY = 'blue-casual-wombat-745.mypinata.cloud';
 
+//https://blue-casual-wombat-745.mypinata.cloud/ipfs/QmWPjcauYwEecqotQbw8UETAMp5tqdrDio5nyGR8xv35UZ
+
 // 使用注册账户生成的pinata的keys
 export const PINATA_KEYS: PinataKeyConfig[] = [
     {
