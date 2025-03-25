@@ -96,7 +96,7 @@ export default function AuthorPage() {
               <div className={styles.statLabel}>总阅读量</div>
             </div>
             <div className={styles.statCard}>
-              <div className={styles.statValue}>3.5 ETH</div>
+              <div className={styles.statValue}>3.5 BNB</div>
               <div className={styles.statLabel}>总收益</div>
             </div>
             <div className={styles.statCard}>

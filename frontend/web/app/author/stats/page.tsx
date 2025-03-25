@@ -27,7 +27,7 @@ export default function AuthorStats() {
             </div>
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h3 className="text-lg font-medium text-gray-600 mb-2">总收入</h3>
-              <p className="text-3xl font-bold text-indigo-600">3.5 ETH</p>
+              <p className="text-3xl font-bold text-indigo-600">3.5 BNB</p>
             </div>
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h3 className="text-lg font-medium text-gray-600 mb-2">总粉丝数</h3>
@@ -74,7 +74,7 @@ export default function AuthorStats() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">1,234</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">56</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">23</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">0.5 ETH</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">0.5 BNB</td>
                   </tr>
                 </tbody>
               </table>

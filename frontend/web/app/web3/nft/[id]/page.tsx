@@ -200,7 +200,7 @@ export default function NFTDetailPage({ params }: { params: { id: string } }) {
             <div className={styles.priceLabel}>当前价格</div>
             <div className={styles.price}>
               <FaEthereum />
-              {mockNFT.price} ETH
+              {mockNFT.price} BNB
             </div>
 
             {buttonState.component || (

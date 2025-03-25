@@ -52,7 +52,7 @@ export function PurchaseModal({
             </h4>
             <div className="flex items-center text-lg font-semibold text-purple-600 dark:text-purple-400">
               <FaEthereum className="w-5 h-5 mr-1" />
-              {price} ETH
+              {price} BNB
             </div>
           </div>
         </div>
@@ -65,7 +65,7 @@ export function PurchaseModal({
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">商品价格</span>
               <span className="font-medium text-gray-900 dark:text-white">
-                {price} ETH
+                {price} BNB
               </span>
             </div>
             <div className="flex justify-between">

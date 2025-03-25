@@ -3013,7 +3013,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                 className={styles.input}
                                 value={storyInfo.price}
                                 onChange={e => handleInfoChange('price', parseFloat(e.target.value))}
-                                placeholder="设置价格（ETH）"
+                                placeholder="设置价格（BNB）"
                                 min="0"
                                 step="0.01"
                               />
@@ -3238,7 +3238,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                           </div>
                           <div className={styles.previewDetailItem}>
                             <FaMoneyBill className={styles.detailIcon} />
-                            <span>{storyInfo.isFree ? '免费阅读' : `${storyInfo.price} ETH`}</span>
+                            <span>{storyInfo.isFree ? '免费阅读' : `${storyInfo.price} BNB`}</span>
                           </div>
                           {storyInfo.targetWordCount > 0 && (
                             <div className={styles.previewDetailItem}>

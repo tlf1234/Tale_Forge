@@ -35,19 +35,18 @@ export interface PublishedData {
 
 // 作者信息
 export interface Author {
-  id: string
   address: string
   authorName?: string
-  avatar?: string
-  bio?: string
+  avatarCid?: string
+  createdAt: string
+  updatedAt: string
 }
 
 // 故事统计信息
 export interface StoryStats {
   likes: number
-  views: number
   comments: number
-  favorites?: number
+  favorites: number
 }
 
 // 故事信息
@@ -55,20 +54,49 @@ export interface Story {
   id: string
   title: string
   description: string
-  coverCid: string
-  contentCid: string
-  content?: string
-  author: Author
+  coverCid?: string
+  content: string
   category: string
-  status: 'DRAFT' | 'PUBLISHED'
-  isNFT: boolean
-  nftAddress?: string
-  targetWordCount: number
-  wordCount: number
-  chapters?: Chapter[]
-  stats: StoryStats
+  author: {
+    address: string
+    authorName?: string
+    avatarCid?: string
+    storyCount?: number
+    followerCount?: number
+    nftCount?: number
+  }
   createdAt: string
   updatedAt: string
+  wordCount: number
+  targetWordCount?: number
+  chapters?: Array<{
+    id: string
+    title: string
+    content: string
+    wordCount: number
+    updatedAt: string
+  }>
+  stats?: {
+    comments: number
+    favorites: number
+  }
+  // Web3 相关字段
+  nftImage?: string
+  nftMinted?: number
+  nftTotal?: number
+  tokenPrice?: number
+  tokenHolders?: number
+  tokenSupply?: number
+  contractAddress?: string
+  contractCreatedAt?: string
+  transactionCount?: number
+  status: 'ongoing' | 'completed'
+  bnbEarnings?: number
+  tokenEarnings?: number
+  viewCount: number
+  likeCount: number
+  commentCount: number
+  chapterCount: number
 }
 
 // 分页信息

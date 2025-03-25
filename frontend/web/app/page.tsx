@@ -305,6 +305,9 @@ export default function Home() {
                   category={story.category}
                   stats={story.stats}
                   isNFT={story.isNFT}
+                  nftMinted={story.nftMinted}
+                  earnings={story.earnings}
+                  wordCount={story.wordCount}
                 />
               ))
             )}

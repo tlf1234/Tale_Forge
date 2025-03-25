@@ -1,7 +1,4 @@
 import { NextResponse } from 'next/server'
-import { ethers } from 'ethers'
-import { getContract } from '@/lib/contract'
-import { ReaderActivity__factory } from '@/contracts/typechain'
 
 export async function POST(
   request: Request,
@@ -20,14 +17,17 @@ export async function POST(
       )
     }
 
-    // 获取合约实例
-    const contract = await getContract(ReaderActivity__factory)
-    
-    // 调用合约的点赞方法
-    const tx = await contract.like(storyId)
-    await tx.wait()
+    // 调用后端 API
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/stories/${storyId}/like`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userAddress })
+      }
+    )
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json(await response.json())
   } catch (error: any) {
     console.error('Like error:', error)
     return NextResponse.json(

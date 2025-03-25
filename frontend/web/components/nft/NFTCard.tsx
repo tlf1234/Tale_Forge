@@ -52,7 +52,7 @@ export function NFTCard({
         </div>
 
         <div className={styles.stats}>
-          <div className={styles.price}>{price} ETH</div>
+          <div className={styles.price}>{price} BNB</div>
           <div className={styles.meta}>
             <span>👍 {likes}</span>
             <span>👀 {views}</span>

@@ -133,7 +133,7 @@ function SpacePageContent() {
                   <h3 className={styles.nftTitle}>{nft.title}</h3>
                   <p className={styles.nftCreator}>创作者：{nft.creator}</p>
                   <p className={styles.nftMeta}>
-                    购买日期：{nft.purchaseDate} · {nft.price} ETH
+                    购买日期：{nft.purchaseDate} · {nft.price} BNB
                   </p>
                 </div>
               </Link>
@@ -154,7 +154,7 @@ function SpacePageContent() {
                   </p>
                 </div>
                 <div className={styles.transactionAmount}>
-                  {transaction.amount} ETH
+                  {transaction.amount} BNB
                 </div>
               </div>
             ))}

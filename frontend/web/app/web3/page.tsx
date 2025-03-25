@@ -21,7 +21,7 @@ const mockNFTs = [
     title: '数字艺术品 #001',
     image: `https://picsum.photos/800/600?random=1`,
     creator: '创作者A',
-    price: '0.5 ETH',
+    price: '0.5 BNB',
     available: true,
     tags: ['艺术', '限量'],
     likes: 120,
@@ -32,7 +32,7 @@ const mockNFTs = [
     title: '数字艺术品 #002',
     image: `https://picsum.photos/800/600?random=2`, 
     creator: '创作者B',
-    price: '0.8 ETH',
+    price: '0.8 BNB',
     available: true,
     tags: ['收藏', '稀有'],
     likes: 89,
@@ -43,7 +43,7 @@ const mockNFTs = [
     title: '数字艺术品 #003',
     image: `https://picsum.photos/800/600?random=3`,
     creator: '创作者C', 
-    price: '0.3 ETH',
+    price: '0.3 BNB',
     available: false,
     tags: ['艺术', '普通'],
     likes: 45,
@@ -59,7 +59,7 @@ const mockPools = [
     icon: '⛏️',
     description: '适合新手的基础挖矿池,收益稳定',
     hashRate: '100 MH/s',
-    dailyReward: '0.01 ETH',
+    dailyReward: '0.01 BNB',
     difficulty: '低',
     minStake: '10 TLF',
     participants: 1200
@@ -70,7 +70,7 @@ const mockPools = [
     icon: '🏆',
     description: '高收益高风险的挖矿池,适合进阶用户',
     hashRate: '500 MH/s',
-    dailyReward: '0.05 ETH',
+    dailyReward: '0.05 BNB',
     difficulty: '中',
     minStake: '50 TLF',
     participants: 500
@@ -81,7 +81,7 @@ const mockPools = [
     icon: '💎',
     description: '最高收益的专业挖矿池,需要大量质押',
     hashRate: '1 GH/s',
-    dailyReward: '0.1 ETH',
+    dailyReward: '0.1 BNB',
     difficulty: '高',
     minStake: '100 TLF',
     participants: 100
@@ -212,7 +212,7 @@ export default function Web3MarketPage() {
           </div>
           <div className={styles.statCard}>
             <h3>24h收益</h3>
-            <div className={styles.statValue}>0.16 ETH</div>
+            <div className={styles.statValue}>0.16 BNB</div>
             <div className={styles.statLabel}>平均收益</div>
           </div>
         </div>

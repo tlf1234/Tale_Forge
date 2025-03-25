@@ -14,14 +14,26 @@ export interface StoryStats {
 export interface Story {
   id: string
   title: string
-  description: string
+  description?: string
   coverCid?: string
-  author: Author
+  contentCid?: string
   category: string
-  stats: {
-    likes: number
-    comments: number
-    favorites: number
+  wordCount: number
+  targetWordCount: number
+  isNFT?: boolean
+  nftMinted?: number
+  earnings?: number
+  author?: {
+    id: string
+    address: string
+    authorName?: string
+    avatar?: string
+    bio?: string
+  }
+  stats?: {
+    likes?: number
+    comments?: number
+    favorites?: number
   }
   createdAt: string
   updatedAt: string
