@@ -7,7 +7,7 @@ import { IoChevronBack, IoSettingsOutline, IoBookmarkOutline, IoShareSocialOutli
 import styles from './ReadContent.module.css'  // 使用独立的样式文件
 import ImagePreview from '@/components/common/ImagePreview'
 import { useChapter } from '@/hooks/useChapter'
-import type { ContentBlock } from '@/types/story'
+import type { Chapter as BaseChapter, ContentBlock } from '@/types/story'
 import { useReadingSettings } from '@/hooks/useReadingSettings'
 import ReadingSettings from './ReadingSettings'
 import TipDialog from './TipDialog'
@@ -20,6 +20,26 @@ import { FaList } from 'react-icons/fa' // Import FaList icon
 
 interface ReadContentProps {
   id: string
+}
+
+interface Chapter extends BaseChapter {
+  chapterNumber: number
+  totalChapters: number
+  author: {
+    name: string
+    avatar?: string
+  }
+  coverImage?: string
+  status: 'draft' | 'published'
+}
+
+interface ChapterResponse {
+  chapter: Chapter | null
+  loading: boolean
+  error: Error | null
+  volumes?: any[]
+  saveChapter: (data: Partial<Chapter>) => Promise<Chapter | null>
+  publish: (authorAddress: string) => Promise<any>
 }
 
 const ReadContent: React.FC<ReadContentProps> = ({ id }) => {
@@ -39,7 +59,7 @@ const ReadContent: React.FC<ReadContentProps> = ({ id }) => {
   const [likeCount, setLikeCount] = useState(0)
   const [isLiking, setIsLiking] = useState(false)
 
-  const { chapter, loading, error, volumes } = useChapter(id, chapterId) // Add volumes to useChapter hook
+  const { chapter, loading, error, volumes } = useChapter(id, chapterId) as ChapterResponse
   const { settings, updateSetting, resetSettings } = useReadingSettings()
 
   useEffect(() => {
@@ -80,11 +100,11 @@ const ReadContent: React.FC<ReadContentProps> = ({ id }) => {
   const handleChapterChange = useCallback((direction: 'prev' | 'next') => {
     if (!chapter) return;
     
-    const nextChapter = direction === 'prev' 
-      ? parseInt(chapterId) - 1 
-      : parseInt(chapterId) + 1
+    const nextChapterNumber = direction === 'prev' 
+      ? chapter.chapterNumber - 1 
+      : chapter.chapterNumber + 1
 
-    if (nextChapter < 1 || nextChapter > chapter.totalChapters) {
+    if (nextChapterNumber < 1 || nextChapterNumber > chapter.totalChapters) {
       return;
     }
     
@@ -94,8 +114,8 @@ const ReadContent: React.FC<ReadContentProps> = ({ id }) => {
       behavior: 'instant'
     })
     
-    router.push(`/stories/${id}/read?chapter=${nextChapter}`)
-  }, [chapter, chapterId, id, router])
+    router.push(`/stories/${id}/read?chapter=${nextChapterNumber}`)
+  }, [chapter, id, router])
 
   const handleTip = async (amount: number) => {
     try {
@@ -115,7 +135,7 @@ const ReadContent: React.FC<ReadContentProps> = ({ id }) => {
       addToBookshelf({
         id,
         title: chapter.title,
-        author: chapter.author,
+        author: chapter.author.name,
         coverImage: chapter.coverImage || '/images/story-default-cover.jpg',
         readProgress: 0
       })
@@ -187,8 +207,64 @@ const ReadContent: React.FC<ReadContentProps> = ({ id }) => {
   }
 
   // 解构chapter对象
-  const { title, content, wordCount, totalChapters, author } = chapter
+  const { title, content, wordCount } = chapter
   const currentTime = new Date()
+
+  // 处理内容渲染
+  const renderContent = () => {
+    if (Array.isArray(content)) {
+      return content.map((block, index) => (
+        <div key={index} className={styles.contentBlock}>
+          {block.type === 'text' ? (
+            <p className={styles.text}>{block.content}</p>
+          ) : block.type === 'image' && !imageLoadError[block.content] ? (
+            <figure className={styles.figure}>
+              <div className={styles.imageWrapper}>
+                <Image
+                  src={block.content}
+                  alt={block.caption || '插图'}
+                  width={800}
+                  height={400}
+                  className={styles.image}
+                  onError={() => setImageLoadError(prev => ({
+                    ...prev,
+                    [block.content]: true
+                  }))}
+                />
+              </div>
+              {block.caption && (
+                <figcaption className={styles.caption}>{block.caption}</figcaption>
+              )}
+            </figure>
+          ) : null}
+        </div>
+      ))
+    } else {
+      // 如果content是字符串，处理HTML内容
+      const cleanContent = content
+        .replace(/spellcheck="[^"]*"/g, '') // 移除spellcheck属性
+        .replace(/class="editor-paragraph"/g, 'class="' + styles.paragraph + '"') // 替换class
+        .replace(/style="([^"]*)"/g, (match, style) => {
+          // 保留text-align和margin-left样式
+          const alignMatch = style.match(/text-align:\s*([^;]+)/)
+          const marginMatch = style.match(/margin-left:\s*([^;]+)/)
+          const keepStyles = []
+          
+          if (alignMatch) keepStyles.push(`text-align: ${alignMatch[1]}`)
+          if (marginMatch) keepStyles.push(`margin-left: ${marginMatch[1]}`)
+          
+          return keepStyles.length ? `style="${keepStyles.join('; ')}"` : ''
+        })
+        .replace(/&nbsp;/g, ' ') // 将&nbsp;替换为普通空格
+
+      // 创建一个临时div来解析HTML
+      const div = document.createElement('div')
+      div.innerHTML = cleanContent
+
+      // 返回处理后的HTML内容
+      return <div dangerouslySetInnerHTML={{ __html: div.innerHTML }} />
+    }
+  }
 
   // 添加章节树组件
   const renderChapterTree = () => {
@@ -291,41 +367,16 @@ const ReadContent: React.FC<ReadContentProps> = ({ id }) => {
       <div className={styles.content}>
         <div className={styles.chapterHeader}>
           <h1 className={styles.chapterTitle}>
-            第{chapterId}章：{title}
+            {chapter.chapterNumber ? `第${chapter.chapterNumber}章：` : ''}{title}
             <span className={styles.wordCount}>{wordCount}字</span>
           </h1>
           <div className={styles.chapterInfo}>
-            <span>{author}</span>
+            <span>{chapter.author?.name || '佚名'}</span>
             <span>·</span>
             <span>{currentTime.toLocaleString()}</span>
           </div>
         </div>
-        {content.map((block, index) => (
-          <div key={index} className={styles.contentBlock}>
-            {block.type === 'text' ? (
-              <p className={styles.text}>{block.content}</p>
-            ) : block.type === 'image' && !imageLoadError[block.content] ? (
-              <figure className={styles.figure}>
-                <div className={styles.imageWrapper}>
-                  <Image
-                    src={block.content}
-                    alt={block.caption || '插图'}
-                    width={800}
-                    height={400}
-                    className={styles.image}
-                    onError={() => setImageLoadError(prev => ({
-                      ...prev,
-                      [block.content]: true
-                    }))}
-                  />
-                </div>
-                {block.caption && (
-                  <figcaption className={styles.caption}>{block.caption}</figcaption>
-                )}
-              </figure>
-            ) : null}
-          </div>
-        ))}
+        {renderContent()}
 
         {/* 文章末尾的互动区域 */}
         <div className={styles.contentFooter}>
@@ -354,17 +405,17 @@ const ReadContent: React.FC<ReadContentProps> = ({ id }) => {
         <button
           className={styles.navButton}
           onClick={() => handleChapterChange('prev')}
-          disabled={parseInt(chapterId) === 1}
+          disabled={chapter.chapterNumber <= 1}
         >
           上一章
         </button>
         <span className={styles.chapterStatus}>
-          {chapterId} / {totalChapters}
+          {chapter.chapterNumber} / {chapter.totalChapters}
         </span>
         <button
           className={styles.navButton}
           onClick={() => handleChapterChange('next')}
-          disabled={parseInt(chapterId) === totalChapters}
+          disabled={chapter.chapterNumber >= chapter.totalChapters}
         >
           下一章
         </button>
@@ -398,7 +449,7 @@ const ReadContent: React.FC<ReadContentProps> = ({ id }) => {
 
       {showTipDialog && (
         <TipDialog
-          authorName={chapter?.author || ''}
+          authorName={chapter?.author?.name || ''}
           authorAvatar="/default-avatar.png" // TODO: Replace with actual author avatar
           onTip={handleTip}
           onClose={() => setShowTipDialog(false)}

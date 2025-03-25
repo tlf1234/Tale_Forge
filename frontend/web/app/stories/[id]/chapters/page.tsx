@@ -12,6 +12,7 @@ interface Chapter {
   wordCount: number
   order: number
   updatedAt: string
+  status: string  // 改为string类型，因为后端可能返回不同大小写
 }
 
 interface Props {
@@ -34,7 +35,11 @@ export default function ChaptersPage({ params }: Props) {
           throw new Error('加载章节失败')
         }
         const data = await response.json()
-        setChapters(data)
+        // 先将状态值转换为小写，再过滤已发布的章节
+        const publishedChapters = data.filter((chapter: Chapter) => 
+          chapter.status?.toLowerCase() === 'published'
+        )
+        setChapters(publishedChapters)
       } catch (error) {
         console.error('加载章节失败:', error)
       } finally {
@@ -46,7 +51,18 @@ export default function ChaptersPage({ params }: Props) {
   }, [id])
 
   if (isLoading) {
-    return <div className={styles.loading}>加载中...</div>
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="flex space-x-2 mb-2">
+            <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+            <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+            <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce"></div>
+          </div>
+          <span className="text-sm text-gray-500">正在加载章节列表...</span>
+        </div>
+      </div>
+    )
   }
 
   return (

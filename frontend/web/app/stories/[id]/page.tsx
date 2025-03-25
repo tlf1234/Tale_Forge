@@ -9,7 +9,6 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { Editor } from '@/components/editor'
 import { FiBook, FiClock, FiUser, FiTag, FiHeart, FiMessageSquare, FiStar, FiArrowLeft, FiShare2, FiBookmark, FiCopy, FiExternalLink, FiLock, FiDollarSign, FiCheckCircle, FiEdit3, FiArrowRight } from 'react-icons/fi'
 import { SiEthereum, SiBinance } from 'react-icons/si'
-import { getImageUrl } from '@/utils/image'
 import { truncateAddress } from '@/utils/address'
 import styles from './page.module.css'
 
@@ -29,46 +28,175 @@ export default function StoryDetailPage({ params }: Props) {
   const [likeCount, setLikeCount] = useState(0)
   const [isLiking, setIsLiking] = useState(false)
   const [isBookmarked, setIsBookmarked] = useState(false)
+  const [storyImages, setStoryImages] = useState<{ [key: string]: string }>({})
+  const [chapterStats, setChapterStats] = useState<{
+    total: number;
+    published: number;
+    draft: number;
+  }>({
+    total: 0,
+    published: 0,
+    draft: 0
+  })
 
+  // 获取章节统计信息
   useEffect(() => {
-    async function fetchStory() {
+    async function loadChapterStats() {
+      try {
+        const response = await fetch(`/api/stories/${id}/chapters/stats`)
+        if (!response.ok) {
+          throw new Error('获取章节统计失败')
+        }
+        const data = await response.json()
+        setChapterStats(data)
+      } catch (error) {
+        console.error('获取章节统计失败:', error)
+      }
+    }
+
+    if (id) {
+      loadChapterStats()
+    }
+  }, [id])
+
+  // 获取 IPFS 图片
+  const fetchIPFSImage = async (cid: string) => {
+    try {
+      console.log(`[IPFS] 开始获取图片: ${cid}`)
+      const response = await fetch(`https://blue-casual-wombat-745.mypinata.cloud/ipfs/${cid}`)
+      console.log(`[IPFS] 响应状态: ${response.status}`)
+      const text = await response.text()
+      console.log(`[IPFS] 获取到的内容长度: ${text.length}`)
+      
+      // 检查返回的内容是否已经是 base64 图片
+      if (text.startsWith('data:image')) {
+        console.log(`[IPFS] 返回的内容已经是 base64 图片格式`)
+        return text
+      }
+      
+      // 如果不是 base64 图片，尝试解析 JSON
+      try {
+        const data = JSON.parse(text)
+        console.log(`[IPFS] JSON 解析成功:`, {
+          hasContent: !!data.content,
+          contentType: typeof data.content,
+          contentLength: data.content?.length
+        })
+        
+        if (data.content) {
+          console.log(`[IPFS] 使用 content 字段作为图片内容`)
+          return data.content
+        }
+      } catch (jsonError) {
+        console.log(`[IPFS] JSON 解析失败，使用原始内容:`, jsonError)
+      }
+      
+      // 如果都不是，返回原始内容
+      console.log(`[IPFS] 使用原始内容作为图片`)
+      return text
+    } catch (error) {
+      console.error('[IPFS] 获取图片失败:', error)
+      return null
+    }
+  }
+
+  // 加载 IPFS 图片
+  useEffect(() => {
+    async function loadIPFSImages() {
+      if (!story) return
+
+      const imagesToLoad = [
+        { cid: story.coverCid, key: 'cover' },
+        { cid: story.author.avatar, key: 'avatar' },
+        { cid: story.nftImage || story.coverCid, key: 'nft' }
+      ].filter(img => img.cid?.startsWith('Qm'))
+
+      console.log(`[IPFS] 需要加载 ${imagesToLoad.length} 个 IPFS 图片`)
+
+      const imagePromises = imagesToLoad.map(async ({ cid, key }) => {
+        if (!cid) return
+        console.log(`[IPFS] 开始处理 ${key} 图片: ${cid}`)
+        const imageContent = await fetchIPFSImage(cid)
+        if (imageContent) {
+          console.log(`[IPFS] 成功获取 ${key} 图片`)
+          setStoryImages(prev => ({
+            ...prev,
+            [cid]: imageContent
+          }))
+        } else {
+          console.log(`[IPFS] 获取 ${key} 图片失败`)
+        }
+      })
+
+      await Promise.all(imagePromises)
+      console.log('[IPFS] 所有图片加载完成，当前图片缓存:', Object.keys(storyImages))
+    }
+
+    loadIPFSImages()
+  }, [story])
+
+  // 获取故事详情
+  useEffect(() => {
+    async function loadStory() {
       try {
         setIsLoading(true)
-        setError(null)
         const response = await fetch(`/api/stories/${id}`)
         if (!response.ok) {
-          throw new Error('获取作品详情失败')
+          throw new Error('获取故事详情失败')
         }
         const data = await response.json()
         setStory(data)
-      } catch (err) {
-        setError('获取作品详情失败，请稍后重试')
-        console.error('Failed to fetch story:', err)
+      } catch (error) {
+        console.error('获取故事详情失败:', error)
+        setError(error instanceof Error ? error.message : '未知错误')
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchStory()
+    if (id) {
+      loadStory()
+    }
   }, [id])
 
-  // 初始化点赞状态
+  // 检查是否已点赞
   useEffect(() => {
-    const fetchLikeStatus = async () => {
+    async function checkLikeStatus() {
       try {
-        const response = await fetch(`/api/stories/${id}/like/status`)
-        if (response.ok) {
-          const data = await response.json()
-          setIsLiked(data.isLiked)
-          setLikeCount(data.likeCount)
+        const response = await fetch(`/api/stories/${id}/like/check`)
+        if (!response.ok) {
+          throw new Error('检查点赞状态失败')
         }
+        const data = await response.json()
+        setIsLiked(data.isLiked)
+        setLikeCount(data.likeCount)
       } catch (error) {
-        console.error('Failed to fetch like status:', error)
+        console.error('检查点赞状态失败:', error)
       }
     }
 
     if (id) {
-      fetchLikeStatus()
+      checkLikeStatus()
+    }
+  }, [id])
+
+  // 检查是否已收藏
+  useEffect(() => {
+    async function checkBookmarkStatus() {
+      try {
+        const response = await fetch(`/api/stories/${id}/bookmark/check`)
+        if (!response.ok) {
+          throw new Error('检查收藏状态失败')
+        }
+        const data = await response.json()
+        setIsBookmarked(data.isBookmarked)
+      } catch (error) {
+        console.error('检查收藏状态失败:', error)
+      }
+    }
+
+    if (id) {
+      checkBookmarkStatus()
     }
   }, [id])
 
@@ -198,10 +326,18 @@ export default function StoryDetailPage({ params }: Props) {
         <div className={styles.header}>
           <div className={styles.coverWrapper}>
             <Image
-              src={getImageUrl(story.coverCid, 'story-default-cover.jpg')}
+              src={
+                story.coverCid?.startsWith('data:image') 
+                  ? story.coverCid
+                  : story.coverCid?.startsWith('Qm')
+                    ? storyImages[story.coverCid] || `https://blue-casual-wombat-745.mypinata.cloud/ipfs/${story.coverCid}`
+                    : '/images/story-default-cover.jpg'
+              }
               alt={story.title}
-              fill
               className={styles.cover}
+              width={280}
+              height={420}
+              priority
             />
           </div>
           <div className={styles.info}>
@@ -230,12 +366,19 @@ export default function StoryDetailPage({ params }: Props) {
               <div className={styles.authorHeader}>
                 <div className={styles.authorMain}>
                   <div className={styles.authorAvatar}>
-                    <Image
-                      src={getImageUrl(story.author.avatarCid, 'user-default-avatar.jpg')}
-                      alt={story.author.authorName || '作者'}
-                      fill
-                      className="object-cover"
-                    />
+                    {story.author.avatar ? (
+                      <Image 
+                        src={story.author.avatar} 
+                        alt={story.author.authorName || '作者'} 
+                        width={64} 
+                        height={64} 
+                        className="rounded-full ring-2 ring-white shadow-sm"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 text-white rounded-full flex items-center justify-center text-sm font-medium ring-2 ring-white shadow-sm">
+                        {(story.author.authorName || 'A')[0].toUpperCase()}
+                      </div>
+                    )}
                   </div>
                   <div className={styles.authorInfo}>
                     <Link 
@@ -281,21 +424,41 @@ export default function StoryDetailPage({ params }: Props) {
 
             {/* 作品统计信息 */}
             <div className={styles.stats}>
-              <div className={styles.statItem}>
-                <FiBook className="w-5 h-5" />
-                <span>{story.wordCount.toLocaleString()}/{story.targetWordCount?.toLocaleString() || '∞'} 字</span>
+              <div className={styles.statsItem}>
+                <div className={styles.statsIcon}>
+                  <FiBook />
+                </div>
+                <div className={styles.statsText}>
+                  <div className={styles.statsLabel}>当前章节</div>
+                  <div className={styles.statsValue}>{chapterStats.published} 章</div>
+                </div>
               </div>
-              <div className={styles.statItem}>
-                <FiMessageSquare className="w-5 h-5" />
-                <span>{story.commentCount || 0} 评论</span>
+              <div className={styles.statsItem}>
+                <div className={styles.statsIcon}>
+                  <FiClock />
+                </div>
+                <div className={styles.statsText}>
+                  <div className={styles.statsLabel}>更新频率</div>
+                  <div className={styles.statsValue}>每周 {story?.updateFrequency || '-'} 章</div>
+                </div>
               </div>
-              <div className={styles.statItem}>
-                <FiStar className="w-5 h-5" />
-                <span>{story.stats?.favorites || 0} 收藏</span>
+              <div className={styles.statsItem}>
+                <div className={styles.statsIcon}>
+                  <FiEdit3 />
+                </div>
+                <div className={styles.statsText}>
+                  <div className={styles.statsLabel}>平均字数</div>
+                  <div className={styles.statsValue}>{story?.averageWordsPerChapter || '-'} 字/章</div>
+                </div>
               </div>
-              <div className={styles.statItem}>
-                <FiLock className="w-5 h-5" />
-                <span>{story.nftMinted || 0} NFT</span>
+              <div className={styles.statsItem}>
+                <div className={styles.statsIcon}>
+                  <FiMessageSquare />
+                </div>
+                <div className={styles.statsText}>
+                  <div className={styles.statsLabel}>评论数</div>
+                  <div className={styles.statsValue}>{story?.commentCount || 0}</div>
+                </div>
               </div>
             </div>
 
@@ -394,7 +557,14 @@ export default function StoryDetailPage({ params }: Props) {
               </div>
               <div className={styles.nftPreview}>
                 <Image
-                  src={getImageUrl(story.nftImage || story.coverCid, 'nft-preview.jpg')}
+                  src={
+                    story.nftImage?.startsWith('data:image') || story.coverCid?.startsWith('data:image')
+                      ? story.nftImage || story.coverCid || '/images/story-default-cover.jpg'
+                      : story.nftImage?.startsWith('Qm') || story.coverCid?.startsWith('Qm')
+                        ? storyImages[story.nftImage || story.coverCid || ''] || 
+                          `https://blue-casual-wombat-745.mypinata.cloud/ipfs/${story.nftImage || story.coverCid}`
+                        : '/images/story-default-cover.jpg'
+                  }
                   alt="NFT Preview"
                   className={styles.nftImage}
                   fill

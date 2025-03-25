@@ -61,6 +61,7 @@ export interface Story {
     address: string
     authorName?: string
     avatarCid?: string
+    avatar?: string
     storyCount?: number
     followerCount?: number
     nftCount?: number
@@ -97,6 +98,8 @@ export interface Story {
   likeCount: number
   commentCount: number
   chapterCount: number
+  updateFrequency?: number
+  averageWordsPerChapter?: number
 }
 
 // 分页信息
