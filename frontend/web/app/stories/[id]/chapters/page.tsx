@@ -79,7 +79,7 @@ export default function ChaptersPage({ params }: Props) {
           {chapters.map(chapter => (
             <Link 
               key={chapter.id}
-              href={`/stories/${id}/read?chapter=${chapter.id}`}
+              href={`/stories/${id}/read?order=${chapter.order}`}
               className={styles.chapterItem}
             >
               <div className={styles.chapterInfo}>

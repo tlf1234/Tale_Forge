@@ -826,6 +826,62 @@ export class StoryService {
   return { ...chapter, content: '' };
  }
 
+  // 通过章节顺序获取章节
+  async getChapterByOrder(storyId: string, order: number) {
+    console.log('[StoryService.getChapterByOrder] 开始获取章节:', {
+      storyId,
+      order
+    });
+
+    try {
+      const chapter = await prisma.chapter.findFirst({
+        where: {
+          storyId,
+          order,
+          status: 'PUBLISHED'
+        },
+        include: {
+          story: {
+            include: {
+              author: true,
+              _count: {
+                select: {
+                  chapters: {
+                    where: {
+                      status: 'PUBLISHED'
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!chapter) {
+        return null;
+      }
+
+      // 格式化返回数据
+      return {
+        id: chapter.id,
+        title: chapter.title,
+        content: chapter.content || '',
+        order: chapter.order,
+        status: chapter.status,
+        wordCount: chapter.wordCount,
+        totalChapters: chapter.story._count.chapters,
+        author: {
+          name: chapter.story.author.nickname || chapter.story.author.authorName || '',
+          avatar: chapter.story.author.avatar || null
+        }
+      };
+    } catch (error) {
+      console.error('[StoryService.getChapterByOrder] 获取章节失败:', error);
+      throw error;
+    }
+  }
+
 }
 
 // 导出单例实例

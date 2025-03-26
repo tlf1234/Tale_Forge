@@ -405,8 +405,47 @@ app.get('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
   }
 });
 
-
-
+// 通过章节顺序获取章节
+app.get('/api/stories/:storyId/chapters/order/:order', async (req, res) => {
+  try {
+    const { storyId, order } = req.params;
+    console.log('[GET /api/stories/:storyId/chapters/order/:order] 收到请求:', {
+      storyId,
+      order,
+      timestamp: new Date().toISOString()
+    });
+    
+    const chapter = await storyService.getChapterByOrder(storyId, parseInt(order));
+    
+    console.log('[GET /api/stories/:storyId/chapters/order/:order] 查询结果:', {
+      found: !!chapter,
+      chapterId: chapter?.id,
+      title: chapter?.title,
+      order: chapter?.order,
+      totalChapters: chapter?.totalChapters,
+      wordCount: chapter?.wordCount
+    });
+    
+    if (!chapter) {
+      console.log('[GET /api/stories/:storyId/chapters/order/:order] 章节不存在:', {
+        storyId,
+        order
+      });
+      return res.status(404).json({ error: '章节不存在' });
+    }
+    
+    console.log('[GET /api/stories/:storyId/chapters/order/:order] 成功返回章节数据');
+    res.json(chapter);
+  } catch (error: any) {
+    console.error('[GET /api/stories/:storyId/chapters/order/:order] 获取章节失败:', {
+      storyId: req.params.storyId,
+      order: req.params.order,
+      error: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({ error: error?.message });
+  }
+});
 
 // （保存章节）更新章节（新路由，包含 storyId）
 app.put('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
