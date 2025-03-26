@@ -162,7 +162,7 @@ export class SyncService {
         update: {
           title: storyData.title,
           description: content.description,
-          contentCID: storyData.contentHash,
+          contentCid: storyData.contentHash,
           coverCid: storyData.coverCid,
           updatedAt: new Date(Number(storyData.lastUpdate) * 1000)
         },
@@ -170,7 +170,7 @@ export class SyncService {
           id: storyData.id,
           title: storyData.title,
           description: content.description,
-          contentCID: storyData.contentHash,
+          contentCid: storyData.contentHash,
           coverCid: storyData.coverCid,
           authorId: storyData.authorId,
           category: content.category || 'GENERAL',
@@ -307,7 +307,7 @@ export class SyncService {
             update: {
               title: storyData.title,
               description: content.description || '',
-              contentCID: storyData.contentHash,
+              contentCid: storyData.contentHash,
               coverCid: storyData.coverCid,
               updatedAt: storyData.updatedAt
             },
@@ -315,7 +315,7 @@ export class SyncService {
               id: storyData.id,
               title: storyData.title,
               description: content.description || '',
-              contentCID: storyData.contentHash,
+              contentCid: storyData.contentHash,
               coverCid: storyData.coverCid,
               authorId: author.id,
               category: content.category || 'GENERAL',

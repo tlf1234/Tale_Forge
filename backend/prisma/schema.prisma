@@ -47,7 +47,7 @@ model Story {
   title         String    // 标题
   description   String    // 描述
   coverCid      String?   // 封面图片CID
-  contentCID    String    // IPFS内容ID  （这个实际是descriptionCID）
+  contentCid    String    // IPFS内容ID  （这个实际是descriptionCID）
   wordCount     Int       @default(0) // 字数
   targetWordCount Int     @default(10000) // 目标字数
   category      String    // 分类
@@ -75,7 +75,7 @@ model Chapter {
   id            String    @id @default(cuid())
   title         String    // 标题
   content       String?   // 章节内容（临时保存）
-  contentCID    String?   // IPFS内容ID（发布后才有）
+  contentCid    String?   // IPFS内容ID（发布后才有）
   wordCount     Int       @default(0) // 字数
   order         Int       // 章节顺序
   status        ChapterStatus @default(DRAFT) // 状态

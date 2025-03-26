@@ -162,7 +162,7 @@ export class StoryService {
     content: string
     coverImage?: string
     authorAddress: string
-    contentCID: string
+    contentCid: string
     coverCid: string
     category: string
     tags?: string[]
@@ -172,12 +172,13 @@ export class StoryService {
     console.log('[StoryService.saveStory] 开始保存故事:', {
       title: data.title,
       authorAddress: data.authorAddress,
-      chainId: data.chainId  // 添加链上ID日志
+      chainId: data.chainId,  // 添加链上ID日志
+      contentCid: data.contentCid  // 修改这里
     })
 
     try {
       // 1. 验证必填字段
-      if (!data.title || !data.description || !data.content || !data.authorAddress) {
+      if (!data.title || !data.description || !data.content || !data.authorAddress || !data.contentCid) {
         throw new Error('缺少必填字段')
       }
 
@@ -197,7 +198,7 @@ export class StoryService {
           title: data.title,
           description: data.description,
           coverCid: data.coverCid,
-          contentCID: data.contentCID,
+          contentCid: data.contentCid,  // 修改这里
           authorId: author.id,
           category: data.category,
           tags: data.tags || [],
@@ -247,7 +248,7 @@ export class StoryService {
 
     // 1. 处理内容更新
     if (data.content) {
-      updateData.contentCID = await uploadToIPFS(data.content)
+      updateData.contentCid = await uploadToIPFS(data.content)  // 修改这里
       updateData.wordCount = data.content.length
     }
 
@@ -286,7 +287,7 @@ export class StoryService {
           title: true,
           description: true,
           coverCid: true,
-          contentCID: true,
+          contentCid: true,  // 修改这里
           authorId: true,
           category: true,
           tags: true,
@@ -330,8 +331,8 @@ export class StoryService {
 
       // 2. 内容按需从 IPFS 获取
       if (story) {
-        console.log('[StoryService.getStory] 开始从IPFS获取内容:', { contentCID: story.contentCID });
-        const content = await getFromIPFS(story.contentCID);
+        console.log('[StoryService.getStory] 开始从IPFS获取内容:', { contentCid: story.contentCid });  // 修改这里
+        const content = await getFromIPFS(story.contentCid);  // 修改这里
         console.log('[StoryService.getStory] IPFS内容获取成功:', { 
           contentLength: content?.length,
           hasContent: !!content 
@@ -500,8 +501,8 @@ export class StoryService {
 
     try {
       // 上传到IPFS
-      const contentCID = await uploadToIPFS(content)
-      console.log(`成功上传章节内容到IPFS，CID: ${contentCID}`)
+      const contentCid = await uploadToIPFS(content)
+      console.log(`成功上传章节内容到IPFS，CID: ${contentCid}`)
 
       //注意后端不需上传链上数据，所有合约相关都是尽可能在前端，通过钱包组件调用合约实现
       
@@ -510,7 +511,7 @@ export class StoryService {
         where: { id },
         data: {
           status: 'PUBLISHED',
-          contentCID,
+          contentCid,
           txHash,  // 添加交易哈希
           // 注意：不清空content字段，保留作为备份
           updatedAt: new Date()
@@ -799,14 +800,14 @@ export class StoryService {
   }
 
   // 如果是已发布状态，从IPFS获取内容
-  if (chapter.contentCID) {
+  if (chapter.contentCid) {
     try {
-      console.log(`尝试从IPFS获取章节内容 (章节ID: ${id}, CID: ${chapter.contentCID})`);
-      const content = await getFromIPFS(chapter.contentCID);
+      console.log(`尝试从IPFS获取章节内容 (章节ID: ${id}, CID: ${chapter.contentCid})`);
+      const content = await getFromIPFS(chapter.contentCid);
       console.log(`成功从IPFS获取内容，内容长度: ${content ? content.length : 0} 字符`);
       return { ...chapter, content };
     } catch (error) {
-      console.error(`从IPFS获取内容失败 (章节ID: ${id}, CID: ${chapter.contentCID}):`, error);
+      console.error(`从IPFS获取内容失败 (章节ID: ${id}, CID: ${chapter.contentCid}):`, error);
       
       // 如果IPFS获取失败，尝试使用数据库中的content字段作为备份
       if (chapter.content) {
@@ -820,8 +821,8 @@ export class StoryService {
     }
   }
   
-  // 如果既不是草稿也没有contentCID，返回章节数据但内容为空
-  console.warn(`章节 ${id} 状态为 ${chapter.status}，但没有contentCID，返回空内容`);
+  // 如果既不是草稿也没有contentCid，返回章节数据但内容为空
+  console.warn(`章节 ${id} 状态为 ${chapter.status}，但没有contentCid，返回空内容`);
   return { ...chapter, content: '' };
  }
 

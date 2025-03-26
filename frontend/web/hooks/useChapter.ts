@@ -3,9 +3,15 @@ import type { Chapter } from '@/types/story'
 
 //这些钩子都没怎么用，不需要。先放着，以后考虑
 // 获取章节详情
-const fetchChapter = async (storyId: string, chapterId: string): Promise<Chapter> => {
+const fetchChapter = async (storyId: string, chapterIdOrOrder: string): Promise<Chapter> => {
   try {
-    const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`);
+    // 判断是章节ID还是order
+    const isOrder = !isNaN(Number(chapterIdOrOrder));
+    const url = isOrder 
+      ? `/api/stories/${storyId}/chapters/order/${chapterIdOrOrder}`
+      : `/api/stories/${storyId}/chapters/${chapterIdOrOrder}`;
+      
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error('Failed to fetch chapter');
     }
@@ -16,10 +22,10 @@ const fetchChapter = async (storyId: string, chapterId: string): Promise<Chapter
       console.log('服务器返回了空响应体，可能是章节不存在');
       // 返回一个空章节对象
       return {
-        id: chapterId,
+        id: chapterIdOrOrder,
         title: '',
         content: '',
-        order: 0,
+        order: Number(chapterIdOrOrder),
         wordCount: 0,
         status: 'draft',
         createdAt: new Date().toISOString(),

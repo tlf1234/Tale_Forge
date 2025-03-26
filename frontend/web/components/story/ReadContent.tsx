@@ -44,7 +44,8 @@ interface ChapterResponse {
 
 const ReadContent: React.FC<ReadContentProps> = ({ id }) => {
   const searchParams = useSearchParams()
-  const chapterId = searchParams.get('chapter') || '1'
+  const chapterId = searchParams.get('chapter') || ''
+  const order = searchParams.get('order') || ''
   const router = useRouter()
   
   const [isEyeCareMode, setIsEyeCareMode] = useState(false)
@@ -52,14 +53,14 @@ const ReadContent: React.FC<ReadContentProps> = ({ id }) => {
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showTipDialog, setShowTipDialog] = useState(false)
-  const [showChapterTree, setShowChapterTree] = useState(false) // Add showChapterTree state
+  const [showChapterTree, setShowChapterTree] = useState(false)
   const { isInBookshelf, addToBookshelf, removeFromBookshelf } = useBookshelf()
   const [isInShelf, setIsInShelf] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   const [isLiking, setIsLiking] = useState(false)
 
-  const { chapter, loading, error, volumes } = useChapter(id, chapterId) as ChapterResponse
+  const { chapter, loading, error, volumes } = useChapter(id, order || chapterId || '1') as ChapterResponse
   const { settings, updateSetting, resetSettings } = useReadingSettings()
 
   useEffect(() => {
@@ -98,13 +99,21 @@ const ReadContent: React.FC<ReadContentProps> = ({ id }) => {
 
   // 处理章节切换
   const handleChapterChange = useCallback((direction: 'prev' | 'next') => {
-    if (!chapter) return;
+    console.log('章节切换:', { direction, chapter });
     
-    const nextChapterNumber = direction === 'prev' 
-      ? chapter.chapterNumber - 1 
-      : chapter.chapterNumber + 1
+    if (!chapter) {
+      console.log('没有当前章节信息');
+      return;
+    }
+    
+    const nextOrder = direction === 'prev' 
+      ? chapter.order - 1 
+      : chapter.order + 1;
 
-    if (nextChapterNumber < 1 || nextChapterNumber > chapter.totalChapters) {
+    console.log('目标章节顺序:', nextOrder);
+
+    if (nextOrder < 1 || nextOrder > chapter.totalChapters) {
+      console.log('章节顺序超出范围');
       return;
     }
     
@@ -114,7 +123,10 @@ const ReadContent: React.FC<ReadContentProps> = ({ id }) => {
       behavior: 'instant'
     })
     
-    router.push(`/stories/${id}/read?chapter=${nextChapterNumber}`)
+    // 使用order构建URL
+    const newUrl = `/stories/${id}/read?order=${nextOrder}`;
+    console.log('导航到新URL:', newUrl);
+    router.push(newUrl);
   }, [chapter, id, router])
 
   const handleTip = async (amount: number) => {
@@ -331,7 +343,7 @@ const ReadContent: React.FC<ReadContentProps> = ({ id }) => {
   return (
     <div 
       className={`${styles.reader} 
-        ${isEyeCareMode ? styles.eyeCare : ''} 
+        ${isEyeCareMode ? styles['theme-eyeCare'] : ''} 
         ${styles[`theme-${settings.theme || 'default'}`]} 
         ${styles[`fontSize-${settings.fontSize <= 14 ? 'small' : 
                            settings.fontSize <= 16 ? 'normal' : 
@@ -357,7 +369,7 @@ const ReadContent: React.FC<ReadContentProps> = ({ id }) => {
         </div>
         <div className={styles.rightNav}>
           <button className={styles.actionButton} onClick={() => setIsEyeCareMode(!isEyeCareMode)}>
-            {isEyeCareMode ? '正常' : '护眼'}
+            {isEyeCareMode ? '护眼' : '正常'}
           </button>
           {renderToolbar()}
         </div>
