@@ -1,5 +1,5 @@
 import express from 'express';
-import { storyService, userService, commentService } from './services';
+import { storyService, userService, commentService, aiService } from './services';
 import type { StoryStatus } from '@prisma/client'
 
 const app = express();
@@ -16,9 +16,9 @@ app.post('/api/users', async (req, res) => {
     console.log('[POST /api/users] 收到创建请求:', {
       body: req.body
     })
-    
+
     const user = await userService.getOrCreateUser(req.body.address);
-    
+
     console.log('[POST /api/users] 创建成功:', user)
     res.json(user);
   } catch (error: any) {
@@ -34,10 +34,10 @@ app.get('/api/users/:address', async (req, res) => {
     console.log('[GET /api/users/:address] 收到查询请求:', {
       address: req.params.address
     })
-    
+
     const { address } = req.params;
     const user = await userService.getUser(address);
-    
+
     console.log('[GET /api/users/:address] 查询成功:', user)
     res.json(user);
   } catch (error: any) {
@@ -55,7 +55,7 @@ app.put('/api/users/:address', async (req, res) => {
 
     const { address } = req.params
     const user = await userService.updateUser(address, req.body)
-    
+
     console.log('[PUT /api/users/:address] 更新成功:', user)
     res.json(user)
   } catch (error: any) {
@@ -74,9 +74,9 @@ app.post('/api/authors/register', async (req, res) => {
     console.log('[POST /api/authors/register] 收到注册请求:', {
       body: req.body
     })
-    
+
     const author = await userService.registerAuthor(req.body);
-    
+
     console.log('[POST /api/authors/register] 注册成功:', author)
     res.json(author);
   } catch (error: any) {
@@ -91,10 +91,10 @@ app.get('/api/authors/:address', async (req, res) => {
     console.log('[GET /api/authors/:address] 收到查询请求:', {
       address: req.params.address
     })
-    
+
     const { address } = req.params;
     const author = await userService.getAuthorByAddress(address);
-    
+
     console.log('[GET /api/authors/:address] 查询成功:', author)
     res.json(author);
   } catch (error: any) {
@@ -124,9 +124,9 @@ app.post('/api/stories/upload', async (req, res) => {
     console.log('[POST /api/stories/upload] 收到创建请求:', {
       body: req.body
     })
-    
+
     const result = await storyService.uploadStory(req.body);
-    
+
     console.log('[POST /api/stories/upload] 创建成功:', result)
     res.json(result);
   } catch (error: any) {
@@ -159,13 +159,13 @@ app.get('/api/authors/:address/stories', async (req, res) => {
       address: req.params.address,
       query: req.query
     })
-    
+
     const { address } = req.params
     const { skip, take, status } = req.query
-    
+
     // 1. 首先获取作者信息
     const author = await userService.getAuthorByAddress(address)
-    
+
     if (!author) {
       console.log('[GET /api/authors/:address/stories] 作者不存在:', address)
       return res.status(404).json({ error: '作者不存在' })
@@ -177,18 +177,18 @@ app.get('/api/authors/:address/stories', async (req, res) => {
       skip: Number(skip) || 0,
       take: Number(take) || 10
     })
-    
+
     console.log('[GET /api/authors/:address/stories] 返回结果:', {
       syncStatus: result.syncStatus,
       storiesCount: result.stories?.length || 0,
       total: result.total || 0
     })
-    
+
     res.json(result)
   } catch (error) {
     console.error('[GET /api/authors/:address/stories] 处理请求失败:', error)
-    res.status(500).json({ 
-      error: error instanceof Error ? error.message : '获取作品列表失败' 
+    res.status(500).json({
+      error: error instanceof Error ? error.message : '获取作品列表失败'
     })
   }
 })
@@ -203,7 +203,7 @@ app.get('/api/stories', async (req, res) => {
     const { category, authorId, sortBy, limit = '10', page = '1' } = req.query;
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
     const take = parseInt(limit as string);
-    
+
     const stories = await storyService.getStories({
       category: category as string,
       authorId: authorId as string,
@@ -255,10 +255,10 @@ app.post('/api/stories/:storyId/chapters', async (req, res) => {
       storyId: req.params.storyId,
       body: req.body
     });
-    
+
     const { storyId } = req.params;
     const chapter = await storyService.addChapter(storyId, req.body);
-    
+
     res.json(chapter);
   } catch (error: any) {
     console.error('[POST /api/stories/:storyId/chapters] 创建章节失败:', error);
@@ -274,14 +274,14 @@ app.get('/api/stories/:storyId/chapters', async (req, res) => {
       page: req.query.page,
       limit: req.query.limit
     });
-    
+
     const { storyId } = req.params;
     const page = parseInt(req.query.page as string || '1');
     const limit = parseInt(req.query.limit as string || '50');
-    
+
     // 使用服务层方法获取章节列表
     const chapters = await storyService.getChaptersByStoryId(storyId, page, limit);
-    
+
     res.json(chapters);
   } catch (error: any) {
     console.error('[GET /api/stories/:storyId/chapters] 获取章节列表失败:', error);
@@ -296,13 +296,13 @@ app.get('/api/stories/:storyId/chapters/recent', async (req, res) => {
       storyId: req.params.storyId,
       limit: req.query.limit
     });
-    
+
     const { storyId } = req.params;
     const limit = parseInt(req.query.limit as string || '10');
-    
+
     // 使用服务层方法获取最近章节
     const chapters = await storyService.getRecentChapters(storyId, limit);
-    
+
     res.json(chapters);
   } catch (error: any) {
     console.error('[GET /api/stories/:storyId/chapters/recent] 获取最近章节失败:', error);
@@ -313,18 +313,19 @@ app.get('/api/stories/:storyId/chapters/recent', async (req, res) => {
 // 获取章节统计信息
 app.get('/api/stories/:storyId/chapters/stats', async (req, res) => {
   console.log('[GET /api/stories/:storyId/chapters/stats] 收到请求:', {
-    storyId: req.params.storyId});
+    storyId: req.params.storyId
+  });
   try {
     console.log('[GET /api/stories/:storyId/chapters/stats] 收到请求:', {
       storyId: req.params.storyId
     });
-    
+
     const { storyId } = req.params;
-    
+
     // 使用服务层方法获取章节统计信息
     const stats = await storyService.getChapterStats(storyId);
     console.log('[GET /api/stories/:storyId/chapters/stats] 返回结果:', stats)
-    
+
     res.json(stats);
   } catch (error: any) {
     console.error('[GET /api/stories/:storyId/chapters/stats] 获取章节统计信息失败:', error);
@@ -341,19 +342,19 @@ app.get('/api/stories/:storyId/chapters/range', async (req, res) => {
       start: req.query.start,
       end: req.query.end
     });
-    
+
     const { storyId } = req.params;
     const start = parseInt(req.query.start as string || '0');
     const end = parseInt(req.query.end as string || '0');
-    
+
     // 验证参数
     if (start <= 0 || end <= 0 || start < end) {
       return res.status(400).json({ error: '无效的章节范围' });
     }
-    
+
     // 使用服务层方法获取指定范围的章节
     const chapters = await storyService.getChaptersByRange(storyId, start, end);
-    
+
     res.json(chapters);
   } catch (error: any) {
     console.error('[GET /api/stories/:storyId/chapters/range] 获取章节范围失败:', error);
@@ -368,18 +369,18 @@ app.get('/api/stories/:storyId/chapters/search', async (req, res) => {
       storyId: req.params.storyId,
       keyword: req.query.keyword
     });
-    
+
     const { storyId } = req.params;
     const keyword = req.query.keyword as string || '';
-    
+
     // 验证参数
     if (!keyword.trim()) {
       return res.status(400).json({ error: '搜索关键词不能为空' });
     }
-    
+
     // 使用服务层方法搜索章节
     const chapters = await storyService.searchChapters(storyId, keyword);
-    
+
     res.json(chapters);
   } catch (error: any) {
     console.error('[GET /api/stories/:storyId/chapters/search] 搜索章节失败:', error);
@@ -394,10 +395,10 @@ app.get('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
       storyId: req.params.storyId,
       chapterId: req.params.chapterId
     });
-    
+
     const { storyId, chapterId } = req.params;
     const chapter = await storyService.getChapter(chapterId, storyId);
-    
+
     res.json(chapter);
   } catch (error: any) {
     console.error('[GET /api/stories/:storyId/chapters/:chapterId] 获取章节详情失败:', error);
@@ -414,9 +415,9 @@ app.get('/api/stories/:storyId/chapters/order/:order', async (req, res) => {
       order,
       timestamp: new Date().toISOString()
     });
-    
+
     const chapter = await storyService.getChapterByOrder(storyId, parseInt(order));
-    
+
     console.log('[GET /api/stories/:storyId/chapters/order/:order] 查询结果:', {
       found: !!chapter,
       chapterId: chapter?.id,
@@ -425,7 +426,7 @@ app.get('/api/stories/:storyId/chapters/order/:order', async (req, res) => {
       totalChapters: chapter?.totalChapters,
       wordCount: chapter?.wordCount
     });
-    
+
     if (!chapter) {
       console.log('[GET /api/stories/:storyId/chapters/order/:order] 章节不存在:', {
         storyId,
@@ -433,7 +434,7 @@ app.get('/api/stories/:storyId/chapters/order/:order', async (req, res) => {
       });
       return res.status(404).json({ error: '章节不存在' });
     }
-    
+
     console.log('[GET /api/stories/:storyId/chapters/order/:order] 成功返回章节数据');
     res.json(chapter);
   } catch (error: any) {
@@ -455,10 +456,10 @@ app.put('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
       chapterId: req.params.chapterId,
       body: req.body
     });
-    
+
     const { storyId, chapterId } = req.params;
     const chapter = await storyService.updateChapter(chapterId, req.body, storyId);
-    
+
     res.json(chapter);
   } catch (error: any) {
     console.error('[PUT /api/stories/:storyId/chapters/:chapterId] 更新章节失败:', error);
@@ -474,17 +475,17 @@ app.post('/api/stories/:storyId/chapters/:chapterId/publish', async (req, res) =
       chapterId: req.params.chapterId,
       body: req.body
     });
-    
+
     const { storyId, chapterId } = req.params;
     const { authorAddress, txHash } = req.body;
-    
+
     if (!authorAddress) {
       return res.status(400).json({ error: '缺少作者地址' });
     }
-    
+
     // 调用发布章节方法，同时传入交易哈希
     const chapter = await storyService.publishChapter(chapterId, authorAddress, storyId, txHash);
-    
+
     res.json(chapter);
   } catch (error: any) {
     console.error('[POST /api/stories/:storyId/chapters/:chapterId/publish] 发布章节失败:', error);
@@ -499,10 +500,10 @@ app.delete('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
       storyId: req.params.storyId,
       chapterId: req.params.chapterId
     });
-    
+
     const { storyId, chapterId } = req.params;
     const result = await storyService.deleteChapter(chapterId, storyId);
-    
+
     res.json(result);
   } catch (error: any) {
     console.error('[DELETE /api/stories/:storyId/chapters/:chapterId] 删除章节失败:', error);
@@ -510,6 +511,40 @@ app.delete('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
   }
 });
 
+// 章节审核路由
+app.post('/api/stories/:storyId/chapters/:chapterId/review', async (req, res) => {
+  try {
+    console.log('[POST /api/stories/:storyId/chapters/:chapterId/review] 收到审核请求:', {
+      storyId: req.params.storyId,
+      chapterId: req.params.chapterId,
+      body: req.body
+    });
+
+    const { storyId, chapterId } = req.params;
+    const { content } = req.body;
+
+    if (!content) {
+      return res.status(400).json({ error: '缺少章节内容' });
+    }
+
+    const isSafe = await aiService.reviewContent(content);
+
+    if (!isSafe) {
+      return res.status(400).json({
+        error: '内容审核未通过',
+        message: '内容可能包含违规信息，请修改后重试'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: '内容审核通过'
+    });
+  } catch (error: any) {
+    console.error('[POST /api/stories/:storyId/chapters/:chapterId/review] 审核失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
 
 /**
  * 关注相关路由
@@ -520,10 +555,10 @@ app.get('/api/authors/:address/follows', async (req, res) => {
     console.log('[GET /api/authors/:address/follows] 收到查询关注列表请求:', {
       address: req.params.address
     })
-    
+
     const { address } = req.params;
     const follows = await userService.getAuthorFollows(address);
-    
+
     console.log('[GET /api/authors/:address/follows] 查询成功:', follows)
     res.json(follows);
   } catch (error: any) {
@@ -539,11 +574,11 @@ app.post('/api/authors/:address/follows', async (req, res) => {
       address: req.params.address,
       followerAddress: req.body.followerAddress
     })
-    
+
     const { address } = req.params;
     const { followerAddress } = req.body;
     const follow = await userService.followAuthor(address, followerAddress);
-    
+
     console.log('[POST /api/authors/:address/follows] 关注成功:', follow)
     res.json(follow);
   } catch (error: any) {
@@ -559,11 +594,11 @@ app.delete('/api/authors/:address/follows', async (req, res) => {
       address: req.params.address,
       followerAddress: req.body.followerAddress
     })
-    
+
     const { address } = req.params;
     const { followerAddress } = req.body;
     await userService.unfollowAuthor(address, followerAddress);
-    
+
     console.log('[DELETE /api/authors/:address/follows] 取消关注成功')
     res.json({ success: true });
   } catch (error: any) {
