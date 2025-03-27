@@ -682,18 +682,24 @@
 }
 
 .primaryButton {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.4rem 0.8rem;
-  background: #94a3b8;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
   color: white;
   border: none;
+  padding: 0.625rem 1.25rem;
   border-radius: 0.5rem;
-  font-size: 0.875rem;
   font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+}
+
+.primaryButton:hover {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.primaryButton:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .primaryButton.hasChanges {

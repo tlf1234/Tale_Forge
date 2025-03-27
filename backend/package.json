@@ -11,7 +11,11 @@
     "db:push": "prisma db push",
     "db:seed": "ts-node prisma/seed.ts",
     "test:contract": "ts-node-dev src/tests/contract.test.ts",
-    "test:ipfs": "ts-node-dev src/tests/ipfs.test.ts"
+    "test:ipfs": "ts-node-dev src/tests/ipfs.test.ts",
+    "backup": "ts-node scripts/db-backup.ts",
+    "backup:schedule": "ts-node scripts/schedule-backup.ts",
+    "restore": "ts-node scripts/db-restore.ts",
+    "verify": "ts-node scripts/db-verify.ts"
   },
   "dependencies": {
     "@ethersproject/contracts": "^5.8.0",
@@ -25,7 +29,9 @@
     "dotenv": "^16.4.7",
     "express": "^4.18.2",
     "ipfs-http-client": "^60.0.1",
-    "sharp": "^0.33.5"
+    "sharp": "^0.33.5",
+    "moment": "^2.29.4",
+    "node-schedule": "^2.1.1"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",

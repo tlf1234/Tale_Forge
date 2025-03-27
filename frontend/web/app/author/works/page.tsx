@@ -339,24 +339,6 @@ export default function WorksPage() {
                           </button>
                         </div>
                         <p className="text-gray-600 mb-4 line-clamp-2 text-sm">{work.description}</p>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                          <div className="flex items-center gap-2 text-gray-500 text-sm">
-                            <FiClock className="w-4 h-4" />
-                            <span>{work.updateTime}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-gray-500 text-sm">
-                            <FiEye className="w-4 h-4" />
-                            <span>{work.viewCount.toLocaleString()}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-gray-500 text-sm">
-                            <FiHeart className="w-4 h-4" />
-                            <span>{work.likeCount.toLocaleString()}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-gray-500 text-sm">
-                            <FiMessageSquare className="w-4 h-4" />
-                            <span>{work.commentCount.toLocaleString()}</span>
-                          </div>
-                        </div>
                         <div className="flex items-center gap-2">
                           <span className={`px-3 py-1 text-xs font-medium rounded-full transition-colors duration-200 ${
                             work.status === 'published' ? 'bg-green-50 text-green-700 ring-1 ring-green-600/20' :
@@ -372,6 +354,22 @@ export default function WorksPage() {
                             </span>
                           )}
                         </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="px-6 py-4 border-t border-gray-100">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="flex items-center justify-center gap-2 text-gray-500 text-sm">
+                        <FiEye className="w-4 h-4" />
+                        <span>{work.viewCount.toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-2 text-gray-500 text-sm">
+                        <FiHeart className="w-4 h-4" />
+                        <span>{work.likeCount.toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-2 text-gray-500 text-sm">
+                        <FiMessageSquare className="w-4 h-4" />
+                        <span>{work.commentCount.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>

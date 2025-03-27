@@ -67,46 +67,21 @@ tale-forge-bnb/
 │   ├── 项目重构总结.md
 │   └── 白皮书.txt
 ├── package.json      # 根目录工作区配置
+├──shared/
+│  ├── src/
+│  │   ├── contracts/
+│  │   │   ├── abis/
+│  │   │   │   ├── AuthorManager.json
+│  │   │   │   └── StoryManager.json
+│  │   │   └── index.ts
+│  │   ├── types/
+│  │   │   └── contracts.ts
+│  ├
+│  ├── package.json
+│  └── tsconfig.json
 └── ...其他项目级文件
 ```
 
-新的目录结构:
-tale-forge-bnb/
-├── shared/
-│   ├── contracts/
-│   │   ├── abis/
-│   │   │   ├── AuthorManager.json
-│   │   │   └── StoryManager.json
-│   │   └── index.ts
-│   ├── types/
-│   │   └── contracts.ts
-│   ├── package.json
-│   └── tsconfig.json
-│
-├── backend/
-│   ├── src/
-│   │   ├── services/
-│   │   │   └── story.service.ts
-│   │   ├── utils/
-│   │   │   └── ipfs.ts
-│   │   └── index.ts
-│   ├── prisma/
-│   │   └── schema.prisma
-│   ├── package.json
-│   └── tsconfig.json
-│
-├── frontend/
-│   └── web/
-│       ├── app/
-│       │   └── api/
-│       │       └── stories/
-│       │           └── route.ts
-│       ├── services/
-│       │   └── story.service.ts
-│       └── package.json
-│
-├── package.json
-└── tsconfig.json
 
 ## 主要功能
 
@@ -311,6 +286,7 @@ npm run start
 - MiningPool: [待部署]
 - ReaderActivity: [待部署]
 
+
 ## 安全考虑
 
 1. 所有合约已经过全面测试
@@ -318,6 +294,97 @@ npm run start
 3. 使用OpenZeppelin库的标准实现
 4. 包含访问控制和权限管理
 5. 实现了防重入保护
+
+
+7. 数据库管理
+### 备份和恢复
+
+为确保数据安全和系统可靠性，我们提供了完整的数据库备份和恢复方案：
+
+#### 环境要求
+
+- PostgreSQL 15 或以上版本
+- Node.js 16 或以上版本
+- PostgreSQL bin 目录（包含 pg_dump.exe 和 pg_restore.exe）需在系统 PATH 中
+
+#### 备份操作
+
+1. 手动备份
+```bash
+cd backend
+npm run backup
+```
+备份文件将保存在 `backend/backups` 目录，格式为 `backup-YYYY-MM-DD-HH-mm-ss.sql`
+
+2. 自动定时备份
+```bash
+cd backend
+npm run backup:schedule
+```
+默认每天凌晨 3 点自动执行备份，可在 `scripts/schedule-backup.ts` 中修改时间
+
+#### 数据恢复
+
+1. 执行恢复命令：
+```bash
+cd backend
+npm run restore list   //查看备份文件
+npm run restore <backup-file-name>  //恢复指定备份文件
+      
+# 例如：npm run restore backup-2025-03-27-16-53-32.sql
+```
+注意一下对应数据库备份文件夹下包含了所有相关功能代码，包括配置文件。
+
+2. 恢复过程会自动：
+   - 清理现有数据库对象
+   - 导入备份数据
+   - 重建索引和约束
+
+3. 验证数据：
+```bash
+cd backend
+npm run verify
+```
+验证脚本会检查所有关键表的记录数量和数据完整性
+
+#### 故障排除
+
+1. 权限问题
+   - 确保数据库用户权限完整
+   - 检查环境变量配置
+   ```env
+   # backend/.env
+   DATABASE_URL="postgresql://username:password@localhost:5432/dbname"
+   ```
+
+2. 恢复失败
+   - 检查备份文件完整性
+   - 确认数据库连接正常
+   - 查看错误日志
+
+3. 数据异常
+   - 验证表结构完整性
+   - 检查外键约束
+   - 确认数据一致性
+
+#### 最佳实践
+
+1. 备份策略
+   - 保持定期备份
+   - 保留多个时间点的备份
+   - 重要操作前进行备份
+
+2. 性能优化
+   - 选择系统负载低时进行备份
+   - 大型数据库备份需预留足够时间
+   - 避免高峰期进行恢复操作
+
+3. 安全建议
+   - 定期验证备份有效性
+   - 妥善保管备份文件
+   - 控制备份文件访问权限
+
+
 
 ## 贡献指南
 
@@ -349,3 +416,5 @@ NEXT_PUBLIC_USE_MAINNET=false  # 改为 true 则使用主网
 注意：修改环境变量后需要重启项目才能生效。
 
 ## 其他配置和说明... 
+
+

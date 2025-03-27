@@ -550,12 +550,12 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
               // 确保其他必需字段都存在
               description: story.description || '',
               coverCid: story.coverCid || '',
-              contentCid: story.contentCid || '',
+              // contentCid: story.contentCid || '',
               author: story.author || { id: '', address: '', name: '' },
               category: story.category || '',
               status: story.status || 'DRAFT',
-              isNFT: story.isNFT || false,
-              stats: story.stats || { likes: 0, views: 0, comments: 0 },
+              // isNFT: story.isNFT || false,
+              stats: story.stats || { favorites: 0, comments: 0 },
               createdAt: story.createdAt || new Date().toISOString(),
               updatedAt: story.updatedAt || new Date().toISOString()
             };
@@ -573,11 +573,11 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
               draftChapterCount: 0,
               description: story.description || '',
               coverCid: story.coverCid || '',
-              contentCid: story.contentCid || '',
+              // contentCid: story.contentCid || '',
               author: story.author || { id: '', address: '', name: '' },
               category: story.category || '',
               status: story.status || 'DRAFT',
-              isNFT: story.isNFT || false,
+              // isNFT: story.isNFT || false,
               stats: story.stats || { likes: 0, views: 0, comments: 0 },
               createdAt: story.createdAt || new Date().toISOString(),
               updatedAt: story.updatedAt || new Date().toISOString()
