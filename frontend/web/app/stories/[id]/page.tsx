@@ -523,7 +523,7 @@ export default function StoryDetailPage({ params }: Props) {
 
             <div className={styles.actions}>
               <Link
-                href={`/stories/${id}/chapters/1`}
+                href={`/stories/${id}/read?order=1`}
                 className={styles.readButton}
               >
                 开始阅读

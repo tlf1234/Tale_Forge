@@ -15,6 +15,8 @@ import CommentList from '@/components/comment/CommentList'
 import ChapterTree from '@/components/story/ChapterTree'
 import { toast } from 'react-hot-toast'
 import { getWalletAddress } from '@/lib/contract'
+import { FiBook, FiArrowLeft } from 'react-icons/fi'
+import Link from 'next/link'
 
 interface Props {
   params: {
@@ -283,7 +285,33 @@ export default function ReadPage({ params, searchParams }: Props) {
   }
 
   if (!chapter) {
-    return <div>章节不存在</div>
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center max-w-lg mx-auto px-4">
+          <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <FiBook className="w-8 h-8 text-gray-400" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">暂无章节内容</h2>
+          <p className="text-gray-600 mb-6">该作品还未发布任何章节，请稍后再来查看</p>
+          <div className="flex gap-4 justify-center">
+            <Link 
+              href={`/stories/${id}`}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+            >
+              <FiArrowLeft className="w-4 h-4" />
+              返回作品详情
+            </Link>
+            <Link 
+              href="/stories"
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors inline-flex items-center gap-2"
+            >
+              <FiBook className="w-4 h-4" />
+              浏览其他作品
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
