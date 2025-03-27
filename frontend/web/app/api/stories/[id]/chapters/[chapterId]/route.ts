@@ -12,7 +12,7 @@ export async function POST(
   try {
     const { id: storyId, chapterId } = params;
     console.log('【POST 章节】API路由被调用，参数:', { storyId, chapterId });
-    
+
     // 解析请求体
     let requestBody;
     try {
@@ -25,10 +25,10 @@ export async function POST(
         { status: 400 }
       );
     }
-    
+
     const { authorAddress, txHash } = requestBody;
     console.log('【POST 章节】提取的字段:', { authorAddress, txHash });
-    
+
     if (!authorAddress) {
       console.error('【POST 章节】缺少作者地址');
       return NextResponse.json(
@@ -44,7 +44,7 @@ export async function POST(
         { status: 400 }
       );
     }
-    
+
     // 调用后端 API 发布章节
     console.log('【POST 章节】准备调用后端API:', `${API_BASE_URL}/api/stories/${storyId}/chapters/${chapterId}/publish`);
     const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}/chapters/${chapterId}/publish`, {
@@ -55,7 +55,7 @@ export async function POST(
       body: JSON.stringify({ authorAddress, txHash })
     });
     console.log('【POST 章节】后端API响应状态:', response.status);
-    
+
     // 尝试解析响应，处理可能的解析错误
     let responseData;
     try {
@@ -68,7 +68,7 @@ export async function POST(
         { status: 500 }
       );
     }
-    
+
     if (!response.ok) {
       console.error('【POST 章节】后端API返回错误:', { status: response.status, error: responseData.error });
       return NextResponse.json(
@@ -76,7 +76,7 @@ export async function POST(
         { status: response.status }
       );
     }
-    
+
     console.log('【POST 章节】发布成功，返回数据');
     return NextResponse.json(responseData);
   } catch (error) {
@@ -107,14 +107,14 @@ export async function GET(
         { status: response.status }
       );
     }
-    
+
     // 解析响应数据
     try {
 
       console.log('【GET】章节数据，解析响应数据:', response);
       const chapter = await response.json();
       return NextResponse.json(chapter);
-      
+
     } catch (parseError) {
       console.error('解析章节数据失败:', parseError);
       return NextResponse.json(
@@ -138,7 +138,7 @@ export async function PUT(
 ) {
   try {
     const { id: storyId, chapterId } = params;
-    
+
     // 解析请求体
     let updates;
     try {
@@ -150,7 +150,7 @@ export async function PUT(
         { status: 400 }
       );
     }
-    
+
     // 调用后端 API 更新章节
     const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}/chapters/${chapterId}`, {
       method: 'PUT',
@@ -159,7 +159,7 @@ export async function PUT(
       },
       body: JSON.stringify(updates)
     });
-    
+
     // 尝试解析响应，处理可能的解析错误
     let responseData;
     try {
@@ -171,14 +171,14 @@ export async function PUT(
         { status: 500 }
       );
     }
-    
+
     if (!response.ok) {
       return NextResponse.json(
         { error: responseData.error || '更新章节失败' },
         { status: response.status }
       );
     }
-    
+
     return NextResponse.json(responseData);
   } catch (error) {
     console.error('更新章节失败:', error);
@@ -196,37 +196,37 @@ export async function DELETE(
 ) {
   try {
     const { id: storyId, chapterId } = params;
-    
+
     // 调用后端 API 删除章节
     const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}/chapters/${chapterId}`, {
       method: 'DELETE'
     });
-    
+
     // 尝试解析响应，处理可能的解析错误
     let responseData;
     try {
       responseData = await response.json();
     } catch (parseError) {
       console.error('解析响应数据失败:', parseError);
-      
+
       // 如果响应成功但没有返回JSON，可能是正常的
       if (response.ok) {
         return NextResponse.json({ success: true });
       }
-      
+
       return NextResponse.json(
         { error: '服务器响应格式错误' },
         { status: 500 }
       );
     }
-    
+
     if (!response.ok) {
       return NextResponse.json(
         { error: responseData.error || '删除章节失败' },
         { status: response.status }
       );
     }
-    
+
     return NextResponse.json(responseData);
   } catch (error) {
     console.error('删除章节失败:', error);

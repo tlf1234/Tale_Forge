@@ -172,6 +172,7 @@ const STORY_TAGS = [
 // 添加创建状态类型
 const enum CreateStatus {
   IDLE = 'IDLE',
+  REVIEWING = 'REVIEWING',
   UPLOADING = 'UPLOADING',
   CREATING_CONTRACT = 'CREATING_CONTRACT',
   SAVING_DATABASE = 'SAVING_DATABASE',
@@ -1405,10 +1406,10 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       }
       console.log('【handleConfirmPublish】当前故事ID:', storyId);
       
-      // 提前获取故事信息并验证作者身份 - 10%进度
+      // 提前获取故事信息并验证作者身份 - 5%进度
       console.log('【handleConfirmPublish】准备获取故事信息并验证作者身份');
       setCreateStatus(CreateStatus.IDLE);
-      setCreateProgress(10);
+      setCreateProgress(5);
       
       const storyResponse = await fetch(`/api/stories/${storyId}`);
       if (!storyResponse.ok) {
@@ -1445,8 +1446,8 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
         throw new Error('无效的故事链上 ID');
       }
       
-      // 先保存最新内容 - 20%进度
-      setCreateProgress(20);
+      // 先保存最新内容 - 10%进度
+      setCreateProgress(10);
       await handleSaveClick({ stopPropagation: () => {} } as React.MouseEvent, chapterToPublish);
       console.log('【handleConfirmPublish】已保存最新内容');
 
@@ -1457,6 +1458,32 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       }
       console.log('【handleConfirmPublish】当前章节信息:', currentChapter);
 
+      // ai审核当前章节 - 15%进度
+      showSuccess('正在进行文章内容的审核...');
+      setCreateStatus(CreateStatus.REVIEWING);
+      setCreateProgress(15);
+      console.log('【handleConfirmPublish】正在审核当前章节内容')
+      const reviewResponse = await fetch(`/api/stories/${storyId}/chapters/${currentChapterId}}/review`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          content: content
+        })
+      });
+
+      const reviewResult = await reviewResponse.json();
+      if (!reviewResponse.ok) {
+        showError(reviewResult.message, '内容审核未通过，请修改后重试');
+        setCreateStatus(CreateStatus.IDLE);
+        setCreateProgress(0);
+        return;
+      }
+
+      // 审核通过，准备发布 - 25%进度
+      showSuccess('内容审核通过，正在准备发布...');
+      setCreateProgress(25);
   
       // 调用合约上传章节数据 - 30%进度
       showSuccess('正在将章节数据上传到区块链...');
@@ -2047,7 +2074,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
   <div className={styles.toolbarRight}>
     <button
-                                                                                                                                                                                                                                                                                             className={`${styles.iconButton} ${isPreview ? styles.active : ''}`}
+      className={`${styles.iconButton} ${isPreview ? styles.active : ''}`}
       onClick={() => setIsPreview(!isPreview)}
       title="预览"
     >
@@ -3464,6 +3491,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                   </div>
                   <div className={styles.progressStatus}>
                     {createStatus === CreateStatus.IDLE && '准备发布...'}
+                    {createStatus === CreateStatus.REVIEWING && '正在审核...'}
                     {createStatus === CreateStatus.UPLOADING && '正在上传到区块链...'}
                     {createStatus === CreateStatus.CREATING_CONTRACT && '正在创建合约...'}
                     {createStatus === CreateStatus.SAVING_DATABASE && '正在保存数据...'}
@@ -3476,6 +3504,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
               <div className={styles.warningSection}>
                 <ul className={styles.warningList}>
                   <li>发布后章节内容将无法修改</li>
+                  <li>发布内容需经过审核</li>
                   <li>发布操作需要支付gas费用</li>
                   <li>请确保章节内容已经完善</li>
                 </ul>
