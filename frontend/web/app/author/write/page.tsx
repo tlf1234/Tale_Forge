@@ -88,7 +88,7 @@ interface Chapter {
   order: number;
   volumeId?: string;
   wordCount: number;
-  status: 'draft' | 'pending' | 'published';
+  status: 'draft' | 'underreview' | 'published';
   price?: number;
   publishTime?: Date;
   createdAt: Date;
@@ -115,8 +115,6 @@ interface Story {
   publishedChapterCount: number;
   draftChapterCount: number;
 }
-
-
 
 
 // 修改IconButton的类型和实现
@@ -1462,8 +1460,8 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       showSuccess('正在进行文章内容的审核...');
       setCreateStatus(CreateStatus.REVIEWING);
       setCreateProgress(15);
-      console.log('【handleConfirmPublish】正在审核当前章节内容')
-      const reviewResponse = await fetch(`/api/stories/${storyId}/chapters/${currentChapterId}}/review`, {
+      console.log('【handleConfirmPublish】正在审核当前章节内容');
+      const reviewResponse = await fetch(`/api/stories/${storyId}/chapters/${chapterToPublish}/review`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1474,14 +1472,21 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       });
 
       const reviewResult = await reviewResponse.json();
-      if (!reviewResponse.ok) {
+      console.log('【handleConfirmPublish】内容审核结果:', reviewResult);
+      
+      if (!reviewResult.success) {
         showError(reviewResult.message, '内容审核未通过，请修改后重试');
+        if (chapterToPublish) {
+          console.log('【handleConfirmPublish】更新章节状态为UNDERREVIEW');
+          handleChapterUpdate(chapterToPublish, 'status', 'UNDERREVIEW');
+        }
         setCreateStatus(CreateStatus.IDLE);
         setCreateProgress(0);
         return;
       }
 
       // 审核通过，准备发布 - 25%进度
+      console.log('【handleConfirmPublish】内容审核通过');
       showSuccess('内容审核通过，正在准备发布...');
       setCreateProgress(25);
   
@@ -2623,17 +2628,13 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                             <span className={styles.wordCount}>
                                               {chapter.wordCount}字
                                             </span>
-                                            <select
-                                              value={chapter.status}
-                                              onChange={(e) => handleChapterUpdate(chapter.id, 'status', e.target.value)}
+                                            <div
                                               className={`${styles.chapterStatus} ${chapter.status === 'published' ? styles.published : ''}`}
-                                              onClick={(e) => e.stopPropagation()}
-                                              disabled={chapter.status === 'published'}
                                             >
-                                              <option value="draft">草稿</option>
-                                              <option value="pending">待审核</option>
-                                              <option value="published">已发布</option>
-                                            </select>
+                                              {chapter.status === 'draft' && '草稿'}
+                                              {chapter.status === 'underreview' && '待审核'}
+                                              {chapter.status === 'published' && '已发布'}
+                                            </div>
                                             {chapter.status === 'published' && loadingChapterIds.has(chapter.id) && (
                                               <div className={styles.loadingIndicator} />
                                             )}
@@ -2725,17 +2726,13 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                               <span className={styles.wordCount}>
                                                 {chapter.wordCount}字
                                               </span>
-                                              <select
-                                                value={chapter.status}
-                                                onChange={(e) => handleChapterUpdate(chapter.id, 'status', e.target.value)}
+                                              <div
                                                 className={`${styles.chapterStatus} ${chapter.status === 'published' ? styles.published : ''}`}
-                                                onClick={(e) => e.stopPropagation()}
-                                                disabled={chapter.status === 'published'}
                                               >
-                                                <option value="draft">草稿</option>
-                                                <option value="pending">待审核</option>
-                                                <option value="published">已发布</option>
-                                              </select>
+                                                {chapter.status === 'draft' && '草稿'}
+                                                {chapter.status === 'underreview' && '待审核'}
+                                                {chapter.status === 'published' && '已发布'}
+                                              </div>
                                               {chapter.status === 'published' && loadingChapterIds.has(chapter.id) && (
                                                 <div className={styles.loadingIndicator} />
                                               )}
@@ -2850,17 +2847,13 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                   <span className={styles.wordCount}>
                                     {chapter.wordCount}字
                                   </span>
-                                  <select
-                                    value={chapter.status}
-                                    onChange={(e) => handleChapterUpdate(chapter.id, 'status', e.target.value)}
+                                  <div
                                     className={`${styles.chapterStatus} ${chapter.status === 'published' ? styles.published : ''}`}
-                                    onClick={(e) => e.stopPropagation()}
-                                    disabled={chapter.status === 'published'}
                                   >
-                                    <option value="draft">草稿</option>
-                                    <option value="pending">待审核</option>
-                                    <option value="published">已发布</option>
-                                  </select>
+                                    {chapter.status === 'draft' && '草稿'}
+                                    {chapter.status === 'underreview' && '待审核'}
+                                    {chapter.status === 'published' && '已发布'}
+                                  </div>
                                   {chapter.status === 'published' && loadingChapterIds.has(chapter.id) && (
                                     <div className={styles.loadingIndicator} />
                                   )}
@@ -3503,8 +3496,8 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
               <div className={styles.warningSection}>
                 <ul className={styles.warningList}>
+                  <li>发布到章节内容需经过审核</li>
                   <li>发布后章节内容将无法修改</li>
-                  <li>发布内容需经过审核</li>
                   <li>发布操作需要支付gas费用</li>
                   <li>请确保章节内容已经完善</li>
                 </ul>
