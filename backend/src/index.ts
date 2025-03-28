@@ -530,9 +530,9 @@ app.post('/api/stories/:storyId/chapters/:chapterId/review', async (req, res) =>
     const isSafe = await aiService.reviewContent(content);
 
     if (!isSafe) {
-      return res.status(400).json({
-        error: '内容审核未通过',
-        message: '内容可能包含违规信息，请修改后重试'
+      return res.json({
+        success: false,
+        message: '内容审核未通过'
       });
     }
 
@@ -633,6 +633,31 @@ app.post('/api/comments', async (req, res) => {
   }
 });
 
+/**
+ * AI 相关路由
+ */
+// POST - 生成 AI 图片
+app.post('/api/ai/generate-image', async (req, res) => {
+  try {
+    console.log('[POST /api/ai/generate-image] 收到请求:', {
+      body: req.body
+    });
+
+    const { prompt } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: '缺少提示词' });
+    }
+
+    const result = await aiService.generateImage(prompt);
+
+    console.log('[POST /api/ai/generate-image] 生成成功:', result);
+    res.json(result);
+  } catch (error: any) {
+    console.error('[POST /api/ai/generate-image] 生成失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
 
 // 错误处理中间件
 app.use((err: any, req: any, res: any, next: any) => {
