@@ -1,7 +1,7 @@
 import { ethers } from 'ethers'
 import prisma from '../prisma'
 import { uploadToIPFS, getFromIPFS, uploadJSONToIPFS } from '../ipfs'
-import type { Story, Chapter, Prisma, StoryStatus } from '@prisma/client'
+import type { Story, Chapter, Prisma, StoryStatus, Illustration } from '@prisma/client'
 import { SyncStatus } from '@prisma/client'
 import { syncService } from './sync.service'
 
@@ -882,6 +882,77 @@ export class StoryService {
     }
   }
 
+  /**
+   * 上传章节插画
+   * @param chapterId 章节ID
+   * @param file 上传的文件
+   * @returns 插画信息
+   */
+  async uploadChapterImage(chapterId: string, file: Express.Multer.File): Promise<Illustration> {
+    // 验证章节存在
+    const chapter = await prisma.chapter.findUnique({
+      where: { id: chapterId }
+    });
+    if (!chapter) {
+      throw new Error('Chapter not found');
+    }
+
+    // 验证文件类型
+    if (!file.mimetype.startsWith('image/')) {
+      throw new Error('Only image files are allowed');
+    }
+
+    // 验证文件大小 (5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new Error('File size exceeds 5MB limit');
+    }
+
+    try {
+      // 上传到IPFS
+      const imageCID = await uploadToIPFS(file.buffer);
+
+      // 保存插画信息
+      const illustration = await prisma.illustration.create({
+        data: {
+          chapterId,
+          imageCID,
+          description: file.originalname
+        }
+      });
+
+      return illustration;
+    } catch (error) {
+      console.error('Error uploading chapter image:', error);
+      throw new Error('Failed to upload image');
+    }
+  }
+
+  /**
+   * 获取章节插画列表
+   * @param chapterId 章节ID
+   * @returns 插画列表
+   */
+  async getChapterIllustrations(chapterId: string): Promise<Illustration[]> {
+    return prisma.illustration.findMany({
+      where: {
+        chapterId
+      },
+      orderBy: {
+        createdAt: 'asc'
+      }
+    });
+  }
+
+  /**
+   * 删除章节插画
+   * @param illustrationId 插画ID
+   */
+  async deleteIllustration(illustrationId: string): Promise<void> {
+    await prisma.illustration.delete({
+      where: { id: illustrationId }
+    });
+  }
 }
 
 // 导出单例实例

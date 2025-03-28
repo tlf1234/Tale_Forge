@@ -41,6 +41,7 @@ import styles from './TiptapEditor.module.css'
 import { ImageExtension } from './extensions/ImageExtension'
 import ImageResizer from './components/ImageResizer'
 import { TiptapEditorProps } from './types'
+import { toast } from 'react-hot-toast'
 
 // 添加自定义字体大小扩展
 declare module '@tiptap/core' {
@@ -113,7 +114,12 @@ const KeyboardShortcuts = Extension.create({
 })
 
 // 工具栏组件
-const MenuBar = memo(({ editor, onImageClick, onSave }: { editor: Editor | null, onImageClick: () => void, onSave?: () => void }) => {
+const MenuBar = memo(({ editor, onImageClick, onSave, onImageSelect }: { 
+  editor: Editor | null, 
+  onImageClick: () => void, 
+  onSave?: () => void,
+  onImageSelect?: (event: React.ChangeEvent<HTMLInputElement>) => void 
+}) => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showFontSize, setShowFontSize] = useState(false);
@@ -142,43 +148,6 @@ const MenuBar = memo(({ editor, onImageClick, onSave }: { editor: Editor | null,
     const content = editor.getHTML();
     const formatted = AutoFormatter.format(content);
     editor.commands.setContent(formatted);
-  }, [editor]);
-
-  const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!editor || !event.target.files?.length) return;
-
-    const file = event.target.files[0];
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      const imageUrl = e.target?.result as string;
-      if (imageUrl) {
-        const imgElement = document.createElement('img');
-        imgElement.onload = () => {
-          const maxWidth = 800;
-          let width = imgElement.naturalWidth;
-          let height = imgElement.naturalHeight;
-
-          if (width > maxWidth) {
-            const ratio = maxWidth / width;
-            width = maxWidth;
-            height = Math.round(height * ratio);
-          }
-
-          editor.commands.setImage({ 
-            src: imageUrl,
-            alt: file.name,
-            title: file.name,
-            width,
-            height
-          });
-        };
-        imgElement.src = imageUrl;
-      }
-    };
-
-    reader.readAsDataURL(file);
-    event.target.value = '';
   }, [editor]);
 
   // 添加插入缩进的函数
@@ -336,7 +305,7 @@ const MenuBar = memo(({ editor, onImageClick, onSave }: { editor: Editor | null,
           type="file"
           ref={imageInputRef}
           accept="image/*"
-          onChange={handleImageUpload}
+          onChange={onImageSelect}
           style={{ display: 'none' }}
         />
         <button 
@@ -383,7 +352,9 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
   editable = true,
   className = '',
   placeholder = '开始写作...',
-  onSave
+  onSave,
+  storyId,
+  chapterId
 }) => {
   // 添加自定义的 Tab 处理函数
   const handleTabKey = useCallback((editor: Editor) => {
@@ -418,6 +389,10 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
     
     return false;
   }, []);
+  
+  // 添加图片输入引用
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  
   
   // 创建编辑器实例
   const editor = useEditor({
@@ -463,7 +438,13 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
       Color,
       FontSize,
       Indent,
-      ImageExtension,
+      ImageExtension.configure({
+        inline: true,
+        allowBase64: false,
+        HTMLAttributes: {
+          class: 'chapter-image',
+        },
+      }),
       TabHandler,
       KeyboardShortcuts,
     ],
@@ -518,14 +499,72 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
     };
   }, [onSave]);
 
+  // 添加图片处理函数
+  const handleImageSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!editor || !event.target.files?.length) return;
+
+    const file = event.target.files[0];
+    
+    // 验证文件类型和大小
+    if (!file.type.startsWith('image/')) {
+      toast.error('请选择图片文件');
+      return;
+    }
+
+    // 验证文件大小（5MB）
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('图片大小不能超过5MB');
+      return;
+    }
+
+    // 创建临时URL并插入图片
+    const tempUrl = URL.createObjectURL(file);
+    const imgElement = document.createElement('img');
+    imgElement.onload = () => {
+      const maxWidth = 800;
+      let width = imgElement.naturalWidth;
+      let height = imgElement.naturalHeight;
+
+      if (width > maxWidth) {
+        const ratio = maxWidth / width;
+        width = maxWidth;
+        height = Math.round(height * ratio);
+      }
+
+      editor.commands.setImage({ 
+        src: tempUrl,
+        alt: file.name,
+        title: file.name,
+        width,
+        height
+      });
+
+      // 在组件卸载时清理临时URL
+      window.addEventListener('beforeunload', () => {
+        URL.revokeObjectURL(tempUrl);
+      });
+    };
+    imgElement.src = tempUrl;
+
+    // 清除input值，允许重复选择同一文件
+    event.target.value = '';
+  }, [editor]);
+
   if (!editor) {
     return null
   }
 
   return (
     <div className={styles.editor}>
-      {editable && <MenuBar editor={editor} onImageClick={() => {}} onSave={onSave} />}
+      {editable && <MenuBar editor={editor} onImageClick={() => {}} onSave={onSave} onImageSelect={handleImageSelect} />}
       <div className={editable ? styles.content : styles.previewContent}>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleImageSelect}
+          style={{ display: 'none' }}
+        />
         <EditorContent 
           editor={editor} 
           spellCheck="false" 
@@ -533,16 +572,11 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
           autoCapitalize="off"
           className={styles.preserveWhitespace}
           onKeyDown={(e) => {
-            // 处理 Tab 键
             if (e.key === 'Tab') {
-              e.preventDefault(); // 阻止默认行为
-              console.log('Tab 键被按下，调用自定义处理函数');
-              
+              e.preventDefault();
               if (editor) {
                 const success = handleTabKey(editor);
                 console.log('Tab 键处理结果:', success ? '成功' : '失败');
-              } else {
-                console.error('编辑器实例不存在');
               }
             }
           }}

@@ -677,29 +677,36 @@
 .toolbarLeft,
 .toolbarRight {
   display: flex;
-  gap: 0.3rem;
+  gap: 0.5rem;
   align-items: center;
 }
 
 .primaryButton {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 14px;
+  background-color: #4f46e5;
   color: white;
   border: none;
-  padding: 0.625rem 1.25rem;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.primaryButton:hover {
-  background: linear-gradient(135deg, #16a34a, #15803d);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+.primaryButton:hover:not(:disabled) {
+  background-color: #4338ca;
 }
 
-.primaryButton:active {
-  transform: translateY(0);
-  box-shadow: none;
+.primaryButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primaryButton svg {
+  width: 14px;
+  height: 14px;
 }
 
 .primaryButton.hasChanges {

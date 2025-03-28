@@ -1,5 +1,4 @@
 'use client'
-
 import { useState, useRef, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter, usePathname } from 'next/navigation'
@@ -115,8 +114,6 @@ interface Story {
   publishedChapterCount: number;
   draftChapterCount: number;
 }
-
-
 
 
 // 修改IconButton的类型和实现
@@ -1638,11 +1635,62 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
         throw new Error('未找到当前故事');
       }
       
+      // 提取内容中的临时图片URL
+      const tempImages = Array.from(content.matchAll(/<img[^>]+src="(blob:[^"]+)"[^>]*>/g))
+        .map(match => ({
+          tempUrl: match[1],
+          fullMatch: match[0]
+        }));
+
+      let processedContent = content;
+      
+      // 如果有临时图片，先上传
+      if (tempImages.length > 0) {
+        // 创建 FormData 对象
+        const formData = new FormData();
+        
+        // 获取每个临时图片的 Blob 数据
+        const imageBlobs = await Promise.all(
+          tempImages.map(async ({ tempUrl }) => {
+            const response = await fetch(tempUrl);
+            return response.blob();
+          })
+        );
+        
+        // 添加图片到 FormData
+        imageBlobs.forEach((blob, index) => {
+          formData.append('images', blob, `image-${index}.png`);
+        });
+
+        // 上传图片
+        const uploadResponse = await fetch(`/api/stories/${storyId}/chapters/${currentChapterId}/images`, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('上传图片失败');
+        }
+
+        const uploadedImages = await uploadResponse.json();
+
+        // 替换内容中的临时URL为上传后的URL
+        tempImages.forEach((tempImage, index) => {
+          const uploadedUrl = uploadedImages[index]?.url;
+          if (uploadedUrl) {
+            processedContent = processedContent.replace(
+              tempImage.fullMatch,
+              tempImage.fullMatch.replace(tempImage.tempUrl, uploadedUrl)
+            );
+          }
+        });
+      }
+      
       // 计算字数
-      const wordCount = calculateWordCount(content);
+      const wordCount = calculateWordCount(processedContent);
       console.log('【handleSave】字数:', wordCount);
       
-      // 使用正确的API路径
+      // 保存章节内容
       console.log('【handleSave】开始发送保存请求');
       const saveResponse = await fetch(`/api/stories/${storyId}/chapters/${currentChapterId}`, {
         method: 'PUT',
@@ -1650,7 +1698,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          content: content,
+          content: processedContent,
           title: currentChapter?.title,
           wordCount // 添加字数
         }),
@@ -1667,6 +1715,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       
       // 更新当前章节
       setCurrentChapter(savedChapter);
+      setContent(processedContent);
       
       // 更新章节列表中的字数
       setChapters(prevChapters => 
@@ -1691,7 +1740,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
         );
       }
       
-      setLastSavedContent(content);
+      setLastSavedContent(processedContent);
       setHasUnsavedChanges(false);
       setDisplayWordCount(wordCount); // 更新显示的字数
       
@@ -1988,94 +2037,91 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
     setShowOutlineDialog(false)
   }
 
-
   /**
    * 编辑框工具栏
-   *  
   */
 
   // 编辑框工具栏
   const renderToolbar = () => (
   <div className={styles.toolbar}>
-  <div className={styles.toolbarLeft}>
-    <button
-      className={`${styles.iconButton} ${showChapters ? styles.active : ''}`}
-      onClick={toggleChapters}
-      title="章节管理"
-    >
-      <FaList />
-    </button>
-    <button
-      className={`${styles.iconButton} ${showSettings ? styles.active : ''}`}
-      onClick={toggleSettings}
-      title="作品创建"
-    >
-      <FaPlus />
-    </button>
-    {/* 这个本意是按钮触发作品章节显示弹窗，以显示更多内容，但是设计上还没有确定，先放一放 */}
-    {/* <button
-      className={`${styles.iconButton}`}
-      onClick={handleShowStorySelector}
-      title="我的作品"
-      style={{ marginLeft: '12px' }}
-    >
-      <FaBook />
-    </button> */}
-  </div>
+    <div className={styles.toolbarLeft}>
+      <button
+        className={`${styles.iconButton} ${showChapters ? styles.active : ''}`}
+        onClick={toggleChapters}
+        title="章节管理"
+      >
+        <FaList />
+      </button>
+      <button
+        className={`${styles.iconButton} ${showSettings ? styles.active : ''}`}
+        onClick={toggleSettings}
+        title="作品创建"
+      >
+        <FaPlus />
+      </button>
+      {/* 这个本意是按钮触发作品章节显示弹窗，以显示更多内容，但是设计上还没有确定，先放一放 */}
+      {/* <button
+        className={`${styles.iconButton}`}
+        onClick={handleShowStorySelector}
+        title="我的作品"
+        style={{ marginLeft: '12px' }}
+      >
+        <FaBook />
+      </button> */}
+    </div>
 
-  <div className={styles.toolbarCenter}>
-    <div className={styles.writingStats}>
-      {currentStory && (
-        <div className={styles.currentStoryInfo}>
-          <span className={styles.storyTitle}>{currentStory.title}</span>
-          {currentChapter && (
-            <>
-              <span className={styles.divider}>|</span>
-              <span className={styles.chapterTitle}>{currentChapter.title}</span>
-              <span className={styles.divider}>|</span>
-              <span className={styles.wordCount}>{displayWordCount} 字</span>
-            </>
-          )}
+    <div className={styles.toolbarCenter}>
+      <div className={styles.writingStats}>
+        {currentStory && (
+          <div className={styles.currentStoryInfo}>
+            <span className={styles.storyTitle}>{currentStory.title}</span>
+            {currentChapter && (
+              <>
+                <span className={styles.divider}>|</span>
+                <span className={styles.chapterTitle}>{currentChapter.title}</span>
+                <span className={styles.divider}>|</span>
+                <span className={styles.wordCount}>{displayWordCount} 字</span>
+              </>
+            )}
+          </div>
+        )}
+        <div className={styles.writingStatsRight}>
+          <span>写作时长: {formatTime(totalWritingTime)}</span>
+          <span>目标字数: {wordCountGoal}</span>
         </div>
-      )}
-      <div className={styles.writingStatsRight}>
-        <span>写作时长: {formatTime(totalWritingTime)}</span>
-        <span>目标字数: {wordCountGoal}</span>
       </div>
     </div>
-  </div>
 
-  <div className={styles.toolbarRight}>
-    <button
-                                                                                                                                                                                                                                                                                             className={`${styles.iconButton} ${isPreview ? styles.active : ''}`}
-      onClick={() => setIsPreview(!isPreview)}
-      title="预览"
-    >
-      {isPreview ? <FaEye className={styles.icon} /> : <FaEyeSlash className={styles.icon} />}
-    </button>
-    {currentChapter?.status?.toLowerCase() === 'published' ? (
-      <div className={styles.publishedHint}>
-        <FaCheck />
-        已发布
-      </div>
-    ) : (
-      <button
-        className={`${styles.primaryButton} ${hasContentChanged ? styles.hasChanges : ''} ${isSaving ? styles.saving : ''}`}
-        onClick={async () => {
-          try {
-            const result = await handleSave();
-            console.log('【保存按钮】保存结果:', result);
-          } catch (error) {
-            console.error('【保存按钮】保存出错:', error);
-          }
-        }}
-        disabled={isSaving || currentChapter?.status?.toLowerCase() === 'published'}
+    <div className={styles.toolbarRight}>
+      <button                                                                                                                                                                                                                                                                                     className={`${styles.iconButton} ${isPreview ? styles.active : ''}`}
+        onClick={() => setIsPreview(!isPreview)}
+        title="预览"
       >
-        <FaSave />
-        {isSaving ? '保存中...' : '保存'}
+      {isPreview ? <FaEye className={styles.icon} /> : <FaEyeSlash className={styles.icon} />}
       </button>
-    )}
-  </div>
+      {currentChapter?.status?.toLowerCase() === 'published' ? (
+        <div className={styles.publishedHint}>
+          <FaCheck />
+          已发布
+        </div>
+      ) : (
+        <button
+          className={`${styles.primaryButton} ${hasContentChanged ? styles.hasChanges : ''} ${isSaving ? styles.saving : ''}`}
+          onClick={async () => {
+            try {
+              const result = await handleSave();
+              console.log('【保存按钮】保存结果:', result);
+            } catch (error) {
+              console.error('【保存按钮】保存出错:', error);
+            }
+          }}
+          disabled={isSaving || currentChapter?.status?.toLowerCase() === 'published'}
+        >
+          <FaSave />
+          {isSaving ? '保存中...' : '保存'}
+        </button>
+      )}
+    </div>
   </div>
   )
 
@@ -2183,7 +2229,6 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   // 计算写作统计的 useEffect
   // useEffect(() => {
   //   if (!currentChapter) return
-
   //   const wordCount = content.length // 使用 content 而不是 currentChapter.content
   //   const now = new Date()
   //   const duration = (now.getTime() - writingStats.lastSaved.getTime()) / 1000 / 60
@@ -2196,7 +2241,6 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   //     writingDuration: duration,
   //     lastSaved: now
   //   }
-
   //   if (JSON.stringify(newStats) !== JSON.stringify(writingStats)) {
   //     setWritingStats(newStats)
   //   }
@@ -2288,7 +2332,6 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   }, [content]); // 只在 content 变化时更新
 
   
-
   /*
     页面渲染
   */

@@ -1,11 +1,21 @@
 import express from 'express';
 import { storyService, userService, commentService } from './services';
 import type { StoryStatus } from '@prisma/client'
+import multer from 'multer';
+
 
 const app = express();
 // 增加请求体大小限制到 10MB
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// 配置multer
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 限制5MB
+  }
+});
 
 /**
  * 用户相关路由(未完善)
@@ -510,6 +520,47 @@ app.delete('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
   }
 });
 
+// 上传章节插画
+app.post('/api/chapters/:chapterId/images', upload.single('image'), async (req: express.Request, res: express.Response) => {
+  try {
+    const { chapterId } = req.params;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const illustration = await storyService.uploadChapterImage(chapterId, file);
+    res.json(illustration);
+  } catch (error: any) {
+    console.error('Error uploading chapter image:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+// 获取章节插画列表
+app.get('/api/chapters/:chapterId/images', async (req: express.Request, res: express.Response) => {
+  try {
+    const { chapterId } = req.params;
+    const illustrations = await storyService.getChapterIllustrations(chapterId);
+    res.json(illustrations);
+  } catch (error: any) {
+    console.error('Error getting chapter illustrations:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+// 删除章节插画
+app.delete('/api/illustrations/:illustrationId', async (req: express.Request, res: express.Response) => {
+  try {
+    const { illustrationId } = req.params;
+    await storyService.deleteIllustration(illustrationId);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Error deleting illustration:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
 
 /**
  * 关注相关路由

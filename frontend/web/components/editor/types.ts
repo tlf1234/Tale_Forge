@@ -1,8 +1,10 @@
 export interface TiptapEditorProps {
-  initialContent?: string;
-  onChange?: (content: string) => void;
-  editable?: boolean;
+  initialContent?: string | null;
+  onChange: (content: string) => void;
+  editable: boolean;
   className?: string;
   placeholder?: string;
-  onSave?: () => Promise<void>;
+  onSave?: () => void;
+  storyId?: string;
+  chapterId?: string;
 } 
