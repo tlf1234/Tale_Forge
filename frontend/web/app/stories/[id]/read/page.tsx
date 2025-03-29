@@ -38,7 +38,7 @@ interface Chapter {
     avatar?: string
   }
   coverImage?: string
-  status: 'draft' | 'published'
+  status: 'draft' | 'published' | 'underreview'
   wordCount: number
 }
 

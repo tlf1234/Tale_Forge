@@ -3120,7 +3120,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                     {/* 添加底部边界区域 */}
                     <div className={styles.chapterListBottomBoundary}>
                       <div className={styles.bottomBoundaryContent}>
-                        文档结束
+                        {currentChapter?.status === 'UNDERREVIEW' ? '需要人工审核，请耐心等待' : '文档结束'}
                       </div>
                     </div>
                   </div>
