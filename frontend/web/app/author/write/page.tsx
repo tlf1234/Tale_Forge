@@ -549,12 +549,12 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
               // 确保其他必需字段都存在
               description: story.description || '',
               coverCid: story.coverCid || '',
-              // contentCid: story.contentCid || '',
+              contentCid: story.contentCid || '',
               author: story.author || { id: '', address: '', name: '' },
               category: story.category || '',
               status: story.status || 'DRAFT',
-              // isNFT: story.isNFT || false,
-              stats: story.stats || { favorites: 0, comments: 0 },
+              isNFT: story.isNFT || false,
+              stats: story.stats || { likes: 0, views: 0, comments: 0 },
               createdAt: story.createdAt || new Date().toISOString(),
               updatedAt: story.updatedAt || new Date().toISOString()
             };
@@ -572,11 +572,11 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
               draftChapterCount: 0,
               description: story.description || '',
               coverCid: story.coverCid || '',
-              // contentCid: story.contentCid || '',
+              contentCid: story.contentCid || '',
               author: story.author || { id: '', address: '', name: '' },
               category: story.category || '',
               status: story.status || 'DRAFT',
-              // isNFT: story.isNFT || false,
+              isNFT: story.isNFT || false,
               stats: story.stats || { likes: 0, views: 0, comments: 0 },
               createdAt: story.createdAt || new Date().toISOString(),
               updatedAt: story.updatedAt || new Date().toISOString()
@@ -1342,7 +1342,38 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
     }
   };
 
-  // 处理章节发布按钮点击
+  // 添加处理HTML内容的函数
+  const extractTextContent = (html: string) => {
+    // 创建一个临时的div元素来解析HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    
+    // 获取所有图片信息并转换为base64
+    const images = tempDiv.getElementsByTagName('img');
+    const base64Images = Array.from(images)
+      .map(img => {
+        // 如果图片已经是base64格式，直接返回
+        if (img.src.startsWith('data:image/png;base64,')) {
+          return img.src.split(',')[1]; // 只返回base64部分，不包含前缀
+        }
+        return ''; // 否则返回空字符串
+      })
+      .filter(base64 => base64 !== ''); // 过滤掉空字符串
+    
+    // 获取所有文本内容
+    const paragraphs = tempDiv.getElementsByTagName('p');
+    const textContent = Array.from(paragraphs)
+      .map(p => p.textContent?.trim())
+      .filter(text => text) 
+      .join('\n');
+    
+    return {
+      content: textContent,
+      base64Images: base64Images
+    };
+  };
+
+  // 章节发布按钮
   const handlePublishChapter = async (chapterId: string) => {
     if (!address) {
       toast.error('请先连接钱包', {
@@ -1455,31 +1486,42 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
         throw new Error('未找到当前章节');
       }
       console.log('【handleConfirmPublish】当前章节信息:', currentChapter);
-
+      
       // ai审核当前章节 - 15%进度
       showSuccess('正在进行文章内容的审核...');
       setCreateStatus(CreateStatus.REVIEWING);
       setCreateProgress(15);
       console.log('【handleConfirmPublish】正在审核当前章节内容');
+      
+      // 处理内容，获取纯文本和图片信息
+      const processedContent = extractTextContent(content);
+      console.log('【handleConfirmPublish】处理后的内容:', processedContent);
+      
       const reviewResponse = await fetch(`/api/stories/${storyId}/chapters/${chapterToPublish}/review`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          content: content
+          content: processedContent.content,
+          base64Images: processedContent.base64Images
         })
       });
 
+      if (!reviewResponse.ok) {
+        throw new Error('章节审核失败');
+      }
+
       const reviewResult = await reviewResponse.json();
-      console.log('【handleConfirmPublish】内容审核结果:', reviewResult);
+      console.log('【handleConfirmPublish】章节审核结果:', reviewResult);
       
       if (!reviewResult.success) {
-        showError(reviewResult.message, '内容审核未通过，请修改后重试');
+        showError(reviewResult.message, '章节审核未通过，请修改后重试');
         if (chapterToPublish) {
           console.log('【handleConfirmPublish】更新章节状态为UNDERREVIEW');
-          handleChapterUpdate(chapterToPublish, 'status', 'UNDERREVIEW');
+          await handleChapterUpdate(chapterToPublish, 'status', 'UNDERREVIEW');
         }
+        await updateChapterList();
         setCreateStatus(CreateStatus.IDLE);
         setCreateProgress(0);
         return;
@@ -2631,9 +2673,9 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                             <div
                                               className={`${styles.chapterStatus} ${chapter.status === 'published' ? styles.published : ''}`}
                                             >
-                                              {chapter.status === 'draft' && '草稿'}
-                                              {chapter.status === 'underreview' && '待审核'}
-                                              {chapter.status === 'published' && '已发布'}
+                                              {chapter.status?.toLowerCase() === 'draft' && '草稿'}
+                                              {chapter.status?.toLowerCase() === 'underreview' && '待审核'}
+                                              {chapter.status?.toLowerCase() === 'published' && '已发布'}
                                             </div>
                                             {chapter.status === 'published' && loadingChapterIds.has(chapter.id) && (
                                               <div className={styles.loadingIndicator} />
@@ -2729,9 +2771,9 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                               <div
                                                 className={`${styles.chapterStatus} ${chapter.status === 'published' ? styles.published : ''}`}
                                               >
-                                                {chapter.status === 'draft' && '草稿'}
-                                                {chapter.status === 'underreview' && '待审核'}
-                                                {chapter.status === 'published' && '已发布'}
+                                                {chapter.status?.toLowerCase() === 'draft' && '草稿'}
+                                                {chapter.status?.toLowerCase() === 'underreview' && '待审核'}
+                                                {chapter.status?.toLowerCase() === 'published' && '已发布'}
                                               </div>
                                               {chapter.status === 'published' && loadingChapterIds.has(chapter.id) && (
                                                 <div className={styles.loadingIndicator} />
@@ -2850,9 +2892,9 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                   <div
                                     className={`${styles.chapterStatus} ${chapter.status === 'published' ? styles.published : ''}`}
                                   >
-                                    {chapter.status === 'draft' && '草稿'}
-                                    {chapter.status === 'underreview' && '待审核'}
-                                    {chapter.status === 'published' && '已发布'}
+                                    {chapter.status?.toLowerCase() === 'draft' && '草稿'}
+                                    {chapter.status?.toLowerCase() === 'underreview' && '待审核'}
+                                    {chapter.status?.toLowerCase() === 'published' && '已发布'}
                                   </div>
                                   {chapter.status === 'published' && loadingChapterIds.has(chapter.id) && (
                                     <div className={styles.loadingIndicator} />
@@ -3120,7 +3162,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                     {/* 添加底部边界区域 */}
                     <div className={styles.chapterListBottomBoundary}>
                       <div className={styles.bottomBoundaryContent}>
-                        {currentChapter?.status === 'UNDERREVIEW' ? '需要人工审核，请耐心等待' : '文档结束'}
+                        {currentChapter?.status.toLowerCase === 'underreview' ? '需要人工审核，请耐心等待' : '文档结束'}
                       </div>
                     </div>
                   </div>

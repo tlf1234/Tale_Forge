@@ -4,12 +4,19 @@ import fs from "node:fs";
 import axios from "axios";
 import FormData from "form-data";
 
-// 内容审核使用 DeepSeek
+// 文本内容审核使用 DeepSeek
 const deepseekClient = new OpenAI({
     baseURL: 'https://api.deepseek.com',
     apiKey: process.env.DEEPSEEK_API_KEY || '<DeepSeek API Key>'
 });
+// 图片内容审核使用 qwenOmni
+const qwenOmniClient = new OpenAI({
+    baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    apiKey: process.env.QWEN_OMNI_API_KEY || '<Qwen Omni API Key>'
+});
 
+
+// 图片生成使用 Stability
 const STABILItY_API_KEY = process.env.STABILITY_API_KEY || '<Stability API Key>'
 
 // 语音生成使用 ElevenLabs
@@ -24,9 +31,9 @@ export class AIService {
      * @param content 要审查的内容
      * @returns 是否通过审核
      */
-    public async reviewContent(content: string): Promise<boolean> {
+    public async reviewContent(content: string, base64Images?: string[]): Promise<boolean> {
         try {
-            const completion = await deepseekClient.chat.completions.create({
+            const completionContent = await deepseekClient.chat.completions.create({
                 messages: [
                     {
                         role: "system",
@@ -44,7 +51,53 @@ export class AIService {
                 temperature: 0.3
             });
 
-            const response = completion.choices[0].message.content || 'false';
+            if (base64Images) {
+                // 处理所有图片
+                const imagePromises = base64Images.map(async base64Image => {
+                    const stream = await qwenOmniClient.chat.completions.create({
+                        model: "qwen-omni-turbo",
+                        messages: [
+                            {
+                                "role": "system",
+                                "content": [{ "type": "text", "text": "你是一个专业的图片审核助手。请检查内容是否包含过度的色情等违规内容。如果内容安全返回true，否则返回false。" }]
+                            },
+                            {
+                                "role": "user",
+                                "content": [{
+                                    "type": "image_url",
+                                    "image_url": { "url": `data:image/png;base64,${base64Image}` },
+                                },
+                                { "type": "text", "text": "判断图片中是否有违规内容，如果未违规返回true，否则返回false。" }]
+                            }],
+                        stream: true,
+                        stream_options: {
+                            include_usage: true
+                        },
+                        modalities: ["text"],
+                    });
+
+                    let result = '';
+                    for await (const chunk of stream) {
+                        if (chunk.choices[0]?.delta?.content) {
+                            result += chunk.choices[0].delta.content;
+                        }
+                    }
+                    return result;
+                });
+
+                // 等待所有图片审核完成
+                const imageResults = await Promise.all(imagePromises);
+                console.log('【AI 图片审核】审核结果:', imageResults);
+
+                // 检查是否有任何图片审核未通过
+                const hasInvalidImage = imageResults.some(result => result.toLowerCase() !== 'true');
+
+                if (hasInvalidImage) {
+                    return false;
+                }
+            }
+
+            const response = completionContent.choices[0].message.content || 'false';
             console.log('【AI 内容审核】审核结果:', response);
             return response.toLowerCase() === 'true';
         } catch (error) {
@@ -85,6 +138,8 @@ export class AIService {
             console.log('【AI 生成图片】新的提示词:', new_prompt);
             const payload = {
                 prompt: new_prompt,
+                aspect_ratio: "16:9",
+                style_preset: "pixel-art",
                 output_format: "png"
             };
 

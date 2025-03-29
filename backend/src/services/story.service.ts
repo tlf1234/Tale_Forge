@@ -657,12 +657,21 @@ export class StoryService {
       }
     });
 
+    // 获取草稿章节数 
+    const underreviewCount = await prisma.chapter.count({
+      where: {
+        storyId: storyId,
+        status: 'UNDERREVIEW'
+      }
+    });
+
     console.log(`[getChapterStats] DRAFT 章节数: ${draftCount}`);
-    console.log(`[getChapterStats] 统计结果: 总计=${totalCount}, 已发布=${publishedCount}, 草稿=${draftCount}`);
+    console.log(`[getChapterStats] UNDERREVIEW 章节数: ${underreviewCount}`);
+    console.log(`[getChapterStats] 统计结果: 总计=${totalCount}, 已发布=${publishedCount}, 草稿=${draftCount}，审核中=${underreviewCount}`);
 
     // 检查数据一致性
-    if (publishedCount + draftCount !== totalCount) {
-      console.warn(`[getChapterStats] ⚠️ 数据不一致! 总数(${totalCount}) ≠ 已发布(${publishedCount}) + 草稿(${draftCount})`);
+    if (publishedCount + draftCount + underreviewCount !== totalCount) {
+      console.warn(`[getChapterStats] ⚠️ 数据不一致! 总数(${totalCount}) ≠ 已发布(${publishedCount}) + 草稿(${draftCount}) + 审核中(${underreviewCount})`);
       console.warn(`[getChapterStats] 可能存在未定义的状态值，详情:`, statusCounts);
     }
 
@@ -671,6 +680,7 @@ export class StoryService {
       total: totalCount,
       published: publishedCount,
       draft: draftCount,
+      underreview: underreviewCount,
       statusCounts: statusCounts
     };
   }
@@ -797,7 +807,7 @@ export class StoryService {
     // 如果是草稿状态，直接返回chapter（无论content是否为空）
     if (chapter.status === 'DRAFT' || chapter.status === 'UNDERREVIEW') {
       // 确保content字段存在，如果不存在则设为空字符串
-      return { ...chapter, content: chapter.content || '' };
+      return { ...chapter, status: chapter.status, content: chapter.content || '' };
     }
 
     // 如果是已发布状态，从IPFS获取内容

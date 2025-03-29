@@ -25,8 +25,8 @@ export async function POST(
             );
         }
 
-        const { content } = requestBody;
-        console.log('【POST 章节审核】提取的字段:', { content });
+        const { content, base64Images } = requestBody;
+        console.log('【POST 章节审核】提取的字段:', { content, base64Images });
 
         if (!content) {
             console.error('【POST 章节审核】缺少章节内容');
@@ -45,7 +45,7 @@ export async function POST(
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ content }) // 发送请求体
+            body: JSON.stringify({ content, base64Images }) // 发送请求体
         });
 
         console.log('【POST 章节审核】后端API响应状态:', response.status);

@@ -521,13 +521,15 @@ app.post('/api/stories/:storyId/chapters/:chapterId/review', async (req, res) =>
     });
 
     const { storyId, chapterId } = req.params;
-    const { content } = req.body;
+    const { content, base64Images } = req.body;
+
+    console.log('【POST 章节审核】收到请求:', { content, base64Images });
 
     if (!content) {
       return res.status(400).json({ error: '缺少章节内容' });
     }
 
-    const isSafe = await aiService.reviewContent(content);
+    const isSafe = await aiService.reviewContent(content, base64Images);
 
     if (!isSafe) {
       return res.json({
