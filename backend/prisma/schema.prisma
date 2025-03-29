@@ -94,14 +94,17 @@ model Chapter {
 
 // 插画模型
 model Illustration {
-  id            String    @id @default(cuid())
-  imageCID      String    // IPFS图片ID
-  description   String    // 描述
-  createdAt     DateTime  @default(now())
-
-  // 关联
-  chapterId     String
-  chapter       Chapter   @relation(fields: [chapterId], references: [id])
+  id          String   @id @default(cuid())
+  chapterId   String
+  fileContent String?  @db.Text  // Base64 编码的文件内容
+  fileName    String?  // 原始文件名
+  fileType    String?  // 文件类型
+  fileSize    Int?     // 文件大小
+  description String?  // 可选的描述
+  status      String   @default("DRAFT") // DRAFT 或 PUBLISHED
+  imageCID    String?  // IPFS CID，发布时填充
+  createdAt   DateTime @default(now())
+  chapter     Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
 
   @@index([chapterId])
 }

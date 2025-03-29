@@ -521,43 +521,71 @@ app.delete('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
 });
 
 // 上传章节插画
-app.post('/api/chapters/:chapterId/images', upload.single('image'), async (req: express.Request, res: express.Response) => {
+app.post('/api/stories/:storyId/chapters/:chapterId/images', upload.single('image'), async (req: express.Request, res: express.Response) => {
+  console.log('[插画上传-后端API] 收到请求:', {
+    storyId: req.params.storyId,
+    chapterId: req.params.chapterId,
+    file: req.file ? {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    } : null
+  });
+
   try {
-    const { chapterId } = req.params;
+    const { storyId, chapterId } = req.params;
     const file = req.file;
 
     if (!file) {
+      console.log('[插画上传-后端API] 错误: 没有上传文件');
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const illustration = await storyService.uploadChapterImage(chapterId, file);
+    console.log('[插画上传-后端API] 开始处理上传');
+    const illustration = await storyService.uploadChapterImage(storyId, chapterId, file);
+    console.log('[插画上传-后端API] 上传成功:', illustration);
     res.json(illustration);
   } catch (error: any) {
-    console.error('Error uploading chapter image:', error);
+    console.error('[插画上传-后端API] 上传失败:', error);
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
 
-// 获取章节插画列表
-app.get('/api/chapters/:chapterId/images', async (req: express.Request, res: express.Response) => {
+// 获取章节插画
+app.get('/api/stories/:storyId/chapters/:chapterId/images', async (req: express.Request, res: express.Response) => {
+  console.log('[插画列表-后端API] 收到请求:', {
+    storyId: req.params.storyId,
+    chapterId: req.params.chapterId
+  });
+
   try {
-    const { chapterId } = req.params;
-    const illustrations = await storyService.getChapterIllustrations(chapterId);
+    const { storyId, chapterId } = req.params;
+    console.log('[插画列表-后端API] 开始获取列表');
+    const illustrations = await storyService.getChapterIllustrations(storyId, chapterId);
+    console.log('[插画列表-后端API] 获取成功，数量:', illustrations.length);
     res.json(illustrations);
   } catch (error: any) {
-    console.error('Error getting chapter illustrations:', error);
+    console.error('[插画列表-后端API] 获取失败:', error);
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
 
 // 删除章节插画
-app.delete('/api/illustrations/:illustrationId', async (req: express.Request, res: express.Response) => {
+app.delete('/api/stories/:storyId/chapters/:chapterId/images/:illustrationId', async (req: express.Request, res: express.Response) => {
+  console.log('[插画删除-后端API] 收到请求:', {
+    storyId: req.params.storyId,
+    chapterId: req.params.chapterId,
+    illustrationId: req.params.illustrationId
+  });
+
   try {
-    const { illustrationId } = req.params;
-    await storyService.deleteIllustration(illustrationId);
+    const { storyId, chapterId, illustrationId } = req.params;
+    console.log('[插画删除-后端API] 开始删除');
+    await storyService.deleteIllustration(storyId, chapterId, illustrationId);
+    console.log('[插画删除-后端API] 删除成功');
     res.json({ success: true });
   } catch (error: any) {
-    console.error('Error deleting illustration:', error);
+    console.error('[插画删除-后端API] 删除失败:', error);
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });

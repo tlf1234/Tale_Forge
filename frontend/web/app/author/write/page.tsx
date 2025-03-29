@@ -1631,6 +1631,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
     try {
       // 获取当前故事ID
       const storyId = localStorage.getItem('currentStoryId');
+      console.log('【handleSave】当前故事ID:', storyId);
       if (!storyId) {
         throw new Error('未找到当前故事');
       }
@@ -1641,49 +1642,74 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
           tempUrl: match[1],
           fullMatch: match[0]
         }));
+      console.log('【章节保存-图片处理】提取到的临时图片数量:', tempImages.length);
 
       let processedContent = content;
       
       // 如果有临时图片，先上传
       if (tempImages.length > 0) {
+        console.log('【章节保存-图片处理】开始处理临时图片');
         // 创建 FormData 对象
         const formData = new FormData();
         
         // 获取每个临时图片的 Blob 数据
+        console.log('【章节保存-图片处理】开始获取图片Blob数据');
         const imageBlobs = await Promise.all(
-          tempImages.map(async ({ tempUrl }) => {
+          tempImages.map(async ({ tempUrl }, index) => {
+            console.log(`【章节保存-图片处理】获取第${index + 1}个图片的Blob数据:`, tempUrl);
             const response = await fetch(tempUrl);
-            return response.blob();
+            const blob = await response.blob();
+            console.log(`【章节保存-图片处理】第${index + 1}个图片Blob数据:`, {
+              size: blob.size,
+              type: blob.type
+            });
+            return blob;
           })
         );
         
         // 添加图片到 FormData
+        console.log('【章节保存-图片处理】添加图片到FormData');
         imageBlobs.forEach((blob, index) => {
           formData.append('images', blob, `image-${index}.png`);
         });
 
+        console.log('【章节保存-图片处理】storyId:', storyId);
         // 上传图片
+        console.log('【章节保存-图片处理】开始上传图片到服务器');
         const uploadResponse = await fetch(`/api/stories/${storyId}/chapters/${currentChapterId}/images`, {
           method: 'POST',
           body: formData
         });
 
+        console.log('【章节保存-图片处理】上传响应状态:', uploadResponse.status);
+
         if (!uploadResponse.ok) {
+          const error = await uploadResponse.json();
+          console.error('【章节保存-图片处理】上传失败:', error);
           throw new Error('上传图片失败');
         }
 
         const uploadedImages = await uploadResponse.json();
+        console.log('【章节保存-图片处理】上传成功，返回数据:', uploadedImages);
 
         // 替换内容中的临时URL为上传后的URL
+        console.log('【章节保存-图片处理】开始替换临时URL');
         tempImages.forEach((tempImage, index) => {
           const uploadedUrl = uploadedImages[index]?.url;
           if (uploadedUrl) {
+            console.log(`【章节保存-图片处理】替换第${index + 1}个图片URL:`, {
+              from: tempImage.tempUrl,
+              to: uploadedUrl
+            });
             processedContent = processedContent.replace(
               tempImage.fullMatch,
               tempImage.fullMatch.replace(tempImage.tempUrl, uploadedUrl)
             );
+          } else {
+            console.warn(`【章节保存-图片处理】警告: 第${index + 1}个图片没有返回URL`);
           }
         });
+        console.log('【章节保存-图片处理】URL替换完成');
       }
       
       // 计算字数
