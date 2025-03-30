@@ -3,6 +3,14 @@ import 'dotenv/config';
 import fs from "node:fs";
 import axios from "axios";
 import FormData from "form-data";
+import { ChatOpenAI } from "@langchain/openai";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { PrismaClient } from '@prisma/client';
+import * as tencentcloud from "tencentcloud-sdk-nodejs-hunyuan";
+
+
+const prisma = new PrismaClient();
 
 // 文本内容审核使用 DeepSeek
 const deepseekClient = new OpenAI({
@@ -18,6 +26,22 @@ const qwenOmniClient = new OpenAI({
 
 // 图片生成使用 Stability
 const STABILItY_API_KEY = process.env.STABILITY_API_KEY || '<Stability API Key>'
+
+// 图片生成使用腾讯混元
+const hunyuanClientConfig = {
+    credential: {
+        secretId: process.env.HUNYUAN_SECRET_ID || '<Hunyuan Secret ID>',
+        secretKey: process.env.HUNYUAN_SECRET_KEY || '<Hunyuan Secret Key>',
+    },
+    region: "ap-guangzhou",
+    profile: {
+        httpProfile: {
+            endpoint: "hunyuan.tencentcloudapi.com",
+        },
+    },
+};
+
+const hunyuanClient = new tencentcloud.hunyuan.v20230901.Client(hunyuanClientConfig);
 
 // 语音生成使用 ElevenLabs
 const elevenLabsClient = new OpenAI({
@@ -109,18 +133,30 @@ export class AIService {
     /**
      * 生成图片
      * @param prompt 图片描述
+     * @param resolution 图片分辨率
+     * @param style 图片风格（可选）
+     * @param referenceImage 参考图片（可选）
      * @returns 图片URL
      */
-    public async generateImage(prompt: string): Promise<{ success: boolean; imageUrl: string }> {
+    public async generateImage(
+        prompt: string,
+        resolution: string,
+        style?: string,
+        referenceImage?: string
+    ): Promise<{ success: boolean; imageUrl: string }> {
         try {
+            let enhancedPrompt = prompt;
+
             console.log('【AI 生成图片】升级提示词');
             const completion = await deepseekClient.chat.completions.create({
                 messages: [
                     {
                         role: "system",
-                        content: `你是一个提示词专家，请根据用户的输入，生成一个英文的提示词，要求：
-                            1. 提示词要和用户输入的描述相同，不能改变描述的含义；
+                        content: `你是一个提示词专家，请根据用户的输入，生成一个中文的提示词，要求：
+                            1. 将用户的输入重新排序进行优化；
                             2. 提示词要能够准确描述图片的内容；
+                            3. 不要加入手指描写；
+                            4. 不要加入引号；
                             直接返回新的提示词`
                     },
                     {
@@ -134,37 +170,38 @@ export class AIService {
                 temperature: 0.3
             });
 
-            const new_prompt = completion.choices[0].message.content
-            console.log('【AI 生成图片】新的提示词:', new_prompt);
-            const payload = {
-                prompt: new_prompt,
-                aspect_ratio: "16:9",
-                style_preset: "pixel-art",
-                output_format: "png"
+            enhancedPrompt = completion.choices[0].message.content || prompt;
+            console.log('【AI 生成图片】新的提示词:', enhancedPrompt);
+
+
+            const imageParams = {
+                "Prompt": enhancedPrompt,
+                "Resolution": resolution,
+                "ContentImage": referenceImage ? { "ImageBase64": referenceImage } : undefined,
+                "LogoAdd": 0,
+                ...(style && style.trim() && { "Style": style })
             };
 
-            const response = await axios.postForm(
-                `https://api.stability.ai/v2beta/stable-image/generate/core`,
-                axios.toFormData(payload, new FormData()),
-                {
-                    validateStatus: undefined,
-                    responseType: "arraybuffer",
-                    headers: {
-                        Authorization: `Bearer ${STABILItY_API_KEY}`,
-                        Accept: "image/*"
-                    },
-                },
-            );
+            const jobStatus = await hunyuanClient.SubmitHunyuanImageJob(imageParams);
+            console.log('Job submitted:', jobStatus);
 
-            if (response.status === 200) {
-                // 将图片数据转换为base64
-                const base64Image = Buffer.from(response.data).toString('base64');
-                return {
-                    success: true,
-                    imageUrl: `data:image/png;base64,${base64Image}`
-                };
+            const jobParams = {
+                "JobId": jobStatus.JobId || ''
+            }
+            let jobResult = await hunyuanClient.QueryHunyuanImageJob(jobParams)
+            console.log('Job result:', jobResult);
+            while (jobResult.JobStatusCode !== '5') {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                jobResult = await hunyuanClient.QueryHunyuanImageJob(jobParams)
+                console.log('Job result:', jobResult);
+            }
+            if (jobResult.JobStatusCode === '5') {
+                const imageUrl = Array.isArray(jobResult.ResultImage)
+                    ? jobResult.ResultImage[0]
+                    : jobResult.ResultImage || '';
+                return { success: true, imageUrl };
             } else {
-                throw new Error(`${response.status}: ${response.data.toString()}`);
+                return { success: false, imageUrl: '' };
             }
         } catch (error) {
             console.error('生成图片失败:', error);
@@ -185,6 +222,163 @@ export class AIService {
         } catch (error) {
             console.error('生成语音失败:', error);
             throw new Error('语音生成服务暂时不可用');
+        }
+    }
+
+    /**
+     * 聊天功能
+     * @param input 用户输入
+     * @param characterId 角色ID（可选）
+     * @returns 聊天结果
+     */
+    public async chat(input: string, characterId?: string): Promise<string> {
+        try {
+            const chatModel = new ChatOpenAI({
+                modelName: "deepseek-chat",
+                temperature: 0.7,
+                openAIApiKey: process.env.DEEPSEEK_API_KEY,
+                configuration: {
+                    baseURL: 'https://api.deepseek.com'
+                }
+            });
+
+            let systemPrompt = "你是一个AI角色";
+
+            if (characterId) {
+                const character = await this.getCharacter(characterId);
+                console.log('【AI 聊天】角色信息:', character);
+                if (character) {
+                    systemPrompt = `你是一个名为${character.name}的角色，身份是${character.role}。
+                    背景：${character.background}
+                    性格：${character.personality}
+                    目标：${character.goals.join('、')}
+                    关系：${character.relationships.join('、')}
+                    请以这个角色的身份和用户对话。`;
+                }
+            }
+
+            const promptTemplate = ChatPromptTemplate.fromMessages([
+                ["system", systemPrompt],
+                ["human", "{input}"]
+            ]);
+
+            const chain = promptTemplate.pipe(chatModel);
+
+            const response = await chain.invoke({
+                input: input
+            });
+
+            return String(response.content) || "抱歉，我现在无法回答。请稍后再试。";
+        } catch (error) {
+            console.error('聊天失败:', error);
+            throw new Error('聊天服务暂时不可用');
+        }
+    }
+
+    /**
+     * 创建新角色
+     * @param params 角色信息
+     */
+    public async createCharacter(params: {
+        storyId: string;
+        name: string;
+        role: string;
+        background?: string;
+        personality?: string;
+        goals?: string[];
+        relationships?: string[];
+    }) {
+        try {
+            return await prisma.character.create({
+                data: {
+                    storyId: params.storyId,
+                    name: params.name,
+                    role: params.role,
+                    background: params.background || '',
+                    personality: params.personality || '',
+                    goals: params.goals || [],
+                    relationships: params.relationships || []
+                }
+            });
+        } catch (error) {
+            console.error('创建角色失败:', error);
+            throw new Error('创建角色失败');
+        }
+    }
+
+    /**
+     * 更新角色信息
+     * @param id 角色ID
+     * @param params 更新的角色信息
+     */
+    public async updateCharacter(id: string, params: {
+        name?: string;
+        role?: string;
+        background?: string;
+        personality?: string;
+        goals?: string[];
+        relationships?: string[];
+    }) {
+        try {
+            return await prisma.character.update({
+                where: { id },
+                data: params
+            });
+        } catch (error) {
+            console.error('更新角色失败:', error);
+            throw new Error('更新角色失败');
+        }
+    }
+
+    /**
+     * 删除角色
+     * @param id 角色ID
+     */
+    public async deleteCharacter(id: string) {
+        try {
+            await prisma.character.delete({
+                where: { id }
+            });
+        } catch (error) {
+            console.error('删除角色失败:', error);
+            throw new Error('删除角色失败');
+        }
+    }
+
+    /**
+     * 获取故事的所有角色
+     * @param storyId 故事ID
+     */
+    public async getCharacters(storyId: string) {
+        try {
+            return await prisma.character.findMany({
+                where: {
+                    storyId
+                },
+                orderBy: {
+                    createdAt: 'asc'
+                }
+            });
+        } catch (error) {
+            console.error('获取角色列表失败:', error);
+            throw new Error('获取角色列表失败');
+        }
+    }
+
+    /**
+     * 获取单个角色
+     * @param id 角色ID
+     */
+    public async getCharacter(id: string) {
+        try {
+            return await prisma.character.findUnique({
+                where: {
+                    id
+                }
+            });
+        } catch (error) {
+            console.error('获取角色失败:', error);
+            throw new Error('获取角色失败');
         }
     }
 }

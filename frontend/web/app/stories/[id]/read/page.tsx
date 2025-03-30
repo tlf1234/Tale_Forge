@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { IoChevronBack, IoSettingsOutline, IoBookmarkOutline, IoShareSocialOutline, IoStarOutline, IoHeartOutline, IoHeart } from 'react-icons/io5'
-import { FaList } from 'react-icons/fa'
+import { FaFacebookMessenger, FaList,  } from 'react-icons/fa'
 import styles from './page.module.css'
 import ImagePreview from '@/components/common/ImagePreview'
 import { useReadingSettings } from '@/hooks/useReadingSettings'
@@ -15,7 +15,7 @@ import CommentList from '@/components/comment/CommentList'
 import ChapterTree from '@/components/story/ChapterTree'
 import { toast } from 'react-hot-toast'
 import { getWalletAddress } from '@/lib/contract'
-import { FiBook, FiArrowLeft } from 'react-icons/fi'
+import { FiBook, FiArrowLeft, FiMessageSquare } from 'react-icons/fi'
 import Link from 'next/link'
 
 interface Props {
@@ -344,6 +344,9 @@ export default function ReadPage({ params, searchParams }: Props) {
         <div className={styles.rightNav}>
           <button className={styles.actionButton} onClick={() => setIsEyeCareMode(!isEyeCareMode)}>
             {isEyeCareMode ? '护眼' : '正常'}
+          </button>
+          <button className={styles.actionButton} onClick={() => router.push(`/stories/${id}/agent`)}>
+            <FaFacebookMessenger />
           </button>
           {renderToolbar()}
         </div>

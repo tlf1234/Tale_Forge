@@ -46,6 +46,7 @@ import { ImageExtension } from './extensions/ImageExtension'
 import ImageResizer from './components/ImageResizer'
 import { TiptapEditorProps } from './types'
 import AIImageGenerator from '../common/AIImageGenerator'
+import { toast } from 'react-hot-toast'
 
 // 添加自定义字体大小扩展
 declare module '@tiptap/core' {
@@ -120,10 +121,17 @@ const KeyboardShortcuts = Extension.create({
 // AI 生图提示框组件
 const AIPromptModal = ({ onClose, onSubmit, initialValue = '' }: { 
   onClose: () => void, 
-  onSubmit: (prompt: string) => void,
+  onSubmit: (prompt: string, resolution: string, style?: string, referenceImage?: string) => void,
   initialValue?: string 
 }) => {
   const [prompt, setPrompt] = useState(initialValue);
+  const [style, setStyle] = useState<string | null>(null);
+  const [resolution, setResolution] = useState('1024:1024');
+  const [referenceImage, setReferenceImage] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
+  const [showStyle, setShowStyle] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -134,11 +142,146 @@ const AIPromptModal = ({ onClose, onSubmit, initialValue = '' }: {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       if (prompt.trim()) {
-        onSubmit(prompt.trim());
+        onSubmit(prompt.trim(), resolution, style || undefined, referenceImage || undefined);
         onClose();
       }
     }
   };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      handleImageUpload(file);
+    }
+  };
+
+  const handleImageUpload = (file: File) => {
+    // 检查文件类型
+    if (!file.type.startsWith('image/')) {
+      toast.error('请上传图片文件');
+      return;
+    }
+
+    // 检查文件大小（5MB限制）
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('图片大小不能超过5MB');
+      return;
+    }
+
+    try {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // 创建canvas进行图片压缩
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // 设置最大尺寸
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          
+          // 计算压缩后的尺寸，保持宽高比
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = Math.round((width * MAX_HEIGHT) / height);
+              height = MAX_HEIGHT;
+            }
+          }
+          
+          // 设置canvas尺寸
+          canvas.width = width;
+          canvas.height = height;
+          
+          // 使用双线性插值算法进行缩放
+          if (ctx) {
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // 转换为base64，使用JPEG格式和80%的质量压缩
+            const base64String = canvas.toDataURL('image/jpeg', 0.8);
+            // 提取base64数据部分（移除data:image/jpeg;base64,前缀）
+            const base64Data = base64String.split(',')[1];
+            // 确保base64数据是有效的
+            if (!base64Data || !/^[A-Za-z0-9+/=]+$/.test(base64Data)) {
+              throw new Error('Invalid base64 data');
+            }
+            setReferenceImage(base64Data);
+          }
+        };
+        img.onerror = () => {
+          toast.error('图片加载失败，请重试');
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => {
+        toast.error('文件读取失败，请重试');
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('图片处理失败:', error);
+      toast.error('图片处理失败，请重试');
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleImageUpload(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setReferenceImage(null);
+  };
+
+  const handleToggleUpload = () => {
+    setShowUpload(!showUpload);
+    if (!showUpload) {
+      setReferenceImage(null);
+    }
+  };
+
+  const styleOptions = [
+    { value: 'riman', label: '日漫动画' },
+    { value: '3dxuanran', label: '3D渲染' },
+    { value: 'bianping', label: '扁平插画' },
+    { value: 'xiangsu', label: '像素插画' },
+    { value: 'manhua', label: '漫画' },
+    { value: 'xieshi', label: '写实' },
+    { value: 'dongman', label: '动漫' },
+    { value: 'saibopengke', label: '赛博朋克' },
+  ];
+
+  const resolutionOptions = [
+    { value: '1024:1024', label: '1 ： 1' },
+    { value: '768:1024', label: '3 ： 4' },
+    { value: '1024:768', label: '4 ： 3' },
+    { value: '720:1280', label: '9 ： 16' },
+    { value: '1280:720', label: '16 ： 9' }
+  ];
 
   return (
     <AIImageGenerator isOpen={true} onClose={onClose} title="AI 生图">
@@ -151,6 +294,115 @@ const AIPromptModal = ({ onClose, onSubmit, initialValue = '' }: {
         rows={4}
         className={styles.promptTextarea}
       />
+      <div className={styles.uploadToggle}>
+        <button
+          onClick={handleToggleUpload}
+          className={`${styles.toggleButton} ${showUpload ? styles.toggleButtonActive : ''}`}
+        >
+          <FaImage className={styles.toggleIcon} />
+          {showUpload ? '关闭参考图片' : '添加参考图片'}
+        </button>
+      </div>
+      {showUpload && (
+        <div 
+          className={`${styles.uploadArea} ${isDragging ? styles.dragging : ''}`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/*"
+            onChange={handleFileInputChange}
+            style={{ display: 'none' }}
+          />
+          {referenceImage ? (
+            <div style={{ position: 'relative', width: '100%', maxWidth: '300px', margin: '0 auto' }}>
+              <img 
+                src={`data:image/jpeg;base64,${referenceImage}`}
+                alt="参考图片" 
+                className={styles.previewImage}
+                style={{ 
+                  width: '100%', 
+                  height: 'auto', 
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                  objectFit: 'contain'
+                }} 
+              />
+              <button 
+                className={styles.removeImage} 
+                onClick={handleRemoveImage}
+                style={{
+                  position: 'absolute',
+                  top: '8px',
+                  right: '8px',
+                  background: 'rgba(0, 0, 0, 0.5)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '24px',
+                  height: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <FaTimes />
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className={styles.uploadIcon}>
+                <FaImage />
+              </div>
+              <div className={styles.uploadText}>
+                点击或拖拽图片到此处上传
+              </div>
+              <div className={styles.uploadHint}>
+                支持 jpg、png... 格式，最大 5MB
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      <div className={styles.promptOptions}>
+        <div className={styles.optionGroup}>
+          <label className={styles.optionLabel}>图片风格</label>
+          <select
+            value={style || ''}
+            onChange={(e) => setStyle(e.target.value || null)}
+            className={styles.optionSelect}
+          >
+            <option value="">默认风格</option>
+            {styleOptions.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className={styles.promptOptions}>
+        <div className={styles.optionGroup}>
+          <label className={styles.optionLabel}>分辨率</label>
+          <select
+            value={resolution}
+            onChange={(e) => setResolution(e.target.value)}
+            className={styles.optionSelect}
+          >
+            {resolutionOptions.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
       <div className={styles.promptButtons}>
         <button
           onClick={onClose}
@@ -161,7 +413,7 @@ const AIPromptModal = ({ onClose, onSubmit, initialValue = '' }: {
         <button
           onClick={() => {
             if (prompt.trim()) {
-              onSubmit(prompt.trim());
+              onSubmit(prompt.trim(), resolution, style || undefined, referenceImage || undefined);
               onClose();
             }
           }}
@@ -264,7 +516,6 @@ const MenuBar = memo(({ editor, onImageClick, onSave }: { editor: Editor | null,
     if (!editor) return;
     
     try {
-      // 获取用户选中的文本
       const selectedText = editor.state.selection.empty 
         ? null 
         : editor.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to);
@@ -285,12 +536,15 @@ const MenuBar = memo(({ editor, onImageClick, onSave }: { editor: Editor | null,
     }
   }, [editor]);
 
-  const generateImage = async (prompt: string) => {
+  const generateImage = async (prompt: string, resolution: string, style?: string, referenceImage?: string) => {
     if (!editor) return;
+    
+    let progressInterval: NodeJS.Timeout | undefined;
+    let loadingDialog: HTMLDivElement | undefined;
     
     try {
       // 创建加载对话框
-      const loadingDialog = document.createElement('div');
+      loadingDialog = document.createElement('div');
       loadingDialog.className = styles.imagePreviewDialog;
       loadingDialog.innerHTML = `
         <div class="${styles.imagePreviewContent}">
@@ -307,23 +561,33 @@ const MenuBar = memo(({ editor, onImageClick, onSave }: { editor: Editor | null,
 
       // 模拟进度更新
       let progress = 0;
-      const progressInterval = setInterval(() => {
+      progressInterval = setInterval(() => {
         progress += 5;
-        const progressFill = loadingDialog.querySelector(`.${styles.progressFill}`) as HTMLElement;
+        const progressFill = loadingDialog?.querySelector(`.${styles.progressFill}`) as HTMLElement;
         if (progressFill) {
           progressFill.style.width = `${Math.min(progress, 90)}%`;
         }
       }, 500);
+
+      const requestBody = {
+        prompt,
+        resolution,
+        ...(style && { style }),
+        ...(referenceImage && { referenceImage }) 
+      };
 
       const response = await fetch('/api/ai/generate-image', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
+        // 清除加载对话框
+        clearInterval(progressInterval);
+        document.body.removeChild(loadingDialog);
         throw new Error('生成图片失败');
       }
 
@@ -384,7 +648,13 @@ const MenuBar = memo(({ editor, onImageClick, onSave }: { editor: Editor | null,
       document.body.appendChild(previewDialog);
     } catch (error) {
       console.error('AI 生图失败:', error);
-      alert('生成图片失败，请重试');
+      if (typeof progressInterval !== 'undefined') {
+        clearInterval(progressInterval);
+      }
+      if (loadingDialog && document.body.contains(loadingDialog)) {
+        document.body.removeChild(loadingDialog);
+      }
+      toast.error('生成图片失败，请重试');
     }
   };
 
@@ -596,11 +866,9 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
   placeholder = '开始写作...',
   onSave
 }) => {
-  // 添加自定义的 Tab 处理函数
   const handleTabKey = useCallback((editor: Editor) => {
     console.log('自定义 Tab 处理函数被调用');
     
-    // 方法 1: 使用 insertContent
     try {
       editor.commands.insertContent('    ');
       return true;
@@ -608,7 +876,6 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
       console.error('方法 1 失败:', error);
     }
     
-    // 方法 2: 使用 insertText
     try {
       const { state, view } = editor;
       const { tr } = state;
@@ -619,7 +886,6 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
       console.error('方法 2 失败:', error);
     }
     
-    // 方法 3: 使用 chain
     try {
       editor.chain().focus().insertContent('    ').run();
       return true;

@@ -638,6 +638,34 @@ app.post('/api/comments', async (req, res) => {
 /**
  * AI 相关路由
  */
+
+// POST - AI 聊天
+app.post('/api/ai/chat', async (req, res) => {
+  try {
+    console.log('[POST /api/ai/chat] 收到请求:', {
+      body: req.body
+    });
+
+    const { message, characterId } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: '缺少消息内容' });
+    }
+
+    if (!characterId) {
+      return res.status(400).json({ error: '缺少角色ID' });
+    }
+
+    const response = await aiService.chat(message, characterId);
+
+    console.log('[POST /api/ai/chat] 处理成功:', response);
+    res.json({ message: response });
+  } catch (error: any) {
+    console.error('[POST /api/ai/chat] 处理失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
 // POST - 生成 AI 图片
 app.post('/api/ai/generate-image', async (req, res) => {
   try {
@@ -645,18 +673,142 @@ app.post('/api/ai/generate-image', async (req, res) => {
       body: req.body
     });
 
-    const { prompt } = req.body;
+    const { prompt, style, resolution, referenceImage } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: '缺少提示词' });
     }
 
-    const result = await aiService.generateImage(prompt);
+    const result = await aiService.generateImage(
+      prompt,
+      resolution,
+      style || undefined,
+      referenceImage || undefined
+    );
+
+    if (!result.success) {
+      return res.status(500).json({ error: '图片生成失败' });
+    }
 
     console.log('[POST /api/ai/generate-image] 生成成功:', result);
     res.json(result);
   } catch (error: any) {
     console.error('[POST /api/ai/generate-image] 生成失败:', error);
+    res.status(500).json({ error: error?.message || '图片生成服务暂时不可用' });
+  }
+});
+
+// POST - 创建新角色
+app.post('/api/ai/characters', async (req, res) => {
+  try {
+    console.log('[POST /api/ai/characters] 收到请求:', {
+      body: req.body
+    });
+
+    const { storyId, name, role, background, personality, goals, relationships } = req.body;
+
+    if (!storyId || !name || !role) {
+      return res.status(400).json({ error: 'storyId, name, and role are required' });
+    }
+
+    const character = await aiService.createCharacter({
+      storyId,
+      name,
+      role,
+      background,
+      personality,
+      goals,
+      relationships
+    });
+
+    console.log('[POST /api/ai/characters] 创建成功:', { id: character.id });
+    res.status(201).json(character);
+  } catch (error: any) {
+    console.error('[POST /api/ai/characters] 创建失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// PUT - 更新角色
+app.put('/api/ai/characters/:id', async (req, res) => {
+  try {
+    console.log('[PUT /api/ai/characters/:id] 收到请求:', {
+      id: req.params.id,
+      body: req.body
+    });
+
+    const { id } = req.params;
+    const { name, role, background, personality, goals, relationships } = req.body;
+
+    const character = await aiService.updateCharacter(id, {
+      name,
+      role,
+      background,
+      personality,
+      goals,
+      relationships
+    });
+
+    console.log('[PUT /api/ai/characters/:id] 更新成功');
+    res.json(character);
+  } catch (error: any) {
+    console.error('[PUT /api/ai/characters/:id] 更新失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// DELETE - 删除角色
+app.delete('/api/ai/characters/:id', async (req, res) => {
+  try {
+    console.log('[DELETE /api/ai/characters/:id] 收到请求:', {
+      id: req.params.id
+    });
+
+    const { id } = req.params;
+    await aiService.deleteCharacter(id);
+
+    console.log('[DELETE /api/ai/characters/:id] 删除成功');
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('[DELETE /api/ai/characters/:id] 删除失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// GET - 获取故事的所有角色
+app.get('/api/ai/characters', async (req, res) => {
+  try {
+    console.log('[GET /api/ai/characters] 收到请求');
+    const { storyId } = req.query;
+
+    if (!storyId || typeof storyId !== 'string') {
+      return res.status(400).json({ error: 'storyId is required' });
+    }
+
+    const characters = await aiService.getCharacters(storyId);
+    console.log('[GET /api/ai/characters] 获取成功:', { count: characters.length });
+    res.json(characters);
+  } catch (error: any) {
+    console.error('[GET /api/ai/characters] 获取失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// GET - 获取单个角色
+app.get('/api/ai/characters/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('[GET /api/ai/characters/:id] 收到请求:', { id });
+
+    const character = await aiService.getCharacter(id);
+    if (!character) {
+      return res.status(404).json({ error: 'Character not found' });
+    }
+
+    console.log('[GET /api/ai/characters/:id] 获取成功');
+    res.json(character);
+  } catch (error: any) {
+    console.error('[GET /api/ai/characters/:id] 获取失败:', error);
     res.status(500).json({ error: error?.message });
   }
 });

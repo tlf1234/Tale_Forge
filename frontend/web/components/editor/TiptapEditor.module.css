@@ -884,46 +884,184 @@
   box-shadow: none;
 }
 
+.uploadArea {
+  border: 2px dashed #e2e8f0;
+  border-radius: 6px;
+  padding: 20px;
+  text-align: center;
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #f8fafc;
+}
+
+.uploadArea:hover {
+  border-color: #4a9eff;
+  background: #f0f9ff;
+}
+
+.uploadArea.dragging {
+  border-color: #4a9eff;
+  background: #f0f9ff;
+}
+
+.uploadIcon {
+  font-size: 24px;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.uploadText {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.uploadHint {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.previewImage {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.removeImage {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.removeImage:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+@media (prefers-color-scheme: dark) {
+  .uploadArea {
+    border-color: #334155;
+    background: #1e293b;
+  }
+
+  .uploadArea:hover {
+    border-color: #60a5fa;
+    background: #0f172a;
+  }
+
+  .uploadArea.dragging {
+    border-color: #60a5fa;
+    background: #0f172a;
+  }
+
+  .uploadIcon {
+    color: #94a3b8;
+  }
+
+  .uploadText {
+    color: #94a3b8;
+  }
+
+  .uploadHint {
+    color: #64748b;
+  }
+}
+
+.promptOptions {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.optionGroup {
+  flex: 1;
+}
+
+.optionLabel {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.optionSelect {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #1a202c;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.optionSelect:focus {
+  border-color: #4a9eff;
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.1);
+  outline: none;
+}
+
+.optionSelect:hover {
+  border-color: #cbd5e0;
+}
+
 .promptButtons {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 1rem;
+  margin-top: 1.5rem;
 }
 
 .cancelButton {
-  padding: 8px 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: white;
-  color: #4a5568;
-  font-size: 14px;
+  padding: 0.5rem 1.25rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background-color: white;
+  color: #4b5563;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .cancelButton:hover {
-  background-color: #f7fafc;
-  border-color: #cbd5e0;
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background-color: #f8fafc;
 }
 
 .generateButton {
-  padding: 8px 16px;
+  padding: 0.5rem 1.25rem;
   border: none;
-  border-radius: 6px;
-  background: #4a9eff;
+  border-radius: 0.5rem;
+  background-color: #3b82f6;
   color: white;
-  font-size: 14px;
+  font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.generateButton:disabled {
-  background: #94a3b8;
-  cursor: not-allowed;
+.generateButton:hover:not(:disabled) {
+  background-color: #2563eb;
 }
 
-.generateButton:not(:disabled):hover {
-  background-color: #3b82f6;
+.generateButton:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -937,6 +1075,24 @@
     border-color: #60a5fa;
   }
 
+  .optionLabel {
+    color: #e2e8f0;
+  }
+
+  .optionSelect {
+    background: #1e293b;
+    border-color: #334155;
+    color: #e2e8f0;
+  }
+
+  .optionSelect:focus {
+    border-color: #60a5fa;
+  }
+
+  .optionSelect:hover {
+    border-color: #475569;
+  }
+
   .cancelButton {
     background: #1e293b;
     border-color: #334155;
@@ -945,7 +1101,16 @@
 
   .cancelButton:hover {
     background-color: #334155;
-    border-color: #475569;
+    border-color: #60a5fa;
+    color: #60a5fa;
+  }
+
+  .generateButton {
+    background-color: #3b82f6;
+  }
+
+  .generateButton:hover:not(:disabled) {
+    background-color: #2563eb;
   }
 }
 
@@ -1135,4 +1300,377 @@
 
 .imageContainer:hover .imageOverlay {
   opacity: 1;
+}
+
+.uploadToggle {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.toggleButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background-color: white;
+  color: #4b5563;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggleButton:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background-color: #f8fafc;
+}
+
+.toggleButtonActive {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background-color: #eff6ff;
+}
+
+.toggleIcon {
+  font-size: 1rem;
+}
+
+.promptButtons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.cancelButton {
+  padding: 0.5rem 1.25rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background-color: white;
+  color: #4b5563;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancelButton:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background-color: #f8fafc;
+}
+
+.generateButton {
+  padding: 0.5rem 1.25rem;
+  border: none;
+  border-radius: 0.5rem;
+  background-color: #3b82f6;
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.generateButton:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.generateButton:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+@media (prefers-color-scheme: dark) {
+  .toggleButton {
+    background: #1e293b;
+    border-color: #334155;
+    color: #e2e8f0;
+  }
+
+  .toggleButton:hover {
+    background: #334155;
+    border-color: #60a5fa;
+    color: #60a5fa;
+  }
+
+  .toggleButtonActive {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: #60a5fa;
+    color: #60a5fa;
+  }
+
+  .cancelButton {
+    background: #1e293b;
+    border-color: #334155;
+    color: #e2e8f0;
+  }
+
+  .cancelButton:hover {
+    background: #334155;
+    border-color: #60a5fa;
+    color: #60a5fa;
+  }
+
+  .generateButton {
+    background-color: #3b82f6;
+  }
+
+  .generateButton:hover:not(:disabled) {
+    background-color: #2563eb;
+  }
+}
+
+.imagePreviewDialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.imagePreviewContent {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  max-width: 800px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.imageContainer {
+  position: relative;
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.imageContainer img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+}
+
+.imageActions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  padding: 16px 0;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.buttonIcon {
+  margin-right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.buttonIcon i {
+  font-size: 14px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.downloadButton,
+.insertButton,
+.cancelButton {
+  display: flex;
+  align-items: center;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.downloadButton {
+  background: #4f46e5;
+}
+
+.downloadButton:hover {
+  background: #4338ca;
+  transform: translateY(-1px);
+}
+
+.insertButton {
+  background: #10b981;
+}
+
+.insertButton:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.cancelButton {
+  background: #ef4444;
+}
+
+.cancelButton:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+@media (prefers-color-scheme: dark) {
+  .imagePreviewContent {
+    background: #1f2937;
+  }
+
+  .imageActions {
+    background: #111827;
+  }
+}
+
+/* 加载对话框样式 */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px;
+}
+
+.loadingSpinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #4a9eff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loadingText {
+  font-size: 16px;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.progressBar {
+  width: 200px;
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressFill {
+  width: 0;
+  height: 100%;
+  background: #4a9eff;
+  transition: width 0.3s ease;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* 图片预览对话框样式 */
+.imageOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.imageContainer:hover .imageOverlay {
+  opacity: 1;
+}
+
+.uploadToggle {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.toggleButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  color: #4a5568;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggleButton:hover {
+  background: #f8fafc;
+  border-color: #cbd5e0;
+}
+
+.toggleButtonActive {
+  background: #e0f2fe;
+  border-color: #4a9eff;
+  color: #2563eb;
+}
+
+.toggleButtonActive:hover {
+  background: #dbeafe;
+  border-color: #3b82f6;
+}
+
+.toggleIcon {
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .toggleButton {
+    background: #1e293b;
+    border-color: #334155;
+    color: #e2e8f0;
+  }
+
+  .toggleButton:hover {
+    background: #334155;
+    border-color: #475569;
+  }
+
+  .toggleButtonActive {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: #60a5fa;
+    color: #60a5fa;
+  }
+
+  .toggleButtonActive:hover {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: #3b82f6;
+  }
 }

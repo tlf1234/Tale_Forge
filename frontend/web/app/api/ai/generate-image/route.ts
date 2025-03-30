@@ -4,7 +4,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export async function POST(request: Request) {
     try {
-        const { prompt } = await request.json();
+        const { prompt, resolution, style, referenceImage } = await request.json();
 
         if (!prompt) {
             return NextResponse.json(
@@ -13,13 +13,20 @@ export async function POST(request: Request) {
             );
         }
 
+        const requestBody = {
+            prompt,
+            resolution,
+            ...(style && { style }),
+            ...(referenceImage && { referenceImage })
+        };
+
         // 调用后端 API 生成图片
         const response = await fetch(`${API_BASE_URL}/api/ai/generate-image`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ prompt }),
+            body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {

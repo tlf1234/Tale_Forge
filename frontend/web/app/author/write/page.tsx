@@ -1524,6 +1524,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
         await updateChapterList();
         setCreateStatus(CreateStatus.IDLE);
         setCreateProgress(0);
+        setShowPublishConfirm(false); // 关闭发布弹窗
         return;
       }
 
