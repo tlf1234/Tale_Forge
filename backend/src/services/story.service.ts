@@ -4,6 +4,7 @@ import { uploadToIPFS, getFromIPFS, uploadJSONToIPFS } from '../ipfs'
 import type { Story, Chapter, Prisma, StoryStatus, Illustration } from '@prisma/client'
 import { SyncStatus } from '@prisma/client'
 import { syncService } from './sync.service'
+import fs from 'fs'
 
 export class StoryService {
   /**
@@ -926,37 +927,47 @@ export class StoryService {
     }
 
     try {
-      // 将文件内容转换为 Base64
-      console.log('[插画上传] 开始处理文件内容');
-      const fileContent = file.buffer.toString('base64');
+      // 创建存储目录
+      const uploadDir = `uploads/drafts/${storyId}/${chapterId}`;
+      await fs.promises.mkdir(uploadDir, { recursive: true });
 
-      // 保存插画信息到数据库
+      // 生成文件名和路径
+      const fileName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const filePath = `${uploadDir}/${fileName}`;
+      
+      console.log('[插画上传] 保存文件到:', filePath);
+
+      // 保存文件到文件系统
+      await fs.promises.writeFile(filePath, file.buffer);
+
+      // 保存插画信息到数据库（不再存储文件内容）
       console.log('[插画上传] 开始保存到数据库');
       const illustration = await prisma.illustration.create({
         data: {
           chapterId,
-          fileContent,
           fileName: file.originalname,
           fileType: file.mimetype,
           fileSize: file.size,
+          filePath, // 新增：存储文件路径
           description: file.originalname,
-          status: 'DRAFT' // 标记为草稿状态
+          status: 'DRAFT'
         }
       });
 
       console.log('[插画上传] 保存成功:', {
         id: illustration.id,
         fileName: illustration.fileName,
-        fileSize: illustration.fileSize
+        fileSize: illustration.fileSize,
+        filePath: illustration.filePath
       });
       
-      // 返回时不包含文件内容
       return {
         id: illustration.id,
         chapterId: illustration.chapterId,
         fileName: illustration.fileName,
         fileType: illustration.fileType,
         fileSize: illustration.fileSize,
+        filePath: illustration.filePath, // 新增：返回文件路径
         description: illustration.description,
         status: illustration.status,
         imageCID: illustration.imageCID,

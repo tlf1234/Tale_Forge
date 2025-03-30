@@ -100,6 +100,7 @@ model Illustration {
   fileName    String?  // 原始文件名
   fileType    String?  // 文件类型
   fileSize    Int?     // 文件大小
+  filePath    String?  // 文件系统路径
   description String?  // 可选的描述
   status      String   @default("DRAFT") // DRAFT 或 PUBLISHED
   imageCID    String?  // IPFS CID，发布时填充

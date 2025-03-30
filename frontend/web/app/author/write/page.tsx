@@ -92,6 +92,7 @@ interface Chapter {
   publishTime?: Date;
   createdAt: Date;
   updatedAt: Date;
+  illustrations?: any[]; // Added this line
 }
 
 // 写作统计类型
@@ -115,6 +116,23 @@ interface Story {
   draftChapterCount: number;
 }
 
+// 在文件顶部添加类型定义
+interface Illustration {
+  id: string;
+  chapterId: string;
+  fileName: string;
+  fileType: string;
+  fileContent?: string;
+  fileSize: number;
+  description?: string;
+  status: string;
+  imageCID?: string;
+  createdAt: Date;
+  filePath?: string; // Added this line
+}
+
+// 在文件顶部添加后端URL常量
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // 修改IconButton的类型和实现
 const IconButton: React.FC<IconButtonProps> = ({ icon, onClick, className = '', ...props }) => (
@@ -290,7 +308,7 @@ export default function AuthorWrite() {
   
   // 章节管理
   const [chapters, setChapters] = useState<ChapterType[]>([])
-  const [currentChapter, setCurrentChapter] = useState<ChapterType | null>(null)
+  const [currentChapter, setCurrentChapter] = useState<any>(null);
   // 章节加载状态
   const [isChapterLoading, setIsChapterLoading] = useState(true);
   // 添加章节分页和折叠相关状态
@@ -305,10 +323,10 @@ export default function AuthorWrite() {
   const [isSearching, setIsSearching] = useState(false);
 
   // 简化的状态管理
-  const [content, setContent] = useState('')
-  const [isSaving, setIsSaving] = useState(false)
-  const [currentChapterId, setCurrentChapterId] = useState<string | null>(null)
-  const [hasContentChanged, setHasContentChanged] = useState(false) // 添加内容变更标记
+  const [content, setContent] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentChapterId, setCurrentChapterId] = useState<string | null>(null);
+  const [hasContentChanged, setHasContentChanged] = useState(false); // 添加内容变更标记
   
   // 界面状态
   const [showSettings, setShowSettings] = useState(false)
@@ -1285,12 +1303,14 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       // 保存当前滚动位置
       const scrollPosition = chapterListRef.current?.scrollTop;
 
-      // 先获取章节内容，成功后再更新状态
+      // 获取当前故事ID
       const storyId = localStorage.getItem('currentStoryId');
       if (!storyId) {
         throw new Error('未找到当前故事');
       }
 
+      // 获取章节内容
+      console.log('【loadChapter】开始加载章节:', chapterId);
       const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -1298,6 +1318,63 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       }
 
       const chapter = await response.json();
+      
+      // 获取章节插画
+      console.log('【loadChapter】开始加载章节插画');
+      const illustrationsResponse = await fetch(`/api/stories/${storyId}/chapters/${chapterId}/images`);
+      if (!illustrationsResponse.ok) {
+        console.error('加载插画失败:', await illustrationsResponse.text());
+      } else {
+        const illustrations = await illustrationsResponse.json();
+        console.log('【loadChapter】获取到插画数量:', illustrations.length);
+        
+        // 处理章节内容中的图片
+        let processedContent = chapter.content || '';
+        
+        // 遍历所有插画，将文件路径设置到图片src
+        if (illustrations.length > 0) {
+          // 使用 DOMParser 解析 HTML
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(processedContent, 'text/html');
+          let hasUpdates = false;
+
+          illustrations.forEach((illustration: Illustration) => {
+            if (!illustration.filePath) {
+              console.log(`【loadChapter】插画 ${illustration.id} 没有文件路径，跳过处理`);
+              return;
+            }
+            
+            // 规范化文件路径，确保只有一个 uploads 前缀
+            const normalizedPath = illustration.filePath.replace(/^uploads\//, '');
+            const imageUrl = `${API_URL}/uploads/${normalizedPath}`;
+            console.log(`【loadChapter】处理插画 ${illustration.id}, URL: ${imageUrl}`);
+            
+            // 查找对应的图片标签
+            const img = doc.querySelector(`img[data-illustration-id="${illustration.id}"]`);
+            
+            if (img) {
+              console.log(`【loadChapter】找到图片标签，更新src属性`);
+              img.setAttribute('src', imageUrl);
+              hasUpdates = true;
+            } else {
+              // 如果找不到对应的图片标签，说明这个图片可能是新上传的
+              // 我们应该保留它，但不自动添加到内容中
+              console.log(`【loadChapter】未找到插画 ${illustration.id} 对应的图片标签，这可能是一个新上传的图片`);
+            }
+          });
+
+          if (hasUpdates) {
+            // 获取更新后的 HTML 内容
+            processedContent = doc.body.innerHTML;
+            console.log('【loadChapter】更新后的内容:', processedContent);
+          }
+        }
+        
+        // 更新章节内容
+        chapter.content = processedContent;
+        chapter.illustrations = illustrations;
+      }
+
       const wordCount = calculateWordCount(chapter.content || '');
       chapter.wordCount = wordCount;
 
@@ -1309,7 +1386,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       setCurrentChapter(chapter);
       setDisplayWordCount(wordCount);
       setHasUnsavedChanges(false);
-
+      
       // 恢复滚动位置
       if (scrollPosition !== undefined && chapterListRef.current) {
         requestAnimationFrame(() => {
@@ -1635,7 +1712,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       if (!storyId) {
         throw new Error('未找到当前故事');
       }
-      
+
       // 提取内容中的临时图片URL
       const tempImages = Array.from(content.matchAll(/<img[^>]+src="(blob:[^"]+)"[^>]*>/g))
         .map(match => ({
@@ -1643,6 +1720,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
           fullMatch: match[0]
         }));
       console.log('【章节保存-图片处理】提取到的临时图片数量:', tempImages.length);
+      console.log('【章节保存-图片处理】临时图片详情:', tempImages);
 
       let processedContent = content;
       
@@ -1666,7 +1744,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
             return blob;
           })
         );
-        
+
         // 添加图片到 FormData
         console.log('【章节保存-图片处理】添加图片到FormData');
         imageBlobs.forEach((blob, index) => {
@@ -1690,26 +1768,56 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
         }
 
         const uploadedImages = await uploadResponse.json();
-        console.log('【章节保存-图片处理】上传成功，返回数据:', uploadedImages);
+        console.log('【章节保存-图片处理】上传成功，返回数据类型:', typeof uploadedImages);
+        console.log('【章节保存-图片处理】上传成功，返回数据是否为数组:', Array.isArray(uploadedImages));
+        console.log('【章节保存-图片处理】上传成功，返回数据完整结构:', JSON.stringify(uploadedImages, null, 2));
 
-        // 替换内容中的临时URL为上传后的URL
-        console.log('【章节保存-图片处理】开始替换临时URL');
+        // 确保 uploadedImages 是数组
+        const imagesArray = Array.isArray(uploadedImages) ? uploadedImages : [uploadedImages];
+        
+        // 替换内容中的临时URL为实际的文件路径
+        console.log('【章节保存-图片处理】开始替换临时URL为实际文件路径');
+        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+        
+        // 遍历所有上传的图片，替换对应的blob URL
         tempImages.forEach((tempImage, index) => {
-          const uploadedUrl = uploadedImages[index]?.url;
-          if (uploadedUrl) {
-            console.log(`【章节保存-图片处理】替换第${index + 1}个图片URL:`, {
+          console.log('【章节保存-图片处理】tempImage:', tempImage);
+          const uploadedImage = imagesArray[index]; // 使用 imagesArray 而不是 uploadedImages
+          console.log('【章节保存-图片处理】uploadedImage:', uploadedImage);
+          if (uploadedImage) {
+            const fullPath = `${BACKEND_URL}/uploads/drafts/${storyId}/${currentChapterId}/${uploadedImage.fileName}`;
+            console.log(`【章节保存-图片处理】替换第${index + 1}个图片:`, {
               from: tempImage.tempUrl,
-              to: uploadedUrl
+              to: fullPath,
+              fullMatch: tempImage.fullMatch,
+              uploadedImage
             });
-            processedContent = processedContent.replace(
-              tempImage.fullMatch,
-              tempImage.fullMatch.replace(tempImage.tempUrl, uploadedUrl)
-            );
-          } else {
-            console.warn(`【章节保存-图片处理】警告: 第${index + 1}个图片没有返回URL`);
+            console.log('【章节保存-图片处理】fullPath:', fullPath);
+
+            // 转义特殊字符
+            const escapedBlobUrl = tempImage.tempUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            console.log('【章节保存-图片处理】转义后的blob URL:', escapedBlobUrl);
+
+            // 检查内容中是否包含要替换的图片
+            const containsImage = processedContent.includes(tempImage.tempUrl);
+            console.log('【章节保存-图片处理】内容中是否包含该图片:', containsImage);
+
+            // 直接替换img标签
+            const oldImgTag = tempImage.fullMatch;
+            const newImgTag = oldImgTag
+              .replace(/src="[^"]*"/, `src="${tempImage.tempUrl}" data-src="${fullPath}"`) // 保留blob URL，添加data-src属性存储实际路径
+              .replace(/class="[^"]*"/, 'class="chapter-image editor-image"')
+              .replace(/>$/, ` data-illustration-id="${uploadedImage.id}">`);
+
+            console.log('【章节保存-图片处理】替换前的img标签:', oldImgTag);
+            console.log('【章节保存-图片处理】替换后的img标签:', newImgTag);
+
+            // 执行替换
+            processedContent = processedContent.replace(oldImgTag, newImgTag);
           }
         });
-        console.log('【章节保存-图片处理】URL替换完成');
+
+        console.log('【章节保存-图片处理】URL替换完成，处理后的内容:', processedContent);
       }
       
       // 计算字数

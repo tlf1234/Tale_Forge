@@ -2,12 +2,23 @@ import express from 'express';
 import { storyService, userService, commentService } from './services';
 import type { StoryStatus } from '@prisma/client'
 import multer from 'multer';
+import path from 'path';
 
 
 const app = express();
 // 增加请求体大小限制到 10MB
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// 配置静态文件服务
+app.use('/uploads', express.static('uploads', {
+  setHeaders: (res, path, stat) => {
+    // 设置CORS头
+    res.set('Access-Control-Allow-Origin', '*');
+    // 设置缓存控制
+    res.set('Cache-Control', 'public, max-age=31536000');
+  }
+}));
 
 // 配置multer
 const upload = multer({
