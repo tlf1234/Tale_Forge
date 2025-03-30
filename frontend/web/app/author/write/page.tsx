@@ -1500,10 +1500,6 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       console.log('【handleConfirmPublish】当前钱包地址:', address);  
       // 验证作者身份
       if (storyData.author.address !== address) {
-        console.error('【handleConfirmPublish】作者身份验证失败', {
-          storyAuthorId: storyData.authorId,
-          currentAddress: address
-        });
         throw new Error('只有作者才能发布章节');
       }
       console.log('【handleConfirmPublish】作者身份验证通过');
@@ -1512,7 +1508,6 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       if (!storyData.chainId) {
         throw new Error('故事未上链，请先在区块链上发布故事');
       }
-
       console.log('【handleConfirmPublish】故事链上 ID:', storyData.chainId);
       const storyChainId = storyData.chainId;
       if (!storyChainId || isNaN(storyChainId)) {
@@ -1727,8 +1722,6 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       // 如果有临时图片，先上传
       if (tempImages.length > 0) {
         console.log('【章节保存-图片处理】开始处理临时图片');
-        // 创建 FormData 对象
-        const formData = new FormData();
         
         // 获取每个临时图片的 Blob 数据
         console.log('【章节保存-图片处理】开始获取图片Blob数据');
@@ -1745,79 +1738,128 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
           })
         );
 
-        // 添加图片到 FormData
-        console.log('【章节保存-图片处理】添加图片到FormData');
-        imageBlobs.forEach((blob, index) => {
-          formData.append('images', blob, `image-${index}.png`);
-        });
+        // 逐个上传图片并收集结果
+        console.log('【章节保存-图片处理】开始逐个上传图片');
+        const uploadedImages: Illustration[] = [];
+        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+        
+        for (let i = 0; i < imageBlobs.length; i++) {
+          // 从img标签中提取原始文件名
+          const originalFileName = tempImages[i].fullMatch.match(/title="([^"]+)"/)?.[1] || `image-${i}.png`;
+          
+          // 为每个图片创建一个新的FormData
+          const formData = new FormData();
+          formData.append('image', imageBlobs[i], originalFileName);
+          
+          console.log(`【章节保存-图片处理】准备上传第${i + 1}张图片:`, {
+            fileName: originalFileName,
+            blobSize: imageBlobs[i].size,
+            blobType: imageBlobs[i].type
+          });
 
-        console.log('【章节保存-图片处理】storyId:', storyId);
-        // 上传图片
-        console.log('【章节保存-图片处理】开始上传图片到服务器');
-        const uploadResponse = await fetch(`/api/stories/${storyId}/chapters/${currentChapterId}/images`, {
-          method: 'POST',
-          body: formData
-        });
-
-        console.log('【章节保存-图片处理】上传响应状态:', uploadResponse.status);
-
-        if (!uploadResponse.ok) {
-          const error = await uploadResponse.json();
-          console.error('【章节保存-图片处理】上传失败:', error);
-          throw new Error('上传图片失败');
+          try {
+            const uploadUrl = `/api/stories/${storyId}/chapters/${currentChapterId}/images`;
+            console.log(`【章节保存-图片处理】上传URL:`, uploadUrl);
+            
+            // 使用Next.js API路由
+            const uploadResponse = await fetch(uploadUrl, {
+              method: 'POST',
+              body: formData
+            });
+            
+            console.log(`【章节保存-图片处理】第${i + 1}张图片上传响应:`, {
+              status: uploadResponse.status,
+              statusText: uploadResponse.statusText,
+              headers: Object.fromEntries(uploadResponse.headers.entries())
+            });
+            
+            if (!uploadResponse.ok) {
+              const errorText = await uploadResponse.text();
+              console.error(`【章节保存-图片处理】第${i + 1}张图片上传失败:`, {
+                status: uploadResponse.status,
+                statusText: uploadResponse.statusText,
+                errorText
+              });
+              try {
+                const errorJson = JSON.parse(errorText);
+                console.error('【章节保存-图片处理】错误详情:', errorJson);
+              } catch (e) {
+                // 如果不是JSON格式，已经打印了文本内容
+              }
+              continue;
+            }
+            
+            const responseText = await uploadResponse.text();
+            console.log(`【章节保存-图片处理】第${i + 1}张图片上传响应内容:`, responseText);
+            
+            try {
+              const uploadedImage = JSON.parse(responseText);
+              console.log(`【章节保存-图片处理】第${i + 1}张图片上传成功:`, uploadedImage);
+              uploadedImages.push(uploadedImage);
+            } catch (parseError) {
+              console.error(`【章节保存-图片处理】解析响应JSON失败:`, {
+                responseText,
+                error: parseError
+              });
+              continue;
+            }
+          } catch (error) {
+            console.error(`【章节保存-图片处理】第${i + 1}张图片上传出错:`, error);
+            continue;
+          }
         }
-
-        const uploadedImages = await uploadResponse.json();
-        console.log('【章节保存-图片处理】上传成功，返回数据类型:', typeof uploadedImages);
-        console.log('【章节保存-图片处理】上传成功，返回数据是否为数组:', Array.isArray(uploadedImages));
-        console.log('【章节保存-图片处理】上传成功，返回数据完整结构:', JSON.stringify(uploadedImages, null, 2));
-
-        // 确保 uploadedImages 是数组
-        const imagesArray = Array.isArray(uploadedImages) ? uploadedImages : [uploadedImages];
+        
+        console.log('【章节保存-图片处理】所有图片上传结果:', uploadedImages);
         
         // 替换内容中的临时URL为实际的文件路径
         console.log('【章节保存-图片处理】开始替换临时URL为实际文件路径');
-        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+        console.log('【章节保存-图片处理】替换前的内容:', processedContent);
         
         // 遍历所有上传的图片，替换对应的blob URL
         tempImages.forEach((tempImage, index) => {
-          console.log('【章节保存-图片处理】tempImage:', tempImage);
-          const uploadedImage = imagesArray[index]; // 使用 imagesArray 而不是 uploadedImages
-          console.log('【章节保存-图片处理】uploadedImage:', uploadedImage);
-          if (uploadedImage) {
-            const fullPath = `${BACKEND_URL}/uploads/drafts/${storyId}/${currentChapterId}/${uploadedImage.fileName}`;
-            console.log(`【章节保存-图片处理】替换第${index + 1}个图片:`, {
-              from: tempImage.tempUrl,
-              to: fullPath,
-              fullMatch: tempImage.fullMatch,
-              uploadedImage
-            });
-            console.log('【章节保存-图片处理】fullPath:', fullPath);
-
-            // 转义特殊字符
-            const escapedBlobUrl = tempImage.tempUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            console.log('【章节保存-图片处理】转义后的blob URL:', escapedBlobUrl);
-
-            // 检查内容中是否包含要替换的图片
-            const containsImage = processedContent.includes(tempImage.tempUrl);
-            console.log('【章节保存-图片处理】内容中是否包含该图片:', containsImage);
-
-            // 直接替换img标签
-            const oldImgTag = tempImage.fullMatch;
-            const newImgTag = oldImgTag
-              .replace(/src="[^"]*"/, `src="${tempImage.tempUrl}" data-src="${fullPath}"`) // 保留blob URL，添加data-src属性存储实际路径
-              .replace(/class="[^"]*"/, 'class="chapter-image editor-image"')
-              .replace(/>$/, ` data-illustration-id="${uploadedImage.id}">`);
-
-            console.log('【章节保存-图片处理】替换前的img标签:', oldImgTag);
-            console.log('【章节保存-图片处理】替换后的img标签:', newImgTag);
-
-            // 执行替换
-            processedContent = processedContent.replace(oldImgTag, newImgTag);
+          const uploadedImage = uploadedImages[index];
+          console.log('【章节保存-图片处理】上传的图片:', uploadedImage);
+          if (!uploadedImage) {
+            console.log(`【章节保存-图片处理】第${index + 1}张图片上传失败或未上传，跳过替换`);
+            return;
+          }
+          
+          // 构建实际的图片路径
+          const imagePath = uploadedImage.filePath || `${BACKEND_URL}/uploads/drafts/${storyId}/${currentChapterId}/${uploadedImage.fileName}`;
+            
+          console.log(`【章节保存-图片处理】处理第${index + 1}张图片:`, {
+            tempUrl: tempImage.tempUrl,
+            newPath: imagePath,
+            fileName: uploadedImage.fileName,
+            filePath: uploadedImage.filePath
+          });
+          
+          // 使用正则表达式替换图片src
+          const regex = new RegExp(`src="${tempImage.tempUrl}"`, 'g');
+          console.log(`【章节保存-图片处理】使用的正则表达式:`, regex);
+          
+          const beforeReplace = processedContent;
+          processedContent = processedContent.replace(regex, `src="${imagePath}"`);
+          
+          // 检查是否成功替换
+          const isReplaced = beforeReplace !== processedContent;
+          console.log(`【章节保存-图片处理】第${index + 1}张图片替换结果:`, {
+            success: isReplaced,
+            beforeLength: beforeReplace.length,
+            afterLength: processedContent.length
+          });
+          
+          if (!isReplaced) {
+            console.log(`【章节保存-图片处理】警告：第${index + 1}张图片未能成功替换，可能是找不到匹配的URL`);
           }
         });
-
-        console.log('【章节保存-图片处理】URL替换完成，处理后的内容:', processedContent);
+        
+        console.log('【章节保存-图片处理】URL替换完成');
+        console.log('【章节保存-图片处理】替换后的内容:', processedContent);
+        console.log('【章节保存-图片处理】内容长度变化:', {
+          before: content.length,
+          after: processedContent.length
+        });
       }
       
       // 计算字数
@@ -1832,7 +1874,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          content: processedContent,
+          content: processedContent, // 使用处理后的内容
           title: currentChapter?.title,
           wordCount // 添加字数
         }),

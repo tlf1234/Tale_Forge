@@ -11,7 +11,7 @@ export async function POST(
   try {
     // 获取上传的文件
     const formData = await request.formData();
-    const files = formData.getAll('images');
+    const files = formData.getAll('image');
     console.log('[插画上传-前端路由] 获取到的文件数量:', files.length);
     
     if (!files.length) {
