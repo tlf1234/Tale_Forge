@@ -101,6 +101,19 @@
   word-wrap: break-word;
 }
 
+/* 图片基础样式 */
+.contentWrapper :global(img) {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 居中段落中的图片 */
+.contentWrapper :global([style*="text-align: center"]) img {
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
+
 /* 保持编辑器的原始格式 */
 .content :global(.editor-paragraph) {
   margin: 1em 0;
@@ -109,17 +122,22 @@
 }
 
 /* 保持段落的缩进和对齐 */
-.content :global([style*="text-align: center"]) {
+.contentWrapper :global([style*="text-align: center"]) {
   text-align: center !important;
   text-indent: 0 !important;
 }
 
-.content :global([style*="text-align: right"]) {
+.contentWrapper :global([style*="text-align: right"]) {
   text-align: right !important;
   text-indent: 0 !important;
 }
 
-.content :global([style*="text-indent"]) {
+.contentWrapper :global([style*="text-align: left"]) {
+  text-align: left !important;
+  text-indent: 0 !important;
+}
+
+.contentWrapper :global([style*="text-indent"]) {
   text-indent: 2em !important;
 }
 
