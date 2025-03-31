@@ -41,6 +41,7 @@ Thumbs.db
 
 # Prisma
 .prisma
+backend/prisma/migrations
 
 # Next.js
 .next

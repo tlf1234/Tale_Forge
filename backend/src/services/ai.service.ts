@@ -145,6 +145,52 @@ export class AIService {
         referenceImage?: string
     ): Promise<{ success: boolean; imageUrl: string }> {
         try {
+
+            // 如果有参考图片，使用新的图片生成方式
+            if (referenceImage) {
+                try {
+                    const response = await fetch("https://api.laozhang.ai/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${process.env.LAOZHANG_API_KEY}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            model: "gemini-2.0-flash-exp-image-generation",
+                            messages: [
+                                {
+                                    role: "user",
+                                    content: [
+                                        {
+                                            type: "text",
+                                            text: prompt
+                                        },
+                                        {
+                                            type: "image_url",
+                                            image_url: {
+                                                url: `data:image/png;base64,${referenceImage}`
+                                            }
+                                        }
+                                    ]
+                                }
+                            ],
+                            modalities: ["text", "image"],
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.choices && result.choices[0].message.content) {
+                        const match = result.choices[0].message.content.match(/\((https?:\/\/[^\)]+)\)/);
+                        if (match && match[1]) {
+                            return { success: true, imageUrl: match[1] };
+                        }
+                    }
+                } catch (error) {
+                    console.error('使用参考图片生成失败，切换到默认方式:', error);
+                }
+            }
+
             let enhancedPrompt = prompt;
 
             console.log('【AI 生成图片】升级提示词');
@@ -153,10 +199,9 @@ export class AIService {
                     {
                         role: "system",
                         content: `你是一个提示词专家，请根据用户的输入，生成一个中文的提示词，要求：
-                            1. 将用户的输入重新排序进行优化；
+                            1. 将用户的输入重新排序进行优化，以这样的形式：风格描述 + 关键人物主体 + 人物具体的五官/表情/行为/动作/姿态等 + 人物的服饰 + 人物所在场景/背景 + 整体环境氛围 + 镜头取景方式；
                             2. 提示词要能够准确描述图片的内容；
-                            3. 不要加入手指描写；
-                            4. 不要加入引号；
+                            3. 不要加入引号；
                             直接返回新的提示词`
                     },
                     {
@@ -173,11 +218,10 @@ export class AIService {
             enhancedPrompt = completion.choices[0].message.content || prompt;
             console.log('【AI 生成图片】新的提示词:', enhancedPrompt);
 
-
+            // 如果没有参考图片或使用参考图片失败，使用原有的腾讯混元方式
             const imageParams = {
                 "Prompt": enhancedPrompt,
                 "Resolution": resolution,
-                "ContentImage": referenceImage ? { "ImageBase64": referenceImage } : undefined,
                 "LogoAdd": 0,
                 ...(style && style.trim() && { "Style": style })
             };

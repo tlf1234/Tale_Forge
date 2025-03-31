@@ -48,7 +48,6 @@ import { TiptapEditorProps } from './types'
 import AIImageGenerator from '../common/AIImageGenerator'
 import { toast } from 'react-hot-toast'
 
-// 添加自定义字体大小扩展
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     fontSize: {
@@ -57,7 +56,6 @@ declare module '@tiptap/core' {
   }
 }
 
-// 添加自定义缩进扩展
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     indent: {
@@ -169,7 +167,6 @@ const AIPromptModal = ({ onClose, onSubmit, initialValue = '' }: {
   };
 
   const handleImageUpload = (file: File) => {
-    // 检查文件类型
     if (!file.type.startsWith('image/')) {
       toast.error('请上传图片文件');
       return;
@@ -186,15 +183,12 @@ const AIPromptModal = ({ onClose, onSubmit, initialValue = '' }: {
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          // 创建canvas进行图片压缩
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
           
-          // 设置最大尺寸
           const MAX_WIDTH = 800;
           const MAX_HEIGHT = 800;
           
-          // 计算压缩后的尺寸，保持宽高比
           let width = img.width;
           let height = img.height;
           
@@ -210,21 +204,16 @@ const AIPromptModal = ({ onClose, onSubmit, initialValue = '' }: {
             }
           }
           
-          // 设置canvas尺寸
           canvas.width = width;
           canvas.height = height;
           
-          // 使用双线性插值算法进行缩放
           if (ctx) {
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
             ctx.drawImage(img, 0, 0, width, height);
             
-            // 转换为base64，使用JPEG格式和80%的质量压缩
             const base64String = canvas.toDataURL('image/jpeg', 0.8);
-            // 提取base64数据部分（移除data:image/jpeg;base64,前缀）
             const base64Data = base64String.split(',')[1];
-            // 确保base64数据是有效的
             if (!base64Data || !/^[A-Za-z0-9+/=]+$/.test(base64Data)) {
               throw new Error('Invalid base64 data');
             }
@@ -265,13 +254,13 @@ const AIPromptModal = ({ onClose, onSubmit, initialValue = '' }: {
   };
 
   const styleOptions = [
-    { value: 'riman', label: '日漫动画' },
-    { value: '3dxuanran', label: '3D渲染' },
-    { value: 'bianping', label: '扁平插画' },
-    { value: 'xiangsu', label: '像素插画' },
     { value: 'manhua', label: '漫画' },
     { value: 'xieshi', label: '写实' },
     { value: 'dongman', label: '动漫' },
+    { value: '3dxuanran', label: '3D渲染' },
+    { value: 'riman', label: '日漫动画' },
+    { value: 'bianping', label: '扁平插画' },
+    { value: 'xiangsu', label: '像素插画' },
     { value: 'saibopengke', label: '赛博朋克' },
   ];
 
@@ -497,7 +486,6 @@ const MenuBar = memo(({ editor, onImageClick, onSave }: { editor: Editor | null,
     event.target.value = '';
   }, [editor]);
 
-  // 添加插入缩进的函数
   const insertIndent = useCallback(() => {
     if (!editor) return;
     console.log('通过按钮插入缩进');
@@ -543,7 +531,6 @@ const MenuBar = memo(({ editor, onImageClick, onSave }: { editor: Editor | null,
     let loadingDialog: HTMLDivElement | undefined;
     
     try {
-      // 创建加载对话框
       loadingDialog = document.createElement('div');
       loadingDialog.className = styles.imagePreviewDialog;
       loadingDialog.innerHTML = `
@@ -559,7 +546,6 @@ const MenuBar = memo(({ editor, onImageClick, onSave }: { editor: Editor | null,
       `;
       document.body.appendChild(loadingDialog);
 
-      // 模拟进度更新
       let progress = 0;
       progressInterval = setInterval(() => {
         progress += 5;
@@ -585,7 +571,6 @@ const MenuBar = memo(({ editor, onImageClick, onSave }: { editor: Editor | null,
       });
 
       if (!response.ok) {
-        // 清除加载对话框
         clearInterval(progressInterval);
         document.body.removeChild(loadingDialog);
         throw new Error('生成图片失败');
@@ -593,28 +578,90 @@ const MenuBar = memo(({ editor, onImageClick, onSave }: { editor: Editor | null,
 
       const { imageUrl } = await response.json();
 
-      // 清除加载对话框
+      const imgLoader = new Image();
+      imgLoader.src = imageUrl;
+
+      await new Promise((resolve, reject) => {
+        imgLoader.onload = resolve;
+        imgLoader.onerror = reject;
+      });
+
       clearInterval(progressInterval);
       document.body.removeChild(loadingDialog);
 
-      // 创建预览对话框
       const previewDialog = document.createElement('div');
       previewDialog.className = styles.imagePreviewDialog;
       previewDialog.innerHTML = `
         <div class="${styles.imagePreviewContent}">
-          <div class="${styles.imageContainer}">
-            <img src="${imageUrl}" alt="${prompt}" />
+          <div class="${styles.imageContainer}" style="
+            width: 100%;
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin-bottom: 20px;
+          ">
+            <img src="${imageUrl}" alt="${prompt}" style="
+              max-width: 100%;
+              max-height: 70vh;
+              object-fit: contain;
+              border-radius: 4px;
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            " />
           </div>
-          <div class="${styles.imageActions}">
-            <button class="${styles.downloadButton}">
+          <div class="${styles.imageActions}" style="
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 20px;
+          ">
+            <button class="${styles.downloadButton}" style="
+              padding: 8px 16px;
+              background: #4CAF50;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              transition: background 0.2s;
+            ">
               <span class="${styles.buttonIcon}"><i class="fas fa-download"></i></span>
               下载图片
             </button>
-            <button class="${styles.insertButton}">
+            <button class="${styles.insertButton}" style="
+              padding: 8px 16px;
+              background: #2196F3;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              transition: background 0.2s;
+            ">
               <span class="${styles.buttonIcon}"><i class="fas fa-edit"></i></span>
               插入到编辑器
             </button>
-            <button class="${styles.cancelButton}">
+            <button class="${styles.cancelButton}" style="
+              padding: 8px 16px;
+              background: #f44336;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              transition: background 0.2s;
+            ">
               <span class="${styles.buttonIcon}"><i class="fas fa-times"></i></span>
               取消
             </button>
@@ -622,14 +669,8 @@ const MenuBar = memo(({ editor, onImageClick, onSave }: { editor: Editor | null,
         </div>
       `;
 
-      // 添加事件监听器
       previewDialog.querySelector(`.${styles.downloadButton}`)?.addEventListener('click', () => {
-        const link = document.createElement('a');
-        link.href = imageUrl;
-        link.download = `ai-generated-${Date.now()}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        window.open(imageUrl, '_blank');
       });
 
       previewDialog.querySelector(`.${styles.insertButton}`)?.addEventListener('click', () => {
@@ -643,6 +684,16 @@ const MenuBar = memo(({ editor, onImageClick, onSave }: { editor: Editor | null,
 
       previewDialog.querySelector(`.${styles.cancelButton}`)?.addEventListener('click', () => {
         document.body.removeChild(previewDialog);
+      });
+
+      const buttons = previewDialog.querySelectorAll('button');
+      buttons.forEach(button => {
+        button.addEventListener('mouseover', () => {
+          button.style.opacity = '0.9';
+        });
+        button.addEventListener('mouseout', () => {
+          button.style.opacity = '1';
+        });
       });
 
       document.body.appendChild(previewDialog);
@@ -896,7 +947,6 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
     return false;
   }, []);
   
-  // 创建编辑器实例
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -962,14 +1012,12 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
     },
   })
 
-  // 监听 editable 属性变化
   useEffect(() => {
     if (editor) {
       editor.setEditable(editable)
     }
   }, [editor, editable])
 
-  // 监听 initialContent 变化
   useEffect(() => {
     if (editor && initialContent !== editor.getHTML()) {
       console.log('更新编辑器内容:', initialContent)

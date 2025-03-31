@@ -29,7 +29,6 @@ export default function AgentChat() {
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>('')
   const messageListRef = useRef<HTMLDivElement>(null)
 
-  // 使用本地头像
   const userAvatarUrl = '/images/avatars/user.jpeg'
   const assistantAvatarUrl = '/images/avatars/assistant.webp'
 
@@ -61,7 +60,6 @@ export default function AgentChat() {
     }
   }
 
-  // 监听消息列表变化
   useEffect(() => {
     scrollToBottom()
   }, [messages, isLoading])

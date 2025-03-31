@@ -143,7 +143,6 @@ export async function PUT(
     let updates;
     try {
       updates = await request.json();
-      console.log('【PUT】更新章节请求体:', updates);
     } catch (parseError) {
       console.error('解析请求体失败:', parseError);
       return NextResponse.json(
