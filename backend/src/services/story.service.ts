@@ -666,8 +666,7 @@ export class StoryService {
     });
 
     console.log(`[getChapterStats] DRAFT 章节数: ${draftCount}`);
-    console.log(`[getChapterStats] UNDERREVIEW 章节数: ${underreviewCount}`);
-    console.log(`[getChapterStats] 统计结果: 总计=${totalCount}, 已发布=${publishedCount}, 草稿=${draftCount}，审核中=${underreviewCount}`);
+    console.log(`[getChapterStats] 统计结果: 总计=${totalCount}, 已发布=${publishedCount}, 草稿=${draftCount}`);
 
     // 检查数据一致性
     if (publishedCount + draftCount + underreviewCount !== totalCount) {

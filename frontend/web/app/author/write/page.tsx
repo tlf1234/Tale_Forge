@@ -3540,6 +3540,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
               <div className={styles.warningSection}>
                 <ul className={styles.warningList}>
                   <li>发布到章节内容需经过审核</li>
+                  <li>发布到章节内容需经过审核</li>
                   <li>发布后章节内容将无法修改</li>
                   <li>发布操作需要支付gas费用</li>
                   <li>请确保章节内容已经完善</li>
