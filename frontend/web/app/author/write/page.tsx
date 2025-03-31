@@ -1,5 +1,4 @@
 'use client'
-
 import { useState, useRef, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter, usePathname } from 'next/navigation'
@@ -93,6 +92,7 @@ interface Chapter {
   publishTime?: Date;
   createdAt: Date;
   updatedAt: Date;
+  illustrations?: any[]; // Added this line
 }
 
 // 写作统计类型
@@ -116,6 +116,24 @@ interface Story {
   draftChapterCount: number;
 }
 
+// 在文件顶部添加类型定义
+interface Illustration {
+  id: string;
+  chapterId: string;
+  fileName: string;
+  fileType: string;
+  fileContent?: string;
+  fileSize: number;
+  description?: string;
+  status: string;
+  imageCID?: string;
+  createdAt: Date;
+  filePath?: string; // Added this line
+}
+
+
+// 在文件顶部添加后端URL常量
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // 修改IconButton的类型和实现
 const IconButton: React.FC<IconButtonProps> = ({ icon, onClick, className = '', ...props }) => (
@@ -292,7 +310,7 @@ export default function AuthorWrite() {
   
   // 章节管理
   const [chapters, setChapters] = useState<ChapterType[]>([])
-  const [currentChapter, setCurrentChapter] = useState<ChapterType | null>(null)
+  const [currentChapter, setCurrentChapter] = useState<any>(null);
   // 章节加载状态
   const [isChapterLoading, setIsChapterLoading] = useState(true);
   // 添加章节分页和折叠相关状态
@@ -307,10 +325,10 @@ export default function AuthorWrite() {
   const [isSearching, setIsSearching] = useState(false);
 
   // 简化的状态管理
-  const [content, setContent] = useState('')
-  const [isSaving, setIsSaving] = useState(false)
-  const [currentChapterId, setCurrentChapterId] = useState<string | null>(null)
-  const [hasContentChanged, setHasContentChanged] = useState(false) // 添加内容变更标记
+  const [content, setContent] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentChapterId, setCurrentChapterId] = useState<string | null>(null);
+  const [hasContentChanged, setHasContentChanged] = useState(false); // 添加内容变更标记
   
   // 界面状态
   const [showSettings, setShowSettings] = useState(false)
@@ -1287,12 +1305,14 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       // 保存当前滚动位置
       const scrollPosition = chapterListRef.current?.scrollTop;
 
-      // 先获取章节内容，成功后再更新状态
+      // 获取当前故事ID
       const storyId = localStorage.getItem('currentStoryId');
       if (!storyId) {
         throw new Error('未找到当前故事');
       }
 
+      // 获取章节内容
+      console.log('【loadChapter】开始加载章节:', chapterId);
       const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -1300,6 +1320,63 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       }
 
       const chapter = await response.json();
+      
+      // 获取章节插画
+      console.log('【loadChapter】开始加载章节插画');
+      const illustrationsResponse = await fetch(`/api/stories/${storyId}/chapters/${chapterId}/images`);
+      if (!illustrationsResponse.ok) {
+        console.error('加载插画失败:', await illustrationsResponse.text());
+      } else {
+        const illustrations = await illustrationsResponse.json();
+        console.log('【loadChapter】获取到插画数量:', illustrations.length);
+        
+        // 处理章节内容中的图片
+        let processedContent = chapter.content || '';
+        
+        // 遍历所有插画，将文件路径设置到图片src
+        if (illustrations.length > 0) {
+          // 使用 DOMParser 解析 HTML
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(processedContent, 'text/html');
+          let hasUpdates = false;
+
+          illustrations.forEach((illustration: Illustration) => {
+            if (!illustration.filePath) {
+              console.log(`【loadChapter】插画 ${illustration.id} 没有文件路径，跳过处理`);
+              return;
+            }
+            
+            // 规范化文件路径，确保只有一个 uploads 前缀
+            const normalizedPath = illustration.filePath.replace(/^uploads\//, '');
+            const imageUrl = `${API_URL}/uploads/${normalizedPath}`;
+            console.log(`【loadChapter】处理插画 ${illustration.id}, URL: ${imageUrl}`);
+            
+            // 查找对应的图片标签
+            const img = doc.querySelector(`img[data-illustration-id="${illustration.id}"]`);
+            
+            if (img) {
+              console.log(`【loadChapter】找到图片标签，更新src属性`);
+              img.setAttribute('src', imageUrl);
+              hasUpdates = true;
+            } else {
+              // 如果找不到对应的图片标签，说明这个图片可能是新上传的
+              // 我们应该保留它，但不自动添加到内容中
+              console.log(`【loadChapter】未找到插画 ${illustration.id} 对应的图片标签，这可能是一个新上传的图片`);
+            }
+          });
+
+          if (hasUpdates) {
+            // 获取更新后的 HTML 内容
+            processedContent = doc.body.innerHTML;
+            console.log('【loadChapter】更新后的内容:', processedContent);
+          }
+        }
+        
+        // 更新章节内容
+        chapter.content = processedContent;
+        chapter.illustrations = illustrations;
+      }
+
       const wordCount = calculateWordCount(chapter.content || '');
       chapter.wordCount = wordCount;
 
@@ -1311,7 +1388,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       setCurrentChapter(chapter);
       setDisplayWordCount(wordCount);
       setHasUnsavedChanges(false);
-
+      
       // 恢复滚动位置
       if (scrollPosition !== undefined && chapterListRef.current) {
         requestAnimationFrame(() => {
@@ -1456,10 +1533,6 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       console.log('【handleConfirmPublish】当前钱包地址:', address);  
       // 验证作者身份
       if (storyData.author.address !== address) {
-        console.error('【handleConfirmPublish】作者身份验证失败', {
-          storyAuthorId: storyData.authorId,
-          currentAddress: address
-        });
         throw new Error('只有作者才能发布章节');
       }
       console.log('【handleConfirmPublish】作者身份验证通过');
@@ -1468,7 +1541,6 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       if (!storyData.chainId) {
         throw new Error('故事未上链，请先在区块链上发布故事');
       }
-
       console.log('【handleConfirmPublish】故事链上 ID:', storyData.chainId);
       const storyChainId = storyData.chainId;
       if (!storyChainId || isNaN(storyChainId)) {
@@ -1709,15 +1781,170 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
     try {
       // 获取当前故事ID
       const storyId = localStorage.getItem('currentStoryId');
+      console.log('【handleSave】当前故事ID:', storyId);
       if (!storyId) {
         throw new Error('未找到当前故事');
       }
+
+      // 提取内容中的临时图片URL
+      const tempImages = Array.from(content.matchAll(/<img[^>]+src="(blob:[^"]+)"[^>]*>/g))
+        .map(match => ({
+          tempUrl: match[1],
+          fullMatch: match[0]
+        }));
+      console.log('【章节保存-图片处理】提取到的临时图片数量:', tempImages.length);
+      console.log('【章节保存-图片处理】临时图片详情:', tempImages);
+
+      let processedContent = content;
+      
+      // 如果有临时图片，先上传
+      if (tempImages.length > 0) {
+        console.log('【章节保存-图片处理】开始处理临时图片');
+        
+        // 获取每个临时图片的 Blob 数据
+        console.log('【章节保存-图片处理】开始获取图片Blob数据');
+        const imageBlobs = await Promise.all(
+          tempImages.map(async ({ tempUrl }, index) => {
+            console.log(`【章节保存-图片处理】获取第${index + 1}个图片的Blob数据:`, tempUrl);
+            const response = await fetch(tempUrl);
+            const blob = await response.blob();
+            console.log(`【章节保存-图片处理】第${index + 1}个图片Blob数据:`, {
+              size: blob.size,
+              type: blob.type
+            });
+            return blob;
+          })
+        );
+
+        // 逐个上传图片并收集结果
+        console.log('【章节保存-图片处理】开始逐个上传图片');
+        const uploadedImages: Illustration[] = [];
+        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+        
+        for (let i = 0; i < imageBlobs.length; i++) {
+          // 从img标签中提取原始文件名
+          const originalFileName = tempImages[i].fullMatch.match(/title="([^"]+)"/)?.[1] || `image-${i}.png`;
+          
+          // 为每个图片创建一个新的FormData
+          const formData = new FormData();
+          formData.append('image', imageBlobs[i], originalFileName);
+          
+          console.log(`【章节保存-图片处理】准备上传第${i + 1}张图片:`, {
+            fileName: originalFileName,
+            blobSize: imageBlobs[i].size,
+            blobType: imageBlobs[i].type
+          });
+
+          try {
+            const uploadUrl = `/api/stories/${storyId}/chapters/${currentChapterId}/images`;
+            console.log(`【章节保存-图片处理】上传URL:`, uploadUrl);
+            
+            // 使用Next.js API路由
+            const uploadResponse = await fetch(uploadUrl, {
+              method: 'POST',
+              body: formData
+            });
+            
+            console.log(`【章节保存-图片处理】第${i + 1}张图片上传响应:`, {
+              status: uploadResponse.status,
+              statusText: uploadResponse.statusText,
+              headers: Object.fromEntries(uploadResponse.headers.entries())
+            });
+            
+            if (!uploadResponse.ok) {
+              const errorText = await uploadResponse.text();
+              console.error(`【章节保存-图片处理】第${i + 1}张图片上传失败:`, {
+                status: uploadResponse.status,
+                statusText: uploadResponse.statusText,
+                errorText
+              });
+              try {
+                const errorJson = JSON.parse(errorText);
+                console.error('【章节保存-图片处理】错误详情:', errorJson);
+              } catch (e) {
+                // 如果不是JSON格式，已经打印了文本内容
+              }
+              continue;
+            }
+            
+            const responseText = await uploadResponse.text();
+            console.log(`【章节保存-图片处理】第${i + 1}张图片上传响应内容:`, responseText);
+            
+            try {
+              const uploadedImage = JSON.parse(responseText);
+              console.log(`【章节保存-图片处理】第${i + 1}张图片上传成功:`, uploadedImage);
+              uploadedImages.push(uploadedImage);
+            } catch (parseError) {
+              console.error(`【章节保存-图片处理】解析响应JSON失败:`, {
+                responseText,
+                error: parseError
+              });
+              continue;
+            }
+          } catch (error) {
+            console.error(`【章节保存-图片处理】第${i + 1}张图片上传出错:`, error);
+            continue;
+          }
+        }
+        
+        console.log('【章节保存-图片处理】所有图片上传结果:', uploadedImages);
+        
+        // 替换内容中的临时URL为实际的文件路径
+        console.log('【章节保存-图片处理】开始替换临时URL为实际文件路径');
+        console.log('【章节保存-图片处理】替换前的内容:', processedContent);
+        
+        // 遍历所有上传的图片，替换对应的blob URL
+        tempImages.forEach((tempImage, index) => {
+          const uploadedImage = uploadedImages[index];
+          console.log('【章节保存-图片处理】上传的图片:', uploadedImage);
+          if (!uploadedImage) {
+            console.log(`【章节保存-图片处理】第${index + 1}张图片上传失败或未上传，跳过替换`);
+            return;
+          }
+          
+          // 构建实际的图片路径
+          const imagePath = uploadedImage.filePath || `${BACKEND_URL}/uploads/drafts/${storyId}/${currentChapterId}/${uploadedImage.fileName}`;
+            
+          console.log(`【章节保存-图片处理】处理第${index + 1}张图片:`, {
+            tempUrl: tempImage.tempUrl,
+            newPath: imagePath,
+            fileName: uploadedImage.fileName,
+            filePath: uploadedImage.filePath
+          });
+          
+          // 使用正则表达式替换图片src
+          const regex = new RegExp(`src="${tempImage.tempUrl}"`, 'g');
+          console.log(`【章节保存-图片处理】使用的正则表达式:`, regex);
+          
+          const beforeReplace = processedContent;
+          processedContent = processedContent.replace(regex, `src="${imagePath}"`);
+          
+          // 检查是否成功替换
+          const isReplaced = beforeReplace !== processedContent;
+          console.log(`【章节保存-图片处理】第${index + 1}张图片替换结果:`, {
+            success: isReplaced,
+            beforeLength: beforeReplace.length,
+            afterLength: processedContent.length
+          });
+          
+          if (!isReplaced) {
+            console.log(`【章节保存-图片处理】警告：第${index + 1}张图片未能成功替换，可能是找不到匹配的URL`);
+          }
+        });
+        
+        console.log('【章节保存-图片处理】URL替换完成');
+        console.log('【章节保存-图片处理】替换后的内容:', processedContent);
+        console.log('【章节保存-图片处理】内容长度变化:', {
+          before: content.length,
+          after: processedContent.length
+        });
+      }
       
       // 计算字数
-      const wordCount = calculateWordCount(content);
+      const wordCount = calculateWordCount(processedContent);
       console.log('【handleSave】字数:', wordCount);
       
-      // 使用正确的API路径
+      // 保存章节内容
       console.log('【handleSave】开始发送保存请求');
       const saveResponse = await fetch(`/api/stories/${storyId}/chapters/${currentChapterId}`, {
         method: 'PUT',
@@ -1725,7 +1952,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          content: content,
+          content: processedContent, // 使用处理后的内容
           title: currentChapter?.title,
           wordCount // 添加字数
         }),
@@ -1742,6 +1969,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       
       // 更新当前章节
       setCurrentChapter(savedChapter);
+      setContent(processedContent);
       
       // 更新章节列表中的字数
       setChapters(prevChapters => 
@@ -1766,7 +1994,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
         );
       }
       
-      setLastSavedContent(content);
+      setLastSavedContent(processedContent);
       setHasUnsavedChanges(false);
       setDisplayWordCount(wordCount); // 更新显示的字数
       
@@ -2063,62 +2291,60 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
     setShowOutlineDialog(false)
   }
 
-
   /**
    * 编辑框工具栏
-   *  
   */
 
   // 编辑框工具栏
   const renderToolbar = () => (
   <div className={styles.toolbar}>
-  <div className={styles.toolbarLeft}>
-    <button
-      className={`${styles.iconButton} ${showChapters ? styles.active : ''}`}
-      onClick={toggleChapters}
-      title="章节管理"
-    >
-      <FaList />
-    </button>
-    <button
-      className={`${styles.iconButton} ${showSettings ? styles.active : ''}`}
-      onClick={toggleSettings}
-      title="作品创建"
-    >
-      <FaPlus />
-    </button>
-    {/* 这个本意是按钮触发作品章节显示弹窗，以显示更多内容，但是设计上还没有确定，先放一放 */}
-    {/* <button
-      className={`${styles.iconButton}`}
-      onClick={handleShowStorySelector}
-      title="我的作品"
-      style={{ marginLeft: '12px' }}
-    >
-      <FaBook />
-    </button> */}
-  </div>
+    <div className={styles.toolbarLeft}>
+      <button
+        className={`${styles.iconButton} ${showChapters ? styles.active : ''}`}
+        onClick={toggleChapters}
+        title="章节管理"
+      >
+        <FaList />
+      </button>
+      <button
+        className={`${styles.iconButton} ${showSettings ? styles.active : ''}`}
+        onClick={toggleSettings}
+        title="作品创建"
+      >
+        <FaPlus />
+      </button>
+      {/* 这个本意是按钮触发作品章节显示弹窗，以显示更多内容，但是设计上还没有确定，先放一放 */}
+      {/* <button
+        className={`${styles.iconButton}`}
+        onClick={handleShowStorySelector}
+        title="我的作品"
+        style={{ marginLeft: '12px' }}
+      >
+        <FaBook />
+      </button> */}
+    </div>
 
-  <div className={styles.toolbarCenter}>
-    <div className={styles.writingStats}>
-      {currentStory && (
-        <div className={styles.currentStoryInfo}>
-          <span className={styles.storyTitle}>{currentStory.title}</span>
-          {currentChapter && (
-            <>
-              <span className={styles.divider}>|</span>
-              <span className={styles.chapterTitle}>{currentChapter.title}</span>
-              <span className={styles.divider}>|</span>
-              <span className={styles.wordCount}>{displayWordCount} 字</span>
-            </>
-          )}
+    <div className={styles.toolbarCenter}>
+      <div className={styles.writingStats}>
+        {currentStory && (
+          <div className={styles.currentStoryInfo}>
+            <span className={styles.storyTitle}>{currentStory.title}</span>
+            {currentChapter && (
+              <>
+                <span className={styles.divider}>|</span>
+                <span className={styles.chapterTitle}>{currentChapter.title}</span>
+                <span className={styles.divider}>|</span>
+                <span className={styles.wordCount}>{displayWordCount} 字</span>
+              </>
+            )}
+          </div>
+        )}
+        <div className={styles.writingStatsRight}>
+          <span>写作时长: {formatTime(totalWritingTime)}</span>
+          <span>目标字数: {wordCountGoal}</span>
         </div>
-      )}
-      <div className={styles.writingStatsRight}>
-        <span>写作时长: {formatTime(totalWritingTime)}</span>
-        <span>目标字数: {wordCountGoal}</span>
       </div>
     </div>
-  </div>
 
   <div className={styles.toolbarRight}>
     <button
@@ -2145,12 +2371,33 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
           }
         }}
         disabled={isSaving || currentChapter?.status?.toLowerCase() === 'published'}
+
       >
-        <FaSave />
-        {isSaving ? '保存中...' : '保存'}
+      {isPreview ? <FaEye className={styles.icon} /> : <FaEyeSlash className={styles.icon} />}
       </button>
-    )}
-  </div>
+      {currentChapter?.status?.toLowerCase() === 'published' ? (
+        <div className={styles.publishedHint}>
+          <FaCheck />
+          已发布
+        </div>
+      ) : (
+        <button
+          className={`${styles.primaryButton} ${hasContentChanged ? styles.hasChanges : ''} ${isSaving ? styles.saving : ''}`}
+          onClick={async () => {
+            try {
+              const result = await handleSave();
+              console.log('【保存按钮】保存结果:', result);
+            } catch (error) {
+              console.error('【保存按钮】保存出错:', error);
+            }
+          }}
+          disabled={isSaving || currentChapter?.status?.toLowerCase() === 'published'}
+        >
+          <FaSave />
+          {isSaving ? '保存中...' : '保存'}
+        </button>
+      )}
+    </div>
   </div>
   )
 
@@ -2258,7 +2505,6 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   // 计算写作统计的 useEffect
   // useEffect(() => {
   //   if (!currentChapter) return
-
   //   const wordCount = content.length // 使用 content 而不是 currentChapter.content
   //   const now = new Date()
   //   const duration = (now.getTime() - writingStats.lastSaved.getTime()) / 1000 / 60
@@ -2271,7 +2517,6 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   //     writingDuration: duration,
   //     lastSaved: now
   //   }
-
   //   if (JSON.stringify(newStats) !== JSON.stringify(writingStats)) {
   //     setWritingStats(newStats)
   //   }
@@ -2363,7 +2608,6 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   }, [content]); // 只在 content 变化时更新
 
   
-
   /*
     页面渲染
   */

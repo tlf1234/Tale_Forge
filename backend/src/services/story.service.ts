@@ -1,9 +1,11 @@
 import { ethers } from 'ethers'
 import prisma from '../prisma'
 import { uploadToIPFS, getFromIPFS, uploadJSONToIPFS } from '../ipfs'
-import type { Story, Chapter, Prisma, StoryStatus } from '@prisma/client'
+import type { Story, Chapter, Prisma, StoryStatus, Illustration } from '@prisma/client'
 import { SyncStatus } from '@prisma/client'
 import { syncService } from './sync.service'
+import fs from 'fs'
+import path from 'path'
 
 export class StoryService {
   /**
@@ -476,21 +478,20 @@ export class StoryService {
     const chapter = await prisma.chapter.findUnique({
       where: { id },
       include: {
-        story: true
+        story: true,
+        illustrations: {
+          select: {
+            id: true,
+            filePath: true,
+            imageCID: true
+          }
+        }
       }
-    })
+    });
 
     if (!chapter) {
       throw new Error('章节不存在')
     }
-
-    // console.log('【publishChapter】作者地址:', authorAddress);
-    // console.log('【publishChapter】chapter.story.authorId', chapter.story.authorId);
-
-    // // 验证作者身份
-    // if (chapter.story.authorId !== authorAddress) {
-    //   throw new Error('只有作者才能发布章节')
-    // }
 
     // 获取章节内容
     const content = chapter.content
@@ -500,26 +501,121 @@ export class StoryService {
     }
 
     try {
-      // 上传到IPFS
-      const contentCid = await uploadToIPFS(content)
-      console.log(`成功上传章节内容到IPFS，CID: ${contentCid}`)
+      // 1. 上传图片到 IPFS
+      let processedContent = content;
+      console.log('[发布章节] 开始处理插画:', {
+        chapterId: id,
+        illustrationsCount: chapter.illustrations.length,
+        contentLength: content.length,
+        hasImageUrls: content.includes('http://localhost:3001/uploads')
+      });
 
-      //注意后端不需上传链上数据，所有合约相关都是尽可能在前端，通过钱包组件调用合约实现
 
-      // 更新章节状态，保留content作为备份
-      return await prisma.chapter.update({
+      for (const illustration of chapter.illustrations) {
+        if (!illustration.filePath) {
+          console.log('[发布章节] 跳过处理：插画缺少文件路径');
+          continue;
+        }
+        
+        // 从完整URL中提取相对路径
+        const urlPath = new URL(illustration.filePath);
+        const relativePath = urlPath.pathname.substring(1); // 移除开头的斜杠
+        const imagePath = path.join(process.cwd(), relativePath);
+        
+        console.log('[发布章节] 处理插画:', {
+          illustrationId: illustration.id,
+          originalPath: illustration.filePath,
+          relativePath,
+          absolutePath: imagePath
+        });
+        
+        try {
+          // 读取图片文件
+          const imageBuffer = await fs.promises.readFile(imagePath);
+          console.log('[发布章节] 成功读取图片文件:', {
+            illustrationId: illustration.id,
+            fileSize: imageBuffer.length
+          });
+          
+          // 上传到 IPFS
+          const imageCid = await uploadToIPFS(imageBuffer);
+          console.log('[发布章节] 成功上传图片到IPFS:', {
+            illustrationId: illustration.id,
+            imageCid
+          });
+          
+          // 替换内容中的图片路径为 IPFS 路径
+          const imageUrl = `ipfs://${imageCid}`;
+          
+          console.log('[发布章节] 开始替换图片URL:', {
+            illustrationId: illustration.id,
+            oldUrl: illustration.filePath,
+            newUrl: imageUrl,
+            contentContainsOldUrl: processedContent.includes(illustration.filePath)
+          });
+
+          // 使用正则表达式匹配完整的img标签
+          const imgRegex = new RegExp(`<img[^>]*src="${illustration.filePath}"[^>]*>`, 'g');
+          processedContent = processedContent.replace(imgRegex, (match) => {
+            // 保持原有的img标签属性，只替换src的值
+            return match.replace(`src="${illustration.filePath}"`, `src="${imageUrl}"`);
+          });
+          
+          console.log('[发布章节] 完成URL替换:', {
+            illustrationId: illustration.id,
+            contentChanged: processedContent !== content,
+            hasOldUrl: processedContent.includes(illustration.filePath),
+            hasNewUrl: processedContent.includes(imageUrl)
+          });
+          
+          // 更新数据库中的 imageCID
+          await prisma.illustration.update({
+            where: { id: illustration.id },
+            data: { imageCID: imageCid }
+          });
+          
+        } catch (error) {
+          console.error('[发布章节] 处理插画失败:', {
+            illustrationId: illustration.id,
+            error: error instanceof Error ? error.message : String(error)
+          });
+          throw error;
+        }
+      }
+
+      // 最终检查
+      console.log('[发布章节] 内容处理完成:', {
+        originalLength: content.length,
+        processedLength: processedContent.length,
+        stillContainsLocalUrls: processedContent.includes('http://localhost:3001/uploads'),
+        containsIpfsUrls: processedContent.includes('ipfs://')
+      });
+
+      console.log('[发布章节] 处理后的内容:', processedContent);
+      // 2. 上传处理后的内容到 IPFS
+      const contentCid = await uploadToIPFS(processedContent);
+      console.log('[发布章节] 成功上传章节内容到IPFS:', { contentCid });
+
+      // 3. 更新章节状态
+      const updatedChapter = await prisma.chapter.update({
         where: { id },
         data: {
           status: 'PUBLISHED',
           contentCid,
-          txHash,  // 添加交易哈希
-          // 注意：不清空content字段，保留作为备份
+          txHash,
           updatedAt: new Date()
         }
-      })
+      });
+
+      console.log('[发布章节] 成功更新章节状态:', {
+        chapterId: id,
+        status: updatedChapter.status
+      });
+
+      return updatedChapter;
     } catch (error) {
-      console.error('发布章节失败:', error)
-      throw new Error('发布章节失败')
+      console.error('[发布章节] 发布失败:', error);
+      throw new Error('发布章节失败');
     }
   }
 
@@ -791,8 +887,9 @@ export class StoryService {
         story: {
           include: {
             author: true
-          }
-        }
+          },
+       illustrations: true  // 确保包含 illustrations 关系
+
       }
     })
 
@@ -801,6 +898,7 @@ export class StoryService {
     // 如果提供了 storyId 但章节不属于该故事，则拒绝访问
     if (storyId && chapter.storyId !== storyId) {
       throw new Error('章节不属于指定的故事')
+
     }
 
     // 如果是草稿状态，直接返回chapter（无论content是否为空）
@@ -892,6 +990,232 @@ export class StoryService {
     }
   }
 
+  /**
+   * 上传章节插画
+   * @param storyId 故事ID
+   * @param chapterId 章节ID
+   * @param file 上传的文件
+   * @returns 插画信息
+   */
+  async uploadChapterImage(storyId: string, chapterId: string, file: Express.Multer.File): Promise<Omit<Illustration, 'fileContent'>> {
+    console.log('[插画上传] 开始处理:', {
+      storyId,
+      chapterId,
+      fileName: file.originalname,
+      fileType: file.mimetype,
+      fileSize: file.size
+    });
+
+    // 验证章节存在且属于指定故事
+    console.log('[插画上传] 验证章节归属');
+    const chapter = await prisma.chapter.findFirst({
+      where: { 
+        id: chapterId,
+        storyId: storyId
+      }
+    });
+    
+    if (!chapter) {
+      console.log('[插画上传] 错误: 章节不存在或不属于该故事');
+      throw new Error('Chapter not found in this story');
+    }
+
+    // 验证文件类型
+    if (!file.mimetype.startsWith('image/')) {
+      console.log('[插画上传] 错误: 文件类型不是图片');
+      throw new Error('Only image files are allowed');
+    }
+
+    // 验证文件大小 (5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      console.log('[插画上传] 错误: 文件大小超过限制');
+      throw new Error('File size exceeds 5MB limit');
+    }
+
+    try {
+      // 创建存储目录
+      const uploadDir = `uploads/drafts/${storyId}/${chapterId}`;
+      await fs.promises.mkdir(uploadDir, { recursive: true });
+
+      // 获取当前章节的所有图片，按文件名排序
+      const existingImages = await prisma.illustration.findMany({
+        where: { chapterId },
+        orderBy: { fileName: 'asc' }
+      });
+
+      // 获取已使用的编号
+      const usedNumbers = new Set();
+      existingImages.forEach(img => {
+        if (img.fileName) {
+          const match = img.fileName.match(/image-(\d+)\./);
+          if (match) {
+            usedNumbers.add(parseInt(match[1]));
+          }
+        }
+      });
+
+      // 从1开始找第一个未使用的编号
+      let imageNumber = 1;
+      while (usedNumbers.has(imageNumber)) {
+        imageNumber++;
+      }
+
+      console.log('[插画上传] 当前章节图片信息:', {
+        existingImages: existingImages.map(img => img.fileName),
+        usedNumbers: Array.from(usedNumbers),
+        selectedNumber: imageNumber
+      });
+
+      // 生成文件名和路径
+      const fileExt = file.originalname.split('.').pop() || 'png';
+      const fileName = `image-${imageNumber}.${fileExt}`;
+      const filePath = `${uploadDir}/${fileName}`;
+      const fullUrl = `http://localhost:3001/${filePath}`;
+
+      console.log('[插画上传] 保存文件到:', filePath);
+
+      // 保存文件到文件系统
+      await fs.promises.writeFile(filePath, file.buffer);
+
+      // 检查是否已存在相同编号的图片
+      const existingImage = await prisma.illustration.findFirst({
+        where: {
+          chapterId,
+          fileName: fileName
+        }
+      });
+
+      let illustration;
+      if (existingImage) {
+        // 如果存在相同编号的图片，更新它
+        illustration = await prisma.illustration.update({
+          where: { id: existingImage.id },
+          data: {
+            fileType: file.mimetype,
+            fileSize: file.size,
+            filePath: fullUrl
+          }
+        });
+      } else {
+        // 如果不存在，创建新记录
+        illustration = await prisma.illustration.create({
+          data: {
+            chapterId,
+            fileName,
+            fileType: file.mimetype,
+            fileSize: file.size,
+            filePath: fullUrl,
+            description: `Chapter image ${imageNumber}`,
+            status: 'DRAFT'
+          }
+        });
+      }
+
+      console.log('[插画上传] 保存成功:', {
+        id: illustration.id,
+        fileName: illustration.fileName,
+        fileSize: illustration.fileSize,
+        filePath: illustration.filePath
+      });
+      
+      return {
+        id: illustration.id,
+        chapterId: illustration.chapterId,
+        fileName: illustration.fileName,
+        fileType: illustration.fileType,
+        fileSize: illustration.fileSize,
+        filePath: illustration.filePath, // 新增：返回文件路径
+        description: illustration.description,
+        status: illustration.status,
+        imageCID: illustration.imageCID,
+        createdAt: illustration.createdAt
+      };
+    } catch (error) {
+      console.error('[插画上传] 处理失败:', error);
+      throw new Error('Failed to upload image');
+    }
+  }
+
+  /**
+   * 获取章节插画列表
+   * @param storyId 故事ID
+   * @param chapterId 章节ID
+   * @returns 插画列表
+   */
+  async getChapterIllustrations(storyId: string, chapterId: string): Promise<Illustration[]> {
+    console.log('[插画列表] 开始获取:', { storyId, chapterId });
+
+    // 验证章节存在且属于指定故事
+    console.log('[插画列表] 验证章节归属');
+    const chapter = await prisma.chapter.findFirst({
+      where: { 
+        id: chapterId,
+        storyId: storyId
+      }
+    });
+    
+    if (!chapter) {
+      console.log('[插画列表] 错误: 章节不存在或不属于该故事');
+      throw new Error('Chapter not found in this story');
+    }
+
+    const illustrations = await prisma.illustration.findMany({
+      where: {
+        chapterId
+      },
+      orderBy: {
+        createdAt: 'asc'
+      }
+    });
+
+    console.log('[插画列表] 获取成功:', { count: illustrations.length });
+    return illustrations;
+  }
+
+  /**
+   * 删除章节插画
+   * @param storyId 故事ID
+   * @param chapterId 章节ID
+   * @param illustrationId 插画ID
+   */
+  async deleteIllustration(storyId: string, chapterId: string, illustrationId: string): Promise<void> {
+    console.log('[插画删除] 开始处理:', { storyId, chapterId, illustrationId });
+
+    // 验证章节存在且属于指定故事
+    console.log('[插画删除] 验证章节归属');
+    const chapter = await prisma.chapter.findFirst({
+      where: { 
+        id: chapterId,
+        storyId: storyId
+      }
+    });
+    
+    if (!chapter) {
+      console.log('[插画删除] 错误: 章节不存在或不属于该故事');
+      throw new Error('Chapter not found in this story');
+    }
+
+    // 验证插画属于指定章节
+    console.log('[插画删除] 验证插画归属');
+    const illustration = await prisma.illustration.findFirst({
+      where: { 
+        id: illustrationId,
+        chapterId: chapterId
+      }
+    });
+
+    if (!illustration) {
+      console.log('[插画删除] 错误: 插画不存在或不属于该章节');
+      throw new Error('Illustration not found in this chapter');
+    }
+
+    console.log('[插画删除] 开始删除');
+    await prisma.illustration.delete({
+      where: { id: illustrationId }
+    });
+    console.log('[插画删除] 删除成功');
+  }
 }
 
 // 导出单例实例

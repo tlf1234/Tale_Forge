@@ -1,11 +1,32 @@
 import express from 'express';
 import { storyService, userService, commentService, aiService } from './services';
 import type { StoryStatus } from '@prisma/client'
+import multer from 'multer';
+import path from 'path';
+
 
 const app = express();
 // 增加请求体大小限制到 10MB
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// 配置静态文件服务
+app.use('/uploads', express.static('uploads', {
+  setHeaders: (res, path, stat) => {
+    // 设置CORS头
+    res.set('Access-Control-Allow-Origin', '*');
+    // 设置缓存控制
+    res.set('Cache-Control', 'public, max-age=31536000');
+  }
+}));
+
+// 配置multer
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 限制5MB
+  }
+});
 
 /**
  * 用户相关路由(未完善)
@@ -511,6 +532,7 @@ app.delete('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
   }
 });
 
+
 // 章节审核路由
 app.post('/api/stories/:storyId/chapters/:chapterId/review', async (req, res) => {
   try {
@@ -545,6 +567,75 @@ app.post('/api/stories/:storyId/chapters/:chapterId/review', async (req, res) =>
   } catch (error: any) {
     console.error('[POST /api/stories/:storyId/chapters/:chapterId/review] 审核失败:', error);
     res.status(500).json({ error: error?.message });
+
+// 上传章节插画
+app.post('/api/stories/:storyId/chapters/:chapterId/images', upload.single('image'), async (req: express.Request, res: express.Response) => {
+  console.log('[插画上传-后端API] 收到请求:', {
+    storyId: req.params.storyId,
+    chapterId: req.params.chapterId,
+    file: req.file ? {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    } : null
+  });
+
+  try {
+    const { storyId, chapterId } = req.params;
+    const file = req.file;
+
+    if (!file) {
+      console.log('[插画上传-后端API] 错误: 没有上传文件');
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    console.log('[插画上传-后端API] 开始处理上传');
+    const illustration = await storyService.uploadChapterImage(storyId, chapterId, file);
+    console.log('[插画上传-后端API] 上传成功:', illustration);
+    res.json(illustration);
+  } catch (error: any) {
+    console.error('[插画上传-后端API] 上传失败:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+// 获取章节插画
+app.get('/api/stories/:storyId/chapters/:chapterId/images', async (req: express.Request, res: express.Response) => {
+  console.log('[插画列表-后端API] 收到请求:', {
+    storyId: req.params.storyId,
+    chapterId: req.params.chapterId
+  });
+
+  try {
+    const { storyId, chapterId } = req.params;
+    console.log('[插画列表-后端API] 开始获取列表');
+    const illustrations = await storyService.getChapterIllustrations(storyId, chapterId);
+    console.log('[插画列表-后端API] 获取成功，数量:', illustrations.length);
+    res.json(illustrations);
+  } catch (error: any) {
+    console.error('[插画列表-后端API] 获取失败:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+// 删除章节插画
+app.delete('/api/stories/:storyId/chapters/:chapterId/images/:illustrationId', async (req: express.Request, res: express.Response) => {
+  console.log('[插画删除-后端API] 收到请求:', {
+    storyId: req.params.storyId,
+    chapterId: req.params.chapterId,
+    illustrationId: req.params.illustrationId
+  });
+
+  try {
+    const { storyId, chapterId, illustrationId } = req.params;
+    console.log('[插画删除-后端API] 开始删除');
+    await storyService.deleteIllustration(storyId, chapterId, illustrationId);
+    console.log('[插画删除-后端API] 删除成功');
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('[插画删除-后端API] 删除失败:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+
   }
 });
 
