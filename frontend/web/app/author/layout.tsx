@@ -51,35 +51,40 @@ export default function AuthorLayout({
           
           <Link 
             href="/author"
-            className={`${styles.navLink} ${pathname === '/author' ? styles.active : ''}`}
+            className={`${styles.navLink} ${pathname === '/author' && !collapsed ? styles.active : ''}`}
+            style={collapsed ? { pointerEvents: 'none', opacity: 0.5 } : {}}
           >
             <span className={styles.navIcon}><FaHome /></span>
             <span>创作中心</span>
           </Link>
           <Link 
             href="/author/write"
-            className={`${styles.navLink} ${pathname === '/author/write' ? styles.active : ''}`}
+            className={`${styles.navLink} ${pathname === '/author/write' && !collapsed ? styles.active : ''}`}
+            style={collapsed ? { pointerEvents: 'none', opacity: 0.5 } : {}}
           >
             <span className={styles.navIcon}><FaPen /></span>
             <span>开始创作</span>
           </Link>
           <Link 
             href="/author/works"
-            className={`${styles.navLink} ${pathname === '/author/works' ? styles.active : ''}`}
+            className={`${styles.navLink} ${pathname === '/author/works' && !collapsed ? styles.active : ''}`}
+            style={collapsed ? { pointerEvents: 'none', opacity: 0.5 } : {}}
           >
             <span className={styles.navIcon}><FaBook /></span>
             <span>作品管理</span>
           </Link>
           <Link 
             href="/author/stats"
-            className={`${styles.navLink} ${pathname === '/author/stats' ? styles.active : ''}`}
+            className={`${styles.navLink} ${pathname === '/author/stats' && !collapsed ? styles.active : ''}`}
+            style={collapsed ? { pointerEvents: 'none', opacity: 0.5 } : {}}
           >
             <span className={styles.navIcon}><FaChartBar /></span>
             <span>数据分析</span>
           </Link>
           <Link 
             href="/author/earnings"
-            className={`${styles.navLink} ${pathname === '/author/earnings' ? styles.active : ''}`}
+            className={`${styles.navLink} ${pathname === '/author/earnings' && !collapsed ? styles.active : ''}`}
+            style={collapsed ? { pointerEvents: 'none', opacity: 0.5 } : {}}
           >
             <span className={styles.navIcon}><FaWallet /></span>
             <span>收益管理</span>

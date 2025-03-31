@@ -1,5 +1,5 @@
 import express from 'express';
-import { storyService, userService, commentService } from './services';
+import { storyService, userService, commentService, aiService } from './services';
 import type { StoryStatus } from '@prisma/client'
 import multer from 'multer';
 import path from 'path';
@@ -37,9 +37,9 @@ app.post('/api/users', async (req, res) => {
     console.log('[POST /api/users] 收到创建请求:', {
       body: req.body
     })
-    
+
     const user = await userService.getOrCreateUser(req.body.address);
-    
+
     console.log('[POST /api/users] 创建成功:', user)
     res.json(user);
   } catch (error: any) {
@@ -55,10 +55,10 @@ app.get('/api/users/:address', async (req, res) => {
     console.log('[GET /api/users/:address] 收到查询请求:', {
       address: req.params.address
     })
-    
+
     const { address } = req.params;
     const user = await userService.getUser(address);
-    
+
     console.log('[GET /api/users/:address] 查询成功:', user)
     res.json(user);
   } catch (error: any) {
@@ -76,7 +76,7 @@ app.put('/api/users/:address', async (req, res) => {
 
     const { address } = req.params
     const user = await userService.updateUser(address, req.body)
-    
+
     console.log('[PUT /api/users/:address] 更新成功:', user)
     res.json(user)
   } catch (error: any) {
@@ -95,9 +95,9 @@ app.post('/api/authors/register', async (req, res) => {
     console.log('[POST /api/authors/register] 收到注册请求:', {
       body: req.body
     })
-    
+
     const author = await userService.registerAuthor(req.body);
-    
+
     console.log('[POST /api/authors/register] 注册成功:', author)
     res.json(author);
   } catch (error: any) {
@@ -112,10 +112,10 @@ app.get('/api/authors/:address', async (req, res) => {
     console.log('[GET /api/authors/:address] 收到查询请求:', {
       address: req.params.address
     })
-    
+
     const { address } = req.params;
     const author = await userService.getAuthorByAddress(address);
-    
+
     console.log('[GET /api/authors/:address] 查询成功:', author)
     res.json(author);
   } catch (error: any) {
@@ -145,9 +145,9 @@ app.post('/api/stories/upload', async (req, res) => {
     console.log('[POST /api/stories/upload] 收到创建请求:', {
       body: req.body
     })
-    
+
     const result = await storyService.uploadStory(req.body);
-    
+
     console.log('[POST /api/stories/upload] 创建成功:', result)
     res.json(result);
   } catch (error: any) {
@@ -180,13 +180,13 @@ app.get('/api/authors/:address/stories', async (req, res) => {
       address: req.params.address,
       query: req.query
     })
-    
+
     const { address } = req.params
     const { skip, take, status } = req.query
-    
+
     // 1. 首先获取作者信息
     const author = await userService.getAuthorByAddress(address)
-    
+
     if (!author) {
       console.log('[GET /api/authors/:address/stories] 作者不存在:', address)
       return res.status(404).json({ error: '作者不存在' })
@@ -198,18 +198,18 @@ app.get('/api/authors/:address/stories', async (req, res) => {
       skip: Number(skip) || 0,
       take: Number(take) || 10
     })
-    
+
     console.log('[GET /api/authors/:address/stories] 返回结果:', {
       syncStatus: result.syncStatus,
       storiesCount: result.stories?.length || 0,
       total: result.total || 0
     })
-    
+
     res.json(result)
   } catch (error) {
     console.error('[GET /api/authors/:address/stories] 处理请求失败:', error)
-    res.status(500).json({ 
-      error: error instanceof Error ? error.message : '获取作品列表失败' 
+    res.status(500).json({
+      error: error instanceof Error ? error.message : '获取作品列表失败'
     })
   }
 })
@@ -224,7 +224,7 @@ app.get('/api/stories', async (req, res) => {
     const { category, authorId, sortBy, limit = '10', page = '1' } = req.query;
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
     const take = parseInt(limit as string);
-    
+
     const stories = await storyService.getStories({
       category: category as string,
       authorId: authorId as string,
@@ -276,10 +276,10 @@ app.post('/api/stories/:storyId/chapters', async (req, res) => {
       storyId: req.params.storyId,
       body: req.body
     });
-    
+
     const { storyId } = req.params;
     const chapter = await storyService.addChapter(storyId, req.body);
-    
+
     res.json(chapter);
   } catch (error: any) {
     console.error('[POST /api/stories/:storyId/chapters] 创建章节失败:', error);
@@ -295,14 +295,14 @@ app.get('/api/stories/:storyId/chapters', async (req, res) => {
       page: req.query.page,
       limit: req.query.limit
     });
-    
+
     const { storyId } = req.params;
     const page = parseInt(req.query.page as string || '1');
     const limit = parseInt(req.query.limit as string || '50');
-    
+
     // 使用服务层方法获取章节列表
     const chapters = await storyService.getChaptersByStoryId(storyId, page, limit);
-    
+
     res.json(chapters);
   } catch (error: any) {
     console.error('[GET /api/stories/:storyId/chapters] 获取章节列表失败:', error);
@@ -317,13 +317,13 @@ app.get('/api/stories/:storyId/chapters/recent', async (req, res) => {
       storyId: req.params.storyId,
       limit: req.query.limit
     });
-    
+
     const { storyId } = req.params;
     const limit = parseInt(req.query.limit as string || '10');
-    
+
     // 使用服务层方法获取最近章节
     const chapters = await storyService.getRecentChapters(storyId, limit);
-    
+
     res.json(chapters);
   } catch (error: any) {
     console.error('[GET /api/stories/:storyId/chapters/recent] 获取最近章节失败:', error);
@@ -334,18 +334,19 @@ app.get('/api/stories/:storyId/chapters/recent', async (req, res) => {
 // 获取章节统计信息
 app.get('/api/stories/:storyId/chapters/stats', async (req, res) => {
   console.log('[GET /api/stories/:storyId/chapters/stats] 收到请求:', {
-    storyId: req.params.storyId});
+    storyId: req.params.storyId
+  });
   try {
     console.log('[GET /api/stories/:storyId/chapters/stats] 收到请求:', {
       storyId: req.params.storyId
     });
-    
+
     const { storyId } = req.params;
-    
+
     // 使用服务层方法获取章节统计信息
     const stats = await storyService.getChapterStats(storyId);
     console.log('[GET /api/stories/:storyId/chapters/stats] 返回结果:', stats)
-    
+
     res.json(stats);
   } catch (error: any) {
     console.error('[GET /api/stories/:storyId/chapters/stats] 获取章节统计信息失败:', error);
@@ -362,19 +363,19 @@ app.get('/api/stories/:storyId/chapters/range', async (req, res) => {
       start: req.query.start,
       end: req.query.end
     });
-    
+
     const { storyId } = req.params;
     const start = parseInt(req.query.start as string || '0');
     const end = parseInt(req.query.end as string || '0');
-    
+
     // 验证参数
     if (start <= 0 || end <= 0 || start < end) {
       return res.status(400).json({ error: '无效的章节范围' });
     }
-    
+
     // 使用服务层方法获取指定范围的章节
     const chapters = await storyService.getChaptersByRange(storyId, start, end);
-    
+
     res.json(chapters);
   } catch (error: any) {
     console.error('[GET /api/stories/:storyId/chapters/range] 获取章节范围失败:', error);
@@ -389,18 +390,18 @@ app.get('/api/stories/:storyId/chapters/search', async (req, res) => {
       storyId: req.params.storyId,
       keyword: req.query.keyword
     });
-    
+
     const { storyId } = req.params;
     const keyword = req.query.keyword as string || '';
-    
+
     // 验证参数
     if (!keyword.trim()) {
       return res.status(400).json({ error: '搜索关键词不能为空' });
     }
-    
+
     // 使用服务层方法搜索章节
     const chapters = await storyService.searchChapters(storyId, keyword);
-    
+
     res.json(chapters);
   } catch (error: any) {
     console.error('[GET /api/stories/:storyId/chapters/search] 搜索章节失败:', error);
@@ -415,10 +416,10 @@ app.get('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
       storyId: req.params.storyId,
       chapterId: req.params.chapterId
     });
-    
+
     const { storyId, chapterId } = req.params;
     const chapter = await storyService.getChapter(chapterId, storyId);
-    
+
     res.json(chapter);
   } catch (error: any) {
     console.error('[GET /api/stories/:storyId/chapters/:chapterId] 获取章节详情失败:', error);
@@ -435,9 +436,9 @@ app.get('/api/stories/:storyId/chapters/order/:order', async (req, res) => {
       order,
       timestamp: new Date().toISOString()
     });
-    
+
     const chapter = await storyService.getChapterByOrder(storyId, parseInt(order));
-    
+
     console.log('[GET /api/stories/:storyId/chapters/order/:order] 查询结果:', {
       found: !!chapter,
       chapterId: chapter?.id,
@@ -446,7 +447,7 @@ app.get('/api/stories/:storyId/chapters/order/:order', async (req, res) => {
       totalChapters: chapter?.totalChapters,
       wordCount: chapter?.wordCount
     });
-    
+
     if (!chapter) {
       console.log('[GET /api/stories/:storyId/chapters/order/:order] 章节不存在:', {
         storyId,
@@ -454,7 +455,7 @@ app.get('/api/stories/:storyId/chapters/order/:order', async (req, res) => {
       });
       return res.status(404).json({ error: '章节不存在' });
     }
-    
+
     console.log('[GET /api/stories/:storyId/chapters/order/:order] 成功返回章节数据');
     res.json(chapter);
   } catch (error: any) {
@@ -476,10 +477,10 @@ app.put('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
       chapterId: req.params.chapterId,
       body: req.body
     });
-    
+
     const { storyId, chapterId } = req.params;
     const chapter = await storyService.updateChapter(chapterId, req.body, storyId);
-    
+
     res.json(chapter);
   } catch (error: any) {
     console.error('[PUT /api/stories/:storyId/chapters/:chapterId] 更新章节失败:', error);
@@ -495,17 +496,17 @@ app.post('/api/stories/:storyId/chapters/:chapterId/publish', async (req, res) =
       chapterId: req.params.chapterId,
       body: req.body
     });
-    
+
     const { storyId, chapterId } = req.params;
     const { authorAddress, txHash } = req.body;
-    
+
     if (!authorAddress) {
       return res.status(400).json({ error: '缺少作者地址' });
     }
-    
+
     // 调用发布章节方法，同时传入交易哈希
     const chapter = await storyService.publishChapter(chapterId, authorAddress, storyId, txHash);
-    
+
     res.json(chapter);
   } catch (error: any) {
     console.error('[POST /api/stories/:storyId/chapters/:chapterId/publish] 发布章节失败:', error);
@@ -520,16 +521,52 @@ app.delete('/api/stories/:storyId/chapters/:chapterId', async (req, res) => {
       storyId: req.params.storyId,
       chapterId: req.params.chapterId
     });
-    
+
     const { storyId, chapterId } = req.params;
     const result = await storyService.deleteChapter(chapterId, storyId);
-    
+
     res.json(result);
   } catch (error: any) {
     console.error('[DELETE /api/stories/:storyId/chapters/:chapterId] 删除章节失败:', error);
     res.status(500).json({ error: error?.message });
   }
 });
+
+
+// 章节审核路由
+app.post('/api/stories/:storyId/chapters/:chapterId/review', async (req, res) => {
+  try {
+    console.log('[POST /api/stories/:storyId/chapters/:chapterId/review] 收到审核请求:', {
+      storyId: req.params.storyId,
+      chapterId: req.params.chapterId,
+      body: req.body
+    });
+
+    const { storyId, chapterId } = req.params;
+    const { content, base64Images } = req.body;
+
+    console.log('【POST 章节审核】收到请求:', { content, base64Images });
+
+    if (!content) {
+      return res.status(400).json({ error: '缺少章节内容' });
+    }
+
+    const isSafe = await aiService.reviewContent(content, base64Images);
+
+    if (!isSafe) {
+      return res.json({
+        success: false,
+        message: '内容审核未通过'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: '内容审核通过'
+    });
+  } catch (error: any) {
+    console.error('[POST /api/stories/:storyId/chapters/:chapterId/review] 审核失败:', error);
+    res.status(500).json({ error: error?.message });
 
 // 上传章节插画
 app.post('/api/stories/:storyId/chapters/:chapterId/images', upload.single('image'), async (req: express.Request, res: express.Response) => {
@@ -598,6 +635,7 @@ app.delete('/api/stories/:storyId/chapters/:chapterId/images/:illustrationId', a
   } catch (error: any) {
     console.error('[插画删除-后端API] 删除失败:', error);
     res.status(500).json({ error: error.message || 'Internal server error' });
+
   }
 });
 
@@ -610,10 +648,10 @@ app.get('/api/authors/:address/follows', async (req, res) => {
     console.log('[GET /api/authors/:address/follows] 收到查询关注列表请求:', {
       address: req.params.address
     })
-    
+
     const { address } = req.params;
     const follows = await userService.getAuthorFollows(address);
-    
+
     console.log('[GET /api/authors/:address/follows] 查询成功:', follows)
     res.json(follows);
   } catch (error: any) {
@@ -629,11 +667,11 @@ app.post('/api/authors/:address/follows', async (req, res) => {
       address: req.params.address,
       followerAddress: req.body.followerAddress
     })
-    
+
     const { address } = req.params;
     const { followerAddress } = req.body;
     const follow = await userService.followAuthor(address, followerAddress);
-    
+
     console.log('[POST /api/authors/:address/follows] 关注成功:', follow)
     res.json(follow);
   } catch (error: any) {
@@ -649,11 +687,11 @@ app.delete('/api/authors/:address/follows', async (req, res) => {
       address: req.params.address,
       followerAddress: req.body.followerAddress
     })
-    
+
     const { address } = req.params;
     const { followerAddress } = req.body;
     await userService.unfollowAuthor(address, followerAddress);
-    
+
     console.log('[DELETE /api/authors/:address/follows] 取消关注成功')
     res.json({ success: true });
   } catch (error: any) {
@@ -688,6 +726,183 @@ app.post('/api/comments', async (req, res) => {
   }
 });
 
+/**
+ * AI 相关路由
+ */
+
+// POST - AI 聊天
+app.post('/api/ai/chat', async (req, res) => {
+  try {
+    console.log('[POST /api/ai/chat] 收到请求:', {
+      body: req.body
+    });
+
+    const { message, characterId } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: '缺少消息内容' });
+    }
+
+    if (!characterId) {
+      return res.status(400).json({ error: '缺少角色ID' });
+    }
+
+    const response = await aiService.chat(message, characterId);
+
+    console.log('[POST /api/ai/chat] 处理成功:', response);
+    res.json({ message: response });
+  } catch (error: any) {
+    console.error('[POST /api/ai/chat] 处理失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// POST - 生成 AI 图片
+app.post('/api/ai/generate-image', async (req, res) => {
+  try {
+    console.log('[POST /api/ai/generate-image] 收到请求:', {
+      body: req.body
+    });
+
+    const { prompt, style, resolution, referenceImage } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: '缺少提示词' });
+    }
+
+    const result = await aiService.generateImage(
+      prompt,
+      resolution,
+      style || undefined,
+      referenceImage || undefined
+    );
+
+    if (!result.success) {
+      return res.status(500).json({ error: '图片生成失败' });
+    }
+
+    console.log('[POST /api/ai/generate-image] 生成成功:', result);
+    res.json(result);
+  } catch (error: any) {
+    console.error('[POST /api/ai/generate-image] 生成失败:', error);
+    res.status(500).json({ error: error?.message || '图片生成服务暂时不可用' });
+  }
+});
+
+// POST - 创建新角色
+app.post('/api/ai/characters', async (req, res) => {
+  try {
+    console.log('[POST /api/ai/characters] 收到请求:', {
+      body: req.body
+    });
+
+    const { storyId, name, role, background, personality, goals, relationships } = req.body;
+
+    if (!storyId || !name || !role) {
+      return res.status(400).json({ error: 'storyId, name, and role are required' });
+    }
+
+    const character = await aiService.createCharacter({
+      storyId,
+      name,
+      role,
+      background,
+      personality,
+      goals,
+      relationships
+    });
+
+    console.log('[POST /api/ai/characters] 创建成功:', { id: character.id });
+    res.status(201).json(character);
+  } catch (error: any) {
+    console.error('[POST /api/ai/characters] 创建失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// PUT - 更新角色
+app.put('/api/ai/characters/:id', async (req, res) => {
+  try {
+    console.log('[PUT /api/ai/characters/:id] 收到请求:', {
+      id: req.params.id,
+      body: req.body
+    });
+
+    const { id } = req.params;
+    const { name, role, background, personality, goals, relationships } = req.body;
+
+    const character = await aiService.updateCharacter(id, {
+      name,
+      role,
+      background,
+      personality,
+      goals,
+      relationships
+    });
+
+    console.log('[PUT /api/ai/characters/:id] 更新成功');
+    res.json(character);
+  } catch (error: any) {
+    console.error('[PUT /api/ai/characters/:id] 更新失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// DELETE - 删除角色
+app.delete('/api/ai/characters/:id', async (req, res) => {
+  try {
+    console.log('[DELETE /api/ai/characters/:id] 收到请求:', {
+      id: req.params.id
+    });
+
+    const { id } = req.params;
+    await aiService.deleteCharacter(id);
+
+    console.log('[DELETE /api/ai/characters/:id] 删除成功');
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('[DELETE /api/ai/characters/:id] 删除失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// GET - 获取故事的所有角色
+app.get('/api/ai/characters', async (req, res) => {
+  try {
+    console.log('[GET /api/ai/characters] 收到请求');
+    const { storyId } = req.query;
+
+    if (!storyId || typeof storyId !== 'string') {
+      return res.status(400).json({ error: 'storyId is required' });
+    }
+
+    const characters = await aiService.getCharacters(storyId);
+    console.log('[GET /api/ai/characters] 获取成功:', { count: characters.length });
+    res.json(characters);
+  } catch (error: any) {
+    console.error('[GET /api/ai/characters] 获取失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
+
+// GET - 获取单个角色
+app.get('/api/ai/characters/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('[GET /api/ai/characters/:id] 收到请求:', { id });
+
+    const character = await aiService.getCharacter(id);
+    if (!character) {
+      return res.status(404).json({ error: 'Character not found' });
+    }
+
+    console.log('[GET /api/ai/characters/:id] 获取成功');
+    res.json(character);
+  } catch (error: any) {
+    console.error('[GET /api/ai/characters/:id] 获取失败:', error);
+    res.status(500).json({ error: error?.message });
+  }
+});
 
 // 错误处理中间件
 app.use((err: any, req: any, res: any, next: any) => {

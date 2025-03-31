@@ -16,5 +16,8 @@
   },
   "devDependencies": {
     "turbo": "^1.10.12"
+  },
+  "dependencies": {
+    "tencentcloud-sdk-nodejs-hunyuan": "^4.1.7"
   }
 }

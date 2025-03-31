@@ -11,10 +11,17 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["../shared/src/*"]
-      
+      "@shared/*": [
+        "../shared/src/*"
+      ]
     }
   },
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules", "dist"]
-} 
+  "include": [
+    "**/*.ts",
+    "src/services/test.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

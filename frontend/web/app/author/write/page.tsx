@@ -87,7 +87,7 @@ interface Chapter {
   order: number;
   volumeId?: string;
   wordCount: number;
-  status: 'draft' | 'pending' | 'published';
+  status: 'draft' | 'underreview' | 'published';
   price?: number;
   publishTime?: Date;
   createdAt: Date;
@@ -130,6 +130,7 @@ interface Illustration {
   createdAt: Date;
   filePath?: string; // Added this line
 }
+
 
 // 在文件顶部添加后端URL常量
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -187,6 +188,7 @@ const STORY_TAGS = [
 // 添加创建状态类型
 const enum CreateStatus {
   IDLE = 'IDLE',
+  REVIEWING = 'REVIEWING',
   UPLOADING = 'UPLOADING',
   CREATING_CONTRACT = 'CREATING_CONTRACT',
   SAVING_DATABASE = 'SAVING_DATABASE',
@@ -565,12 +567,12 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
               // 确保其他必需字段都存在
               description: story.description || '',
               coverCid: story.coverCid || '',
-              // contentCid: story.contentCid || '',
+              contentCid: story.contentCid || '',
               author: story.author || { id: '', address: '', name: '' },
               category: story.category || '',
               status: story.status || 'DRAFT',
-              // isNFT: story.isNFT || false,
-              stats: story.stats || { favorites: 0, comments: 0 },
+              isNFT: story.isNFT || false,
+              stats: story.stats || { likes: 0, views: 0, comments: 0 },
               createdAt: story.createdAt || new Date().toISOString(),
               updatedAt: story.updatedAt || new Date().toISOString()
             };
@@ -588,11 +590,11 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
               draftChapterCount: 0,
               description: story.description || '',
               coverCid: story.coverCid || '',
-              // contentCid: story.contentCid || '',
+              contentCid: story.contentCid || '',
               author: story.author || { id: '', address: '', name: '' },
               category: story.category || '',
               status: story.status || 'DRAFT',
-              // isNFT: story.isNFT || false,
+              isNFT: story.isNFT || false,
               stats: story.stats || { likes: 0, views: 0, comments: 0 },
               createdAt: story.createdAt || new Date().toISOString(),
               updatedAt: story.updatedAt || new Date().toISOString()
@@ -1417,7 +1419,38 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
     }
   };
 
-  // 处理章节发布按钮点击
+  // 添加处理HTML内容的函数
+  const extractTextContent = (html: string) => {
+    // 创建一个临时的div元素来解析HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    
+    // 获取所有图片信息并转换为base64
+    const images = tempDiv.getElementsByTagName('img');
+    const base64Images = Array.from(images)
+      .map(img => {
+        // 如果图片已经是base64格式，直接返回
+        if (img.src.startsWith('data:image/png;base64,')) {
+          return img.src.split(',')[1]; // 只返回base64部分，不包含前缀
+        }
+        return ''; // 否则返回空字符串
+      })
+      .filter(base64 => base64 !== ''); // 过滤掉空字符串
+    
+    // 获取所有文本内容
+    const paragraphs = tempDiv.getElementsByTagName('p');
+    const textContent = Array.from(paragraphs)
+      .map(p => p.textContent?.trim())
+      .filter(text => text) 
+      .join('\n');
+    
+    return {
+      content: textContent,
+      base64Images: base64Images
+    };
+  };
+
+  // 章节发布按钮
   const handlePublishChapter = async (chapterId: string) => {
     if (!address) {
       toast.error('请先连接钱包', {
@@ -1479,10 +1512,10 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       }
       console.log('【handleConfirmPublish】当前故事ID:', storyId);
       
-      // 提前获取故事信息并验证作者身份 - 10%进度
+      // 提前获取故事信息并验证作者身份 - 5%进度
       console.log('【handleConfirmPublish】准备获取故事信息并验证作者身份');
       setCreateStatus(CreateStatus.IDLE);
-      setCreateProgress(10);
+      setCreateProgress(5);
       
       const storyResponse = await fetch(`/api/stories/${storyId}`);
       if (!storyResponse.ok) {
@@ -1514,8 +1547,8 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
         throw new Error('无效的故事链上 ID');
       }
       
-      // 先保存最新内容 - 20%进度
-      setCreateProgress(20);
+      // 先保存最新内容 - 10%进度
+      setCreateProgress(10);
       await handleSaveClick({ stopPropagation: () => {} } as React.MouseEvent, chapterToPublish);
       console.log('【handleConfirmPublish】已保存最新内容');
 
@@ -1525,7 +1558,52 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
         throw new Error('未找到当前章节');
       }
       console.log('【handleConfirmPublish】当前章节信息:', currentChapter);
+      
+      // ai审核当前章节 - 15%进度
+      showSuccess('正在进行文章内容的审核...');
+      setCreateStatus(CreateStatus.REVIEWING);
+      setCreateProgress(15);
+      console.log('【handleConfirmPublish】正在审核当前章节内容');
+      
+      // 处理内容，获取纯文本和图片信息
+      const processedContent = extractTextContent(content);
+      console.log('【handleConfirmPublish】处理后的内容:', processedContent);
+      
+      const reviewResponse = await fetch(`/api/stories/${storyId}/chapters/${chapterToPublish}/review`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          content: processedContent.content,
+          base64Images: processedContent.base64Images
+        })
+      });
 
+      if (!reviewResponse.ok) {
+        throw new Error('章节审核失败');
+      }
+
+      const reviewResult = await reviewResponse.json();
+      console.log('【handleConfirmPublish】章节审核结果:', reviewResult);
+      
+      if (!reviewResult.success) {
+        showError(reviewResult.message, '章节审核未通过，请修改后重试');
+        if (chapterToPublish) {
+          console.log('【handleConfirmPublish】更新章节状态为UNDERREVIEW');
+          await handleChapterUpdate(chapterToPublish, 'status', 'UNDERREVIEW');
+        }
+        await updateChapterList();
+        setCreateStatus(CreateStatus.IDLE);
+        setCreateProgress(0);
+        setShowPublishConfirm(false); 
+        return;
+      }
+
+      // 审核通过，准备发布 - 25%进度
+      console.log('【handleConfirmPublish】内容审核通过');
+      showSuccess('内容审核通过，正在准备发布...');
+      setCreateProgress(25);
   
       // 调用合约上传章节数据 - 30%进度
       showSuccess('正在将章节数据上传到区块链...');
@@ -2268,10 +2346,32 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
       </div>
     </div>
 
-    <div className={styles.toolbarRight}>
-      <button                                                                                                                                                                                                                                                                                     className={`${styles.iconButton} ${isPreview ? styles.active : ''}`}
-        onClick={() => setIsPreview(!isPreview)}
-        title="预览"
+  <div className={styles.toolbarRight}>
+    <button
+      className={`${styles.iconButton} ${isPreview ? styles.active : ''}`}
+      onClick={() => setIsPreview(!isPreview)}
+      title="预览"
+    >
+      {isPreview ? <FaEye className={styles.icon} /> : <FaEyeSlash className={styles.icon} />}
+    </button>
+    {currentChapter?.status?.toLowerCase() === 'published' ? (
+      <div className={styles.publishedHint}>
+        <FaCheck />
+        已发布
+      </div>
+    ) : (
+      <button
+        className={`${styles.primaryButton} ${hasContentChanged ? styles.hasChanges : ''} ${isSaving ? styles.saving : ''}`}
+        onClick={async () => {
+          try {
+            const result = await handleSave();
+            console.log('【保存按钮】保存结果:', result);
+          } catch (error) {
+            console.error('【保存按钮】保存出错:', error);
+          }
+        }}
+        disabled={isSaving || currentChapter?.status?.toLowerCase() === 'published'}
+
       >
       {isPreview ? <FaEye className={styles.icon} /> : <FaEyeSlash className={styles.icon} />}
       </button>
@@ -2815,17 +2915,13 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                             <span className={styles.wordCount}>
                                               {chapter.wordCount}字
                                             </span>
-                                            <select
-                                              value={chapter.status}
-                                              onChange={(e) => handleChapterUpdate(chapter.id, 'status', e.target.value)}
+                                            <div
                                               className={`${styles.chapterStatus} ${chapter.status === 'published' ? styles.published : ''}`}
-                                              onClick={(e) => e.stopPropagation()}
-                                              disabled={chapter.status === 'published'}
                                             >
-                                              <option value="draft">草稿</option>
-                                              <option value="pending">待审核</option>
-                                              <option value="published">已发布</option>
-                                            </select>
+                                              {chapter.status?.toLowerCase() === 'draft' && '草稿'}
+                                              {chapter.status?.toLowerCase() === 'underreview' && '待审核'}
+                                              {chapter.status?.toLowerCase() === 'published' && '已发布'}
+                                            </div>
                                             {chapter.status === 'published' && loadingChapterIds.has(chapter.id) && (
                                               <div className={styles.loadingIndicator} />
                                             )}
@@ -2917,17 +3013,13 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                               <span className={styles.wordCount}>
                                                 {chapter.wordCount}字
                                               </span>
-                                              <select
-                                                value={chapter.status}
-                                                onChange={(e) => handleChapterUpdate(chapter.id, 'status', e.target.value)}
+                                              <div
                                                 className={`${styles.chapterStatus} ${chapter.status === 'published' ? styles.published : ''}`}
-                                                onClick={(e) => e.stopPropagation()}
-                                                disabled={chapter.status === 'published'}
                                               >
-                                                <option value="draft">草稿</option>
-                                                <option value="pending">待审核</option>
-                                                <option value="published">已发布</option>
-                                              </select>
+                                                {chapter.status?.toLowerCase() === 'draft' && '草稿'}
+                                                {chapter.status?.toLowerCase() === 'underreview' && '待审核'}
+                                                {chapter.status?.toLowerCase() === 'published' && '已发布'}
+                                              </div>
                                               {chapter.status === 'published' && loadingChapterIds.has(chapter.id) && (
                                                 <div className={styles.loadingIndicator} />
                                               )}
@@ -3042,17 +3134,13 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                                   <span className={styles.wordCount}>
                                     {chapter.wordCount}字
                                   </span>
-                                  <select
-                                    value={chapter.status}
-                                    onChange={(e) => handleChapterUpdate(chapter.id, 'status', e.target.value)}
+                                  <div
                                     className={`${styles.chapterStatus} ${chapter.status === 'published' ? styles.published : ''}`}
-                                    onClick={(e) => e.stopPropagation()}
-                                    disabled={chapter.status === 'published'}
                                   >
-                                    <option value="draft">草稿</option>
-                                    <option value="pending">待审核</option>
-                                    <option value="published">已发布</option>
-                                  </select>
+                                    {chapter.status?.toLowerCase() === 'draft' && '草稿'}
+                                    {chapter.status?.toLowerCase() === 'underreview' && '待审核'}
+                                    {chapter.status?.toLowerCase() === 'published' && '已发布'}
+                                  </div>
                                   {chapter.status === 'published' && loadingChapterIds.has(chapter.id) && (
                                     <div className={styles.loadingIndicator} />
                                   )}
@@ -3319,7 +3407,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                     {/* 添加底部边界区域 */}
                     <div className={styles.chapterListBottomBoundary}>
                       <div className={styles.bottomBoundaryContent}>
-                        文档结束
+                        {currentChapter?.status.toLowerCase === 'underreview' ? '需要人工审核，请耐心等待' : '文档结束'}
                       </div>
                     </div>
                   </div>
@@ -3683,6 +3771,7 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
                   </div>
                   <div className={styles.progressStatus}>
                     {createStatus === CreateStatus.IDLE && '准备发布...'}
+                    {createStatus === CreateStatus.REVIEWING && '正在审核...'}
                     {createStatus === CreateStatus.UPLOADING && '正在上传到区块链...'}
                     {createStatus === CreateStatus.CREATING_CONTRACT && '正在创建合约...'}
                     {createStatus === CreateStatus.SAVING_DATABASE && '正在保存数据...'}
@@ -3694,6 +3783,8 @@ const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
               <div className={styles.warningSection}>
                 <ul className={styles.warningList}>
+                  <li>发布到章节内容需经过审核</li>
+                  <li>发布到章节内容需经过审核</li>
                   <li>发布后章节内容将无法修改</li>
                   <li>发布操作需要支付gas费用</li>
                   <li>请确保章节内容已经完善</li>

@@ -10,7 +10,7 @@ import { TippingSystem__factory } from './typechain-types'
 import { TreasuryManager__factory } from './typechain-types'
 import { CONTRACT_ADDRESSES } from '../frontend/web/constants/contracts'
 
-import type { 
+import type {
   AuthorManager,
   NovelNFT,
   TaforToken,
@@ -21,8 +21,8 @@ import type {
 } from './typechain-types'
 
 // 导出类型和工厂
-export type { 
-  StoryManager, 
+export type {
+  StoryManager,
   AuthorManager,
   NovelNFT,
   TaforToken,
@@ -32,7 +32,7 @@ export type {
   TreasuryManager
 }
 
-export { 
+export {
   StoryManager__factory,
   AuthorManager__factory,
   NovelNFT__factory,
@@ -59,43 +59,43 @@ export class TaleForgeSDK {
   constructor(provider: ethers.providers.Provider, signer?: ethers.Signer) {
     this.provider = provider
     this.signer = signer
-    
+
     // 初始化合约
     this.storyManager = StoryManager__factory.connect(
       CONTRACT_ADDRESSES.StoryManager,
       this.signer || this.provider
     )
-    
+
     this.authorManager = AuthorManager__factory.connect(
       CONTRACT_ADDRESSES.AuthorManager,
       this.signer || this.provider
     )
-    
+
     this.novelNFT = NovelNFT__factory.connect(
       CONTRACT_ADDRESSES.NovelNFT,
       this.signer || this.provider
     )
-    
+
     this.taforToken = TaforToken__factory.connect(
       CONTRACT_ADDRESSES.TaforToken,
       this.signer || this.provider
     )
-    
+
     this.miningPool = MiningPool__factory.connect(
       CONTRACT_ADDRESSES.MiningPool,
       this.signer || this.provider
     )
-    
+
     this.readerActivity = ReaderActivity__factory.connect(
       CONTRACT_ADDRESSES.ReaderActivityAddress,
       this.signer || this.provider
     )
-    
+
     this.tippingSystem = TippingSystem__factory.connect(
       CONTRACT_ADDRESSES.TippingSystemAddress,
       this.signer || this.provider
     )
-    
+
     this.treasuryManager = TreasuryManager__factory.connect(
       CONTRACT_ADDRESSES.TreasuryManager,
       this.signer || this.provider
