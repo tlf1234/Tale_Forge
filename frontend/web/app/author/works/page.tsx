@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { FiEdit, FiTrash, FiPlus, FiEye, FiHeart, FiMessageSquare, FiClock, FiFilter, FiSearch } from 'react-icons/fi'
+import { FiEdit, FiTrash, FiPlus, FiEye, FiHeart, FiMessageSquare, FiClock, FiFilter, FiSearch, FiUsers } from 'react-icons/fi'
 import { FaBook, FaPencilAlt, FaRegListAlt } from 'react-icons/fa'
 import { useAccount } from 'wagmi'
 import WalletRequired from '@/components/web3/WalletRequired'
@@ -329,14 +329,24 @@ export default function WorksPage() {
                           <h2 className="text-xl font-bold text-gray-900 truncate hover:text-indigo-600 transition-colors duration-200">
                             {work.title}
                           </h2>
-                          <button
-                            onClick={() => router.push(`/author/write?id=${work.id}`)}
-                            className="inline-flex items-center px-4 py-2 text-sm font-medium text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-600 rounded-lg transition-all duration-200"
-                            title="编辑作品"
-                          >
-                            <FiEdit className="w-4 h-4 mr-2" />
-                            编辑
-                          </button>
+                          <div className="flex flex-col gap-2">
+                            <button
+                              onClick={() => router.push(`/author/write?id=${work.id}`)}
+                              className="inline-flex items-center justify-center w-full px-4 py-2 text-sm font-medium text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-600 rounded-lg transition-all duration-200"
+                              title="编辑作品"
+                            >
+                              <FiEdit className="w-4 h-4 mr-2" />
+                              编辑
+                            </button>
+                            <button
+                              onClick={() => router.push(`/author/character?storyId=${work.id}`)}
+                              className="inline-flex items-center justify-center w-full px-4 py-2 text-sm font-medium text-purple-600 hover:text-white bg-purple-50 hover:bg-purple-600 rounded-lg transition-all duration-200"
+                              title="管理角色"
+                            >
+                              <FiUsers className="w-4 h-4 mr-2" />
+                              角色管理
+                            </button>
+                          </div>
                         </div>
                         <p className="text-gray-600 mb-4 line-clamp-2 text-sm">{work.description}</p>
                         <div className="flex items-center gap-2">

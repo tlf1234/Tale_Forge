@@ -13,7 +13,7 @@ export interface ChapterMeta {
   title: string
   order: number
   wordCount: number
-  status: 'draft' | 'pending' | 'published'
+  status: 'draft' | 'underreview' | 'published'
   createdAt: string
   updatedAt: string
 }

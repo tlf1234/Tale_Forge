@@ -41,7 +41,7 @@ export class StoryService {
       // 1. 获取同步状态
       const syncState = await syncService.getAuthorStoriesSyncState(authorId)
       console.log('[StoryService.getAuthorStories] 同步状态:', syncState)
-      
+
       // 2. 触发同步的条件：
       // - 首次加载（没有同步记录）
       // - 同步状态不是 COMPLETED
@@ -92,8 +92,8 @@ export class StoryService {
       })
 
       // 返回数据库当前的数据，同时返回同步状态供前端展示
-      return { 
-        stories, 
+      return {
+        stories,
         total,
         syncStatus: syncState?.syncStatus || 'PENDING',
         message: needsSync ? '正在同步区块链数据，稍后刷新页面查看最新数据' : undefined,
@@ -228,7 +228,7 @@ export class StoryService {
     }
   }
 
-  
+
   // 验证故事内容
   async validateStory(data: any) {
     // 内容验证逻辑
@@ -335,9 +335,9 @@ export class StoryService {
       if (story) {
         console.log('[StoryService.getStory] 开始从IPFS获取内容:', { contentCid: story.contentCid });  // 修改这里
         const content = await getFromIPFS(story.contentCid);  // 修改这里
-        console.log('[StoryService.getStory] IPFS内容获取成功:', { 
+        console.log('[StoryService.getStory] IPFS内容获取成功:', {
           contentLength: content?.length,
-          hasContent: !!content 
+          hasContent: !!content
         });
         return {
           id: story.id,
@@ -464,16 +464,16 @@ export class StoryService {
         where: { id },
         include: { story: true }
       });
-      
+
       if (!chapter) {
         throw new Error('章节不存在');
       }
-      
+
       if (chapter.storyId !== storyId) {
         throw new Error('章节不属于指定的故事');
       }
     }
-    
+
     // 获取章节
     const chapter = await prisma.chapter.findUnique({
       where: { id },
@@ -509,6 +509,7 @@ export class StoryService {
         contentLength: content.length,
         hasImageUrls: content.includes('http://localhost:3001/uploads')
       });
+
 
       for (const illustration of chapter.illustrations) {
         if (!illustration.filePath) {
@@ -624,6 +625,7 @@ export class StoryService {
     content?: string
     order?: number
     wordCount?: number
+    status?: 'DRAFT' | 'UNDERREVIEW' | 'PUBLISHED'
   }, storyId?: string) {
     // 如果提供了 storyId，先验证章节是否属于该故事
     if (storyId) {
@@ -631,16 +633,16 @@ export class StoryService {
         where: { id },
         include: { story: true }
       });
-      
+
       if (!chapter) {
         throw new Error('章节不存在');
       }
-      
+
       if (chapter.storyId !== storyId) {
         throw new Error('章节不属于指定的故事');
       }
     }
-    
+
     // 更新章节
     return await prisma.chapter.update({
       where: { id },
@@ -657,16 +659,16 @@ export class StoryService {
         where: { id },
         include: { story: true }
       });
-      
+
       if (!chapter) {
         throw new Error('章节不存在');
       }
-      
+
       if (chapter.storyId !== storyId) {
         throw new Error('章节不属于指定的故事');
       }
     }
-    
+
     return await prisma.chapter.delete({
       where: { id }
     });
@@ -676,7 +678,7 @@ export class StoryService {
   // 获取章节列表
   async getChaptersByStoryId(storyId: string, page: number = 1, limit: number = 50) {
     const skip = (page - 1) * limit;
-    
+
     return await prisma.chapter.findMany({
       where: {
         storyId: storyId
@@ -701,7 +703,7 @@ export class StoryService {
   // 获取章节统计信息
   async getChapterStats(storyId: string) {
     console.log(`[getChapterStats] 开始获取故事 ${storyId} 的章节统计信息`);
-    
+
     // 获取所有章节和它们的状态信息
     const chapters = await prisma.chapter.findMany({
       where: {
@@ -713,26 +715,26 @@ export class StoryService {
         title: true // 添加标题便于识别
       }
     });
-    
+
     console.log(`[getChapterStats] 所有章节数量: ${chapters.length}`);
-    
+
     // 更详细地记录每个章节的状态
     chapters.forEach((chapter, index) => {
-      console.log(`[getChapterStats] 章节 ${index+1}: ID=${chapter.id}, 标题=${chapter.title}, 状态=${chapter.status}`);
+      console.log(`[getChapterStats] 章节 ${index + 1}: ID=${chapter.id}, 标题=${chapter.title}, 状态=${chapter.status}`);
     });
-    
+
     // 获取章节总数
     const totalCount = chapters.length;
-    
+
     // 统计各种状态的章节数量
     const statusCounts = chapters.reduce((acc, chapter) => {
       const status = chapter.status || 'UNKNOWN';
       acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    
+
     console.log(`[getChapterStats] 各状态章节数量:`, statusCounts);
-    
+
     // 获取已发布章节数
     const publishedCount = await prisma.chapter.count({
       where: {
@@ -740,9 +742,9 @@ export class StoryService {
         status: 'PUBLISHED'
       }
     });
-    
+
     console.log(`[getChapterStats] PUBLISHED 章节数: ${publishedCount}`);
-    
+
     // 获取草稿章节数 - 这里原来可能有问题
     const draftCount = await prisma.chapter.count({
       where: {
@@ -750,29 +752,38 @@ export class StoryService {
         status: 'DRAFT'  // 明确指定为DRAFT而不是not PUBLISHED
       }
     });
-    
+
+    // 获取草稿章节数 
+    const underreviewCount = await prisma.chapter.count({
+      where: {
+        storyId: storyId,
+        status: 'UNDERREVIEW'
+      }
+    });
+
     console.log(`[getChapterStats] DRAFT 章节数: ${draftCount}`);
     console.log(`[getChapterStats] 统计结果: 总计=${totalCount}, 已发布=${publishedCount}, 草稿=${draftCount}`);
-    
+
     // 检查数据一致性
-    if (publishedCount + draftCount !== totalCount) {
-      console.warn(`[getChapterStats] ⚠️ 数据不一致! 总数(${totalCount}) ≠ 已发布(${publishedCount}) + 草稿(${draftCount})`);
+    if (publishedCount + draftCount + underreviewCount !== totalCount) {
+      console.warn(`[getChapterStats] ⚠️ 数据不一致! 总数(${totalCount}) ≠ 已发布(${publishedCount}) + 草稿(${draftCount}) + 审核中(${underreviewCount})`);
       console.warn(`[getChapterStats] 可能存在未定义的状态值，详情:`, statusCounts);
     }
-    
+
     // 返回统计信息
     return {
       total: totalCount,
       published: publishedCount,
       draft: draftCount,
+      underreview: underreviewCount,
       statusCounts: statusCounts
     };
   }
-  
+
   // 获取最近的章节
   async getRecentChapters(storyId: string, limit: number = 10) {
     console.log(`[getRecentChapters] 开始获取故事 ${storyId} 的最近章节，限制数量: ${limit}`);
-    
+
     try {
       const chapters = await prisma.chapter.findMany({
         where: {
@@ -792,10 +803,10 @@ export class StoryService {
           updatedAt: true
         }
       });
-      
+
       console.log(`[getRecentChapters] 查询到 ${chapters.length} 个章节`);
-      console.log(`[getRecentChapters] 章节序号范围: ${chapters.length > 0 ? `${chapters[chapters.length-1].order} 到 ${chapters[0].order}` : '无章节'}`);
-      
+      console.log(`[getRecentChapters] 章节序号范围: ${chapters.length > 0 ? `${chapters[chapters.length - 1].order} 到 ${chapters[0].order}` : '无章节'}`);
+
       // 打印章节详情
       if (chapters.length > 0) {
         console.table(chapters.map(c => ({
@@ -806,14 +817,14 @@ export class StoryService {
           wordCount: c.wordCount
         })));
       }
-      
+
       return chapters;
     } catch (error) {
       console.error(`[getRecentChapters] 获取故事章节失败:`, error);
       throw error;
     }
   }
-  
+
   // 获取指定范围的章节
   async getChaptersByRange(storyId: string, start: number, end: number) {
     return await prisma.chapter.findMany({
@@ -838,7 +849,7 @@ export class StoryService {
       }
     });
   }
-  
+
   // 搜索章节
   async searchChapters(storyId: string, keyword: string) {
     return await prisma.chapter.findMany({
@@ -864,63 +875,64 @@ export class StoryService {
     });
   }
 
- // 获取章节内容
- async getChapter(id: string, storyId?: string) {
-  // @ts-ignore - 忽略类型检查，因为我们已经修改了 Prisma 模型
-  const chapter = await prisma.chapter.findUnique({
-    where: { 
-      id,
-      ...(storyId ? { storyId } : {})
-    },
-    include: {
-      story: {
-        include: {
-          author: true
-        }
+  // 获取章节内容
+  async getChapter(id: string, storyId?: string) {
+    // @ts-ignore - 忽略类型检查，因为我们已经修改了 Prisma 模型
+    const chapter = await prisma.chapter.findUnique({
+      where: {
+        id,
+        ...(storyId ? { storyId } : {})
       },
-      illustrations: true  // 确保包含 illustrations 关系
-    }
-  })
+      include: {
+        story: {
+          include: {
+            author: true
+          },
+       illustrations: true  // 确保包含 illustrations 关系
 
-  if (!chapter) throw new Error('Chapter not found')
-  
-  // 如果提供了 storyId 但章节不属于该故事，则拒绝访问
-  if (storyId && chapter.storyId !== storyId) {
-    throw new Error('章节不属于指定的故事')
-  }
-
-  // 如果是草稿状态，直接返回chapter（无论content是否为空）
-  if (chapter.status === 'DRAFT') {
-    // 确保content字段存在，如果不存在则设为空字符串
-    return { ...chapter, content: chapter.content || '' };
-  }
-
-  // 如果是已发布状态，从IPFS获取内容
-  if (chapter.contentCid) {
-    try {
-      console.log(`尝试从IPFS获取章节内容 (章节ID: ${id}, CID: ${chapter.contentCid})`);
-      const content = await getFromIPFS(chapter.contentCid);
-      console.log(`成功从IPFS获取内容，内容长度: ${content ? content.length : 0} 字符`);
-      return { ...chapter, content };
-    } catch (error) {
-      console.error(`从IPFS获取内容失败 (章节ID: ${id}, CID: ${chapter.contentCid}):`, error);
-      
-      // 如果IPFS获取失败，尝试使用数据库中的content字段作为备份
-      if (chapter.content) {
-        console.log(`使用数据库中的content字段作为备份，内容长度: ${chapter.content.length} 字符`);
-        return { ...chapter, content: chapter.content };
       }
-      
-      // 如果数据库中也没有content，则返回空内容
-      console.warn(`IPFS获取失败且数据库中也没有content字段，返回空内容`);
-      return { ...chapter, content: '' };
+    })
+
+    if (!chapter) throw new Error('Chapter not found')
+
+    // 如果提供了 storyId 但章节不属于该故事，则拒绝访问
+    if (storyId && chapter.storyId !== storyId) {
+      throw new Error('章节不属于指定的故事')
+
     }
+
+    // 如果是草稿状态，直接返回chapter（无论content是否为空）
+    if (chapter.status === 'DRAFT' || chapter.status === 'UNDERREVIEW') {
+      // 确保content字段存在，如果不存在则设为空字符串
+      return { ...chapter, status: chapter.status, content: chapter.content || '' };
+    }
+
+    // 如果是已发布状态，从IPFS获取内容
+    if (chapter.contentCid) {
+      try {
+        console.log(`尝试从IPFS获取章节内容 (章节ID: ${id}, CID: ${chapter.contentCid})`);
+        const content = await getFromIPFS(chapter.contentCid);
+        console.log(`成功从IPFS获取内容，内容长度: ${content ? content.length : 0} 字符`);
+        return { ...chapter, content };
+      } catch (error) {
+        console.error(`从IPFS获取内容失败 (章节ID: ${id}, CID: ${chapter.contentCid}):`, error);
+
+        // 如果IPFS获取失败，尝试使用数据库中的content字段作为备份
+        if (chapter.content) {
+          console.log(`使用数据库中的content字段作为备份，内容长度: ${chapter.content.length} 字符`);
+          return { ...chapter, content: chapter.content };
+        }
+
+        // 如果数据库中也没有content，则返回空内容
+        console.warn(`IPFS获取失败且数据库中也没有content字段，返回空内容`);
+        return { ...chapter, content: '' };
+      }
+    }
+
+    // 如果既不是草稿也没有contentCid，返回章节数据但内容为空
+    console.warn(`章节 ${id} 状态为 ${chapter.status}，但没有contentCid，返回空内容`);
+    return { ...chapter, content: '' };
   }
-  
-  // 如果既不是草稿也没有contentCid，返回章节数据但内容为空
-  console.warn(`章节 ${id} 状态为 ${chapter.status}，但没有contentCid，返回空内容`);
-  return { ...chapter, content: '' };
- }
 
   // 通过章节顺序获取章节
   async getChapterByOrder(storyId: string, order: number) {

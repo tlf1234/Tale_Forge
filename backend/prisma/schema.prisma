@@ -65,6 +65,7 @@ model Story {
   collections   Collection[] // 所属故事集
   createdAt     DateTime  @default(now()) // 创建时间
   updatedAt     DateTime  @updatedAt // 更新时间
+  characters    Character[]
 
   @@index([authorId])
   @@index([chainId])
@@ -272,6 +273,7 @@ enum StoryStatus {
 // 章节状态枚举
 enum ChapterStatus {
   DRAFT       // 草稿
+  UNDERREVIEW // 审核中
   PUBLISHED   // 已发布
 }
 
@@ -304,4 +306,24 @@ model Collection {
   stories       Story[]   // 收藏的故事
 
   @@index([userId])
+}
+
+// AI agent配置
+model Character {
+  id            String    @id @default(cuid())
+  name          String    // 角色名称
+  role          String    // 角色身份
+  background    String    @default("") // 背景故事
+  personality   String    @default("") // 性格特征
+  goals         String[]  // 目标
+  relationships String[]  // 关系网络
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 关联
+  storyId       String
+  story         Story     @relation(fields: [storyId], references: [id])
+
+  @@unique([storyId, name])
+  @@index([storyId])
 }
