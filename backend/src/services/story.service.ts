@@ -6,6 +6,7 @@ import { SyncStatus } from '@prisma/client'
 import { syncService } from './sync.service'
 import fs from 'fs'
 import path from 'path'
+import { ChapterStatus } from "@prisma/client"
 
 export class StoryService {
   /**
@@ -478,7 +479,11 @@ export class StoryService {
     const chapter = await prisma.chapter.findUnique({
       where: { id },
       include: {
-        story: true,
+        story: {
+          include: {
+            author: true
+          }
+        },
         illustrations: {
           select: {
             id: true,
@@ -646,7 +651,13 @@ export class StoryService {
     // 更新章节
     return await prisma.chapter.update({
       where: { id },
-      data
+      data: {
+        title: data.title,
+        content: data.content,
+        order: data.order,
+        wordCount: data.wordCount,
+        status: data.status as ChapterStatus
+      }
     });
   }
 
@@ -886,10 +897,17 @@ export class StoryService {
       include: {
         story: {
           include: {
-            author: true
+            author: true,
           },
-       illustrations: true  // 确保包含 illustrations 关系
+        },
 
+        illustrations: {
+          select: {
+              id: true,
+              filePath: true,
+              imageCID: true
+            }
+          }
       }
     })
 

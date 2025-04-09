@@ -308,6 +308,43 @@ model Collection {
   @@index([userId])
 }
 
+
+
+// 图片
+model Image {
+  id            String    @id @default(cuid())
+  address       String    // 钱包地址
+  fileId        String    // 文件ID
+  fileName      String    // 文件名
+  createdAt     DateTime  @default(now())
+  
+  @@index([fileId])       
+}
+
+
+// NFT 
+model Nft {
+  id            String    @id @default(cuid())
+  address       String    // 钱包地址
+  fileId        String    // 文件ID
+  storyId       String?    // 故事ID
+  name          String    // 名称          
+  description   String    // 描述
+  nftType       String    // 类型
+  rarity        String    // 稀有度
+  isFirstSale   Boolean   @default(false) // 是否第一次铸造 NFT
+  isListed      Boolean   @default(false) // 是否在售
+  listTime      DateTime?  // 挂单时间
+  priceBNB      String     // BNB 价格
+  priceToken    String     // TAFOR 定价
+  stakedEarnings  String?   //质押的挖矿收益
+  earningsStartTime DateTime? // 开始计算收益的时间
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([fileId])   
+}
+  
 // AI agent配置
 model Character {
   id            String    @id @default(cuid())

@@ -73,6 +73,13 @@ export default function AuthorLayout({
             <span className={styles.navIcon}><FaBook /></span>
             <span>作品管理</span>
           </Link>
+          <Link
+            href="/author/image"
+            className={`${styles.navLink} ${pathname === '/author/image' ? styles.active : ''}`}
+          >
+            <span className={styles.navIcon}><FaWallet /></span>
+            <span>图片管理</span>
+          </Link>
           <Link 
             href="/author/stats"
             className={`${styles.navLink} ${pathname === '/author/stats' && !collapsed ? styles.active : ''}`}
