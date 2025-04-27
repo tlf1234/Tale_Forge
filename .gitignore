@@ -19,6 +19,9 @@ node_modules
 .env.production
 **/.env
 
+#uploads文件夹
+uploads
+uploads/drafts
 # Build files
 dist
 build
@@ -41,7 +44,6 @@ Thumbs.db
 
 # Prisma
 .prisma
-backend/prisma/migrations
 
 # Next.js
 .next
