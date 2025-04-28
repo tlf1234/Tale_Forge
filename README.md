@@ -278,7 +278,7 @@ npm run start
 - MiningPool: [待部署]
 - ReaderActivity: [待部署]
 
-### 主网(BSC Mainnet)
+### 主网
 - TaforToken: [待部署]
 - AuthorManager: [待部署]
 - StoryManager: [待部署]
