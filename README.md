@@ -270,7 +270,7 @@ npm run start
 
 ## 合约地址
 
-### 测试网(BSC Testnet)
+### 测试网
 - TaforToken: [待部署]
 - AuthorManager: [待部署]
 - StoryManager: [待部署]
