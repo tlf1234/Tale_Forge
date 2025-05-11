@@ -1,0 +1,584 @@
+/* 页面容器 */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+/* 页面标题区域 */
+.header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  font-size: 1rem;
+  color: #64748b;
+}
+
+/* 搜索和筛选 */
+.searchContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.searchBox {
+  position: relative;
+  flex-grow: 1;
+  max-width: 500px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  transition: border-color 0.15s ease;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.filterContainer {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.filterButton, .sortButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background-color: white;
+  color: #475569;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.filterButton:hover, .sortButton:hover {
+  background-color: #f8fafc;
+}
+
+/* 标签栏 */
+.tabsContainer {
+  display: flex;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+}
+
+.tabButton {
+  padding: 1rem 1.5rem;
+  background: none;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  white-space: nowrap;
+}
+
+.tabButton:hover {
+  color: #1e293b;
+}
+
+.activeTab {
+  color: #6366f1;
+  box-shadow: inset 0 -2px 0 #6366f1;
+}
+
+/* 排序选项 */
+.sortOptionsContainer {
+  margin-bottom: 1.5rem;
+}
+
+.sortOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sortOption {
+  padding: 0.5rem 1rem;
+  background-color: #f1f5f9;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  color: #475569;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.sortOption:hover {
+  background-color: #e2e8f0;
+}
+
+.activeSortOption {
+  background-color: #6366f1;
+  color: white;
+}
+
+/* 加载状态 */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 0;
+  color: #64748b;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(99, 102, 241, 0.3);
+  border-radius: 50%;
+  border-top-color: #6366f1;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 空结果 */
+.emptyContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 0;
+  color: #64748b;
+}
+
+.emptyIcon {
+  font-size: 3rem;
+  color: #e2e8f0;
+  margin-bottom: 1rem;
+}
+
+/* 代币列表 */
+.tokenList {
+  background-color: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.tokenListHeader {
+  display: grid;
+  grid-template-columns: 3fr 1fr 1fr 1fr 1fr 1fr 2fr;
+  padding: 1rem;
+  background-color: #f8fafc;
+  font-weight: 500;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tokenItem {
+  display: grid;
+  grid-template-columns: 3fr 1fr 1fr 1fr 1fr 1fr 2fr;
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  transition: background-color 0.15s ease;
+}
+
+.tokenItem:last-child {
+  border-bottom: none;
+}
+
+.tokenItem:hover {
+  background-color: #f8fafc;
+}
+
+.tokenCol {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.tokenIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #6366f1;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.tokenInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.tokenName {
+  font-weight: 500;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+}
+
+.tokenSymbol {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.priceCol, .volumeCol, .marketCapCol, .holdersCol {
+  display: flex;
+  align-items: center;
+  color: #1e293b;
+}
+
+.changeCol {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.positiveChange {
+  color: #10b981;
+}
+
+.negativeChange {
+  color: #ef4444;
+}
+
+.actionCol {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.buyButton, .sellButton {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.buyButton {
+  background-color: #6366f1;
+  color: white;
+}
+
+.buyButton:hover {
+  background-color: #4f46e5;
+}
+
+.sellButton {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.sellButton:hover {
+  background-color: #e2e8f0;
+}
+
+/* 交易模态框 */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  width: 100%;
+  max-width: 500px;
+  background-color: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modalHeader h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.closeButton:hover {
+  color: #1e293b;
+}
+
+.modalBody {
+  padding: 1.5rem;
+}
+
+.tokenDetails {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.tokenDetailIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: #6366f1;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+.tokenDetailInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.tokenDetailName {
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+}
+
+.tokenDetailSymbol {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.priceInfo, .balanceInfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background-color: #f8fafc;
+  border-radius: 0.5rem;
+}
+
+.priceLabel, .balanceLabel {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.priceValue, .balanceValue {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.amountContainer {
+  margin-bottom: 1.5rem;
+}
+
+.amountLabel {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
+  margin-bottom: 0.5rem;
+}
+
+.amountInputContainer {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.amountInput {
+  flex-grow: 1;
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  transition: border-color 0.15s ease;
+}
+
+.amountInput:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.maxButton {
+  padding: 0.75rem 1rem;
+  background-color: #f1f5f9;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.maxButton:hover {
+  background-color: #e2e8f0;
+}
+
+.costContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background-color: #f8fafc;
+  border-radius: 0.5rem;
+}
+
+.costLabel {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.costValue {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.cancelButton, .confirmButton {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.cancelButton {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.cancelButton:hover:not(:disabled) {
+  background-color: #e2e8f0;
+}
+
+.confirmButton {
+  background-color: #6366f1;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.confirmButton:hover:not(:disabled) {
+  background-color: #4f46e5;
+}
+
+.cancelButton:disabled, .confirmButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.buttonSpinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+}
+
+/* 响应式调整 */
+@media (max-width: 1024px) {
+  .tokenListHeader, .tokenItem {
+    grid-template-columns: 3fr 1fr 1fr 1fr 1fr 2fr;
+  }
+  
+  .volumeCol {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .tokenListHeader, .tokenItem {
+    grid-template-columns: 3fr 1fr 1fr 1fr 2fr;
+  }
+  
+  .marketCapCol {
+    display: none;
+  }
+  
+  .filterContainer {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .tokenListHeader, .tokenItem {
+    grid-template-columns: 3fr 1fr 1fr 2fr;
+  }
+  
+  .holdersCol {
+    display: none;
+  }
+  
+  .tabsContainer {
+    justify-content: space-between;
+  }
+  
+  .tabButton {
+    padding: 1rem 0.75rem;
+    flex-grow: 1;
+    text-align: center;
+  }
+} 

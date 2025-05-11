@@ -1,0 +1,380 @@
+.formatContainer {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 1.5rem;
+  z-index: 1000;
+  width: 450px;
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.button:hover {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.optionsList {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.formatOption {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #eee;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.formatOption:hover {
+  background-color: #f9f9f9;
+  border-color: #ddd;
+}
+
+.formatOption.selected {
+  background-color: #f0f7ff;
+  border-color: #90caf9;
+}
+
+.formatIcon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #eee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  margin-top: 4px;
+}
+
+.formatIcon .selected {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #1976d2;
+}
+
+.formatInfo {
+  flex: 1;
+}
+
+.formatName {
+  margin: 0 0 4px 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.formatDescription {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #666;
+  line-height: 1.4;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid #eee;
+}
+
+.cancelButton {
+  padding: 8px 16px;
+  border: none;
+  background-color: #f0f0f0;
+  color: #333;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.cancelButton:hover {
+  background-color: #e0e0e0;
+}
+
+.applyButton {
+  padding: 8px 16px;
+  border: none;
+  background-color: #1976d2;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.applyButton:hover {
+  background-color: #1565c0;
+}
+
+.applyButton.disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* 自定义排版选项样式 */
+.customOptions {
+  padding: 16px;
+  background-color: #f9f9f9;
+  border-top: 1px solid #eee;
+  border-bottom: 1px solid #eee;
+}
+
+.customTitle {
+  margin: 0 0 16px 0;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.optionRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.optionLabel {
+  width: 140px;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.slider {
+  flex: 1;
+  height: 4px;
+  appearance: none;
+  background-color: #ddd;
+  border-radius: 2px;
+  outline: none;
+}
+
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #1976d2;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  background-color: #1565c0;
+  transform: scale(1.1);
+}
+
+.valueDisplay {
+  width: 40px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.optionGroup {
+  margin-top: 20px;
+}
+
+.optionSubtitle {
+  margin: 16px 0 8px 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #444;
+  border-top: 1px solid #eee;
+  padding-top: 12px;
+}
+
+.checkboxRow {
+  margin-bottom: 12px;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #555;
+  cursor: pointer;
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .formatContainer {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+  }
+  
+  .header {
+    border-bottom-color: #333;
+  }
+  
+  .header h2 {
+    color: #e0e0e0;
+  }
+  
+  .button {
+    color: #999;
+  }
+  
+  .button:hover {
+    background-color: #333;
+    color: #e0e0e0;
+  }
+  
+  .formatOption {
+    border-color: #333;
+  }
+  
+  .formatOption:hover {
+    background-color: #252525;
+    border-color: #444;
+  }
+  
+  .formatOption.selected {
+    background-color: #0d2b45;
+    border-color: #2c5282;
+  }
+  
+  .formatIcon {
+    background-color: #333;
+    color: #999;
+  }
+  
+  .formatIcon .selected {
+    background-color: #3182ce;
+  }
+  
+  .formatName {
+    color: #e0e0e0;
+  }
+  
+  .formatDescription {
+    color: #aaa;
+  }
+  
+  .actions {
+    border-top-color: #333;
+  }
+  
+  .cancelButton {
+    background-color: #333;
+    color: #e0e0e0;
+  }
+  
+  .cancelButton:hover {
+    background-color: #444;
+  }
+  
+  .applyButton {
+    background-color: #2c5282;
+  }
+  
+  .applyButton:hover {
+    background-color: #3182ce;
+  }
+  
+  .applyButton.disabled {
+    background-color: #555;
+  }
+  
+  /* 自定义排版选项深色模式 */
+  .customOptions {
+    background-color: #252525;
+    border-color: #333;
+  }
+  
+  .customTitle {
+    color: #e0e0e0;
+  }
+  
+  .optionLabel {
+    color: #bbb;
+  }
+  
+  .slider {
+    background-color: #444;
+  }
+  
+  .slider::-webkit-slider-thumb {
+    background-color: #3182ce;
+  }
+  
+  .slider::-webkit-slider-thumb:hover {
+    background-color: #4299e1;
+  }
+  
+  .valueDisplay {
+    color: #e0e0e0;
+  }
+  
+  .checkboxLabel {
+    color: #bbb;
+  }
+  
+  .optionSubtitle {
+    color: #bbb;
+    border-top-color: #333;
+  }
+} 

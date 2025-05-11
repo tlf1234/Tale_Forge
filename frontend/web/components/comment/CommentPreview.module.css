@@ -1,0 +1,176 @@
+.container {
+  padding: 1rem;
+  margin: 2rem 0;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.count {
+  margin-left: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: normal;
+  color: #666;
+}
+
+.previewList {
+  margin-bottom: 1rem;
+}
+
+.previewItem {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.previewItem:last-child {
+  border-bottom: none;
+}
+
+.empty {
+  padding: 1.5rem 0;
+  text-align: center;
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.error {
+  padding: 1rem;
+  text-align: center;
+  color: #dc2626;
+  font-size: 0.875rem;
+}
+
+.skeletonContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.viewAllButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.75rem;
+  background-color: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  color: #3b82f6;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.viewAllButton:hover {
+  background-color: #f0f9ff;
+  border-color: #93c5fd;
+}
+
+.commentIcon {
+  margin-right: 0.5rem;
+  font-size: 1rem;
+}
+
+/* 主题相关样式 */
+:global(.theme-default) .container {
+  background-color: #f8f9fa;
+}
+
+:global(.theme-default) .title {
+  color: #333;
+}
+
+:global(.theme-eyeCare) .container {
+  background-color: #cce8cf;
+}
+
+:global(.theme-eyeCare) .title {
+  color: #333;
+}
+
+:global(.theme-sepia) .container {
+  background-color: #f4ecd8;
+}
+
+:global(.theme-sepia) .title {
+  color: #5c4b37;
+}
+
+:global(.theme-sepia) .viewAllButton {
+  background-color: #fff8e1;
+  color: #8d6e63;
+  border-color: #d7ccc8;
+}
+
+:global(.theme-sepia) .viewAllButton:hover {
+  background-color: #ffe0b2;
+  border-color: #bcaaa4;
+}
+
+/* 深色主题 */
+:global(.theme-dark) .container,
+:global(.dark-theme) .container {
+  background-color: #1a1a1a;
+  box-shadow: 0 1px 3px rgba(255, 255, 255, 0.1);
+}
+
+:global(.theme-dark) .title,
+:global(.dark-theme) .title {
+  color: #e0e0e0;
+}
+
+:global(.theme-dark) .count,
+:global(.dark-theme) .count {
+  color: #a0a0a0;
+}
+
+:global(.theme-dark) .empty,
+:global(.dark-theme) .empty {
+  color: #a0a0a0;
+}
+
+:global(.theme-dark) .previewItem,
+:global(.dark-theme) .previewItem {
+  border-color: #333;
+}
+
+:global(.theme-dark) .viewAllButton,
+:global(.dark-theme) .viewAllButton {
+  background-color: #2d3748;
+  color: #90cdf4;
+  border-color: #4a5568;
+}
+
+:global(.theme-dark) .viewAllButton:hover,
+:global(.dark-theme) .viewAllButton:hover {
+  background-color: #3b4557;
+  border-color: #718096;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .container {
+    padding: 0.75rem;
+    margin: 1.5rem 0;
+  }
+  
+  .title {
+    font-size: 1.125rem;
+  }
+  
+  .viewAllButton {
+    padding: 0.625rem;
+  }
+} 

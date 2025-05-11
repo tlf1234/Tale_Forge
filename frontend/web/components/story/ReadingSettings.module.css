@@ -1,0 +1,274 @@
+/* 阅读设置面板 */
+.settingsContainer {
+  position: fixed;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 320px;
+  padding: 20px;
+  z-index: 1000;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  font-size: 20px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.closeButton:hover {
+  color: #333;
+}
+
+.settingGroup {
+  margin-bottom: 24px;
+}
+
+.settingLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: #555;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.rangeControl {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rangeInput {
+  flex: 1;
+  cursor: pointer;
+}
+
+.valueDisplay {
+  min-width: 40px;
+  text-align: center;
+  font-size: 14px;
+  color: #666;
+}
+
+.fontSelector {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  background-color: white;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+}
+
+.themeOptions {
+  display: flex;
+  gap: 12px;
+}
+
+.themeOption {
+  flex: 1;
+  padding: 10px;
+  border-radius: 4px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  font-size: 14px;
+}
+
+.themeOptionLight {
+  background-color: #f8f9fa;
+  color: #333;
+}
+
+.themeOptionActive {
+  border-color: #007bff;
+  font-weight: 500;
+}
+
+.themeOptionDark {
+  background-color: #343a40;
+  color: #f8f9fa;
+}
+
+.themeOptionSepia {
+  background-color: #f5e8d3;
+  color: #5d4037;
+}
+
+.sepiaTheme {
+  background-color: #f4e6c2;
+  color: #5d4037;
+}
+
+.resetButton {
+  width: 100%;
+  padding: 10px;
+  background-color: #f0f0f0;
+  border: none;
+  border-radius: 4px;
+  color: #555;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.resetButton:hover {
+  background-color: #e0e0e0;
+}
+
+/* Dark mode styles */
+@media (prefers-color-scheme: dark) {
+  .settingsContainer {
+    background-color: #242424;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  .title {
+    color: #e0e0e0;
+  }
+
+  .closeButton {
+    color: #aaa;
+  }
+
+  .closeButton:hover {
+    color: #fff;
+  }
+
+  .settingLabel {
+    color: #bbb;
+  }
+
+  .valueDisplay {
+    color: #aaa;
+  }
+
+  .fontSelector {
+    background-color: #333;
+    border-color: #555;
+    color: #e0e0e0;
+  }
+
+  .themeOptionLight {
+    background-color: #e0e0e0;
+    color: #333;
+  }
+
+  .themeOptionDark {
+    background-color: #222;
+    color: #e0e0e0;
+    border-color: #555;
+  }
+
+  .themeOptionSepia {
+    background-color: #e8d9b9;
+  }
+
+  .sepiaTheme {
+    background-color: #e8d9b9;
+    color: #5d4037;
+  }
+  
+  .themeOptionActive {
+    border-color: #0d6efd;
+  }
+
+  .resetButton {
+    background-color: #333;
+    color: #e0e0e0;
+  }
+
+  .resetButton:hover {
+    background-color: #444;
+  }
+}
+
+/* 强制黑暗主题样式 - 当阅读模式为深色主题时 */
+:global([data-theme="dark"]) .settingsContainer {
+  background-color: #242424;
+  color: #e0e0e0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+:global([data-theme="dark"]) .title {
+  color: #e0e0e0;
+}
+
+:global([data-theme="dark"]) .closeButton {
+  color: #aaa;
+}
+
+:global([data-theme="dark"]) .closeButton:hover {
+  color: #fff;
+}
+
+:global([data-theme="dark"]) .settingLabel {
+  color: #bbb;
+}
+
+:global([data-theme="dark"]) .valueDisplay {
+  color: #aaa;
+}
+
+:global([data-theme="dark"]) .fontSelector {
+  background-color: #333;
+  border-color: #555;
+  color: #e0e0e0;
+}
+
+:global([data-theme="dark"]) .themeOption {
+  color: #e0e0e0;
+}
+
+:global([data-theme="dark"]) .themeOptionLight {
+  background-color: #e0e0e0;
+  color: #333;
+}
+
+:global([data-theme="dark"]) .themeOptionDark {
+  background-color: #222;
+  color: #e0e0e0;
+  border-color: #777;
+}
+
+:global([data-theme="dark"]) .themeOptionActive {
+  border-color: #0d6efd;
+}
+
+:global([data-theme="dark"]) .resetButton {
+  background-color: #333;
+  color: #e0e0e0;
+}
+
+:global([data-theme="dark"]) .resetButton:hover {
+  background-color: #444;
+} 

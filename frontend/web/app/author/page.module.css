@@ -1,0 +1,565 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  font-size: 1.125rem;
+  color: #64748b;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.moduleCard {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.moduleCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+  border-color: #2563eb;
+}
+
+.moduleIcon {
+  width: 3rem;
+  height: 3rem;
+  background: #f0f9ff;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+  margin-bottom: 1rem;
+}
+
+.moduleIcon svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.moduleName {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 0.5rem;
+}
+
+.moduleDescription {
+  font-size: 0.875rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.quickActions {
+  margin-bottom: 3rem;
+}
+
+.sectionTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 1.5rem;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 1rem;
+}
+
+.primaryButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background-color: #4f46e5;
+  color: white;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.primaryButton:hover {
+  background-color: #4338ca;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.secondaryButton {
+  padding: 0.75rem 1.5rem;
+  background: #f1f5f9;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 0.75rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.secondaryButton:hover {
+  background: #e2e8f0;
+}
+
+.statsOverview {
+  margin-bottom: 3rem;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.statCard {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.statValue {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2563eb;
+  margin-bottom: 0.5rem;
+}
+
+.statLabel {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+/* 深色模式 */
+@media (prefers-color-scheme: dark) {
+  .title {
+    color: #e2e8f0;
+  }
+
+  .subtitle {
+    color: #94a3b8;
+  }
+
+  .moduleCard {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  .moduleCard:hover {
+    border-color: #3b82f6;
+  }
+
+  .moduleIcon {
+    background: rgba(37, 99, 235, 0.1);
+  }
+
+  .moduleName {
+    color: #e2e8f0;
+  }
+
+  .moduleDescription {
+    color: #94a3b8;
+  }
+
+  .sectionTitle {
+    color: #e2e8f0;
+  }
+
+  .secondaryButton {
+    background: #334155;
+    color: #e2e8f0;
+  }
+
+  .secondaryButton:hover {
+    background: #475569;
+  }
+
+  .statCard {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  .statLabel {
+    color: #94a3b8;
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+
+  .title {
+    font-size: 2rem;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .actionButtons {
+    flex-direction: column;
+  }
+
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .tokenPromotionContent {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .tokenPromotionIcon {
+    margin-right: 0;
+    margin-bottom: 1.5rem;
+  }
+  
+  .tokenPromotionFeatures {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .tokenPromotionButton {
+    margin-top: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 添加作者代币推广区域样式 */
+.tokenPromotion {
+  margin-bottom: 2rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.5);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.tokenPromotion:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 30px -10px rgba(79, 70, 229, 0.6);
+}
+
+.tokenPromotionContent {
+  padding: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: white;
+}
+
+.tokenPromotionIcon {
+  font-size: 3rem;
+  margin-right: 2rem;
+  background: rgba(255, 255, 255, 0.2);
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+.tokenPromotionText {
+  flex: 1;
+}
+
+.tokenPromotionText h2 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.tokenPromotionText p {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  opacity: 0.9;
+}
+
+.tokenPromotionFeatures {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.tokenFeature {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 0.5rem 1rem;
+  border-radius: 2rem;
+  font-size: 0.9rem;
+}
+
+.tokenPromotionButton {
+  background-color: white;
+  color: #4f46e5;
+  font-weight: 600;
+  padding: 0.75rem 2rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.tokenPromotionButton:hover {
+  background-color: #f9fafb;
+  transform: scale(1.05);
+}
+
+/* 高亮卡片样式 */
+.highlightCard {
+  border: 2px solid #4f46e5;
+  background: linear-gradient(to bottom right, #ffffff, #f5f3ff);
+  transform: scale(1.02);
+  box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.highlightCard:hover {
+  transform: scale(1.05);
+  box-shadow: 0 20px 30px -10px rgba(79, 70, 229, 0.4);
+}
+
+.highlightCard .moduleIcon {
+  background-color: #4f46e5;
+  color: white;
+}
+
+.highlightBadge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: #ef4444;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* 添加代币仪表盘样式 */
+.tokenDashboard {
+  margin-bottom: 2rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+  box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.5);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.tokenDashboard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 30px -10px rgba(59, 130, 246, 0.6);
+}
+
+.tokenDashboardContent {
+  padding: 1.5rem;
+  color: white;
+}
+
+.tokenDashboardHeader {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.tokenDashboardIcon {
+  font-size: 2rem;
+  background: rgba(255, 255, 255, 0.2);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 1.5rem;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+}
+
+.tokenDashboardInfo {
+  flex: 1;
+}
+
+.tokenDashboardInfo h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.tokenDashboardInfo p {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.tokenDashboardButton {
+  background-color: white;
+  color: #3b82f6;
+  font-weight: 600;
+  padding: 0.6rem 1.5rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.tokenDashboardButton:hover {
+  background-color: #f9fafb;
+  transform: scale(1.05);
+}
+
+.tokenDashboardStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.tokenStat {
+  text-align: center;
+}
+
+.tokenStatValue {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.tokenStatLabel {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+/* 代币功能详细介绍样式 */
+.tokenFeaturesSection {
+  margin: 3rem 0;
+  padding: 2rem;
+  background-color: #f8fafc;
+  border-radius: 1rem;
+  box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.05);
+}
+
+.featuresGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.featureCard {
+  background-color: white;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.featureCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.featureIconWrapper {
+  width: 50px;
+  height: 50px;
+  background-color: #e0e7ff;
+  color: #4f46e5;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.featureIcon {
+  font-size: 1.5rem;
+}
+
+.featureTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.75rem;
+}
+
+.featureDescription {
+  font-size: 0.875rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.featuresCTA {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .tokenDashboardHeader {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .tokenDashboardIcon {
+    margin-right: 0;
+    margin-bottom: 1rem;
+  }
+  
+  .tokenDashboardInfo {
+    margin-bottom: 1rem;
+  }
+  
+  .tokenDashboardStats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .featuresGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .tokenDashboardStats {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+} 

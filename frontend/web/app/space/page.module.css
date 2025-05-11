@@ -1,0 +1,1642 @@
+/* 移除全局body选择器 */
+.pageBackground {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+  padding-top: 0; /* 移除可能的顶部内边距 */
+  margin-top: 0; /* 移除可能的顶部外边距 */
+}
+
+.container {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 0.5rem;
+  margin-top: 70px; /* 调整为与Header实际高度匹配，减少空白区域 */
+}
+
+.header {
+  margin-bottom: 2.5rem;
+  position: relative;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.title {
+  margin-top: 10px;
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  background: linear-gradient(90deg, #3b82f6, #6366f1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.content {
+  display: flex;
+  gap: 2.5rem;
+}
+
+/* 侧边栏样式 */
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background-color: white;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  height: fit-content;
+}
+
+.moduleButton {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  background: none;
+  border: none;
+  border-radius: 0.75rem;
+  font-size: 1rem;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.moduleButton:hover {
+  background: #f1f5f9;
+  color: #3b82f6;
+  transform: translateX(5px);
+}
+
+.moduleButton.active {
+  background: #3b82f6;
+  color: white;
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+  transform: translateX(5px);
+}
+
+.moduleIcon {
+  margin-right: 1rem;
+  font-size: 1.3rem;
+}
+
+/* 主内容区域样式 */
+.mainContent {
+  flex: 1;
+  min-height: 600px;
+  background-color: white;
+  border-radius: 1rem;
+  padding: 2rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+/* 加载状态 */
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+/* 书架样式 */
+.workGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2rem;
+}
+
+.workCard {
+  display: flex;
+  flex-direction: column;
+  background-color: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.workCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.workCardLink {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  text-decoration: none;
+  color: inherit;
+}
+
+.coverWrapper {
+  position: relative;
+  margin-bottom: 1rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s;
+}
+
+.workCard:hover .coverWrapper {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+}
+
+.cover {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  transition: all 0.5s;
+}
+
+.workCard:hover .cover {
+  transform: scale(1.05);
+}
+
+.progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #6366f1);
+  transition: width 0.5s ease;
+}
+
+.info {
+  flex: 1;
+  padding: 0.5rem;
+}
+
+.title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #0f172a;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.author {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.lastRead {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  position: relative;
+  padding-left: 1.2rem;
+}
+
+.lastRead:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 0.6rem;
+  height: 0.6rem;
+  background-color: #3b82f6;
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+
+/* 阅读历史样式 */
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.historyItem {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1.25rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.3s;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.historyItem:hover {
+  background: #f8fafc;
+  border-color: #3b82f6;
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+}
+
+.historyCoverWrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s;
+}
+
+.historyItem:hover .historyCoverWrapper {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+}
+
+.historyCover {
+  border-radius: 0.5rem;
+  transition: all 0.5s;
+}
+
+.historyItem:hover .historyCover {
+  transform: scale(1.05);
+}
+
+.historyInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.historyTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #0f172a;
+}
+
+.historyAuthor {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.historyMeta {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+}
+
+.historyMeta:before {
+  content: '';
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  background-color: #3b82f6;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+}
+
+/* NFT列表样式 */
+.nftGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 2rem;
+}
+
+.nftCard {
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.3s;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.nftCard:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+}
+
+.nftImageWrapper {
+  position: relative;
+  padding-top: 100%;
+  overflow: hidden;
+}
+
+.nftImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: all 0.5s;
+}
+
+.nftCard:hover .nftImage {
+  transform: scale(1.05);
+}
+
+.nftInfo {
+  padding: 1.25rem;
+  background: white;
+}
+
+.nftTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #0f172a;
+}
+
+.nftCreator {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin-bottom: 0.75rem;
+}
+
+.nftMeta {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+}
+
+.nftMeta:before {
+  content: '';
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  background-color: #3b82f6;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+}
+
+/* 交易记录样式 */
+.transactionList {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.transactionItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  transition: all 0.3s;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.transactionItem:hover {
+  border-color: #3b82f6;
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+}
+
+.transactionInfo {
+  flex: 1;
+}
+
+.transactionTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  color: #0f172a;
+}
+
+.transactionType {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.1);
+  border-radius: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.transactionMeta {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.transactionAmount {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #3b82f6;
+  padding: 0.5rem 1rem;
+  background-color: rgba(59, 130, 246, 0.1);
+  border-radius: 0.75rem;
+}
+
+/* 设置页面样式 */
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.settingGroup {
+  padding: 1.5rem;
+  background-color: #f8fafc;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.settingTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.settingItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.settingItem:last-child {
+  margin-bottom: 0;
+}
+
+.settingItem label {
+  font-weight: 500;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.settingItem input,
+.settingItem select {
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  transition: all 0.3s;
+}
+
+.settingItem input:focus,
+.settingItem select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.uploadButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+}
+
+.uploadButton:hover {
+  background-color: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4);
+}
+
+/* 空状态样式 */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  text-align: center;
+  min-height: 300px;
+  background-color: #f8fafc;
+  border-radius: 1rem;
+  border: 2px dashed #e2e8f0;
+}
+
+.emptyState p {
+  font-size: 1.1rem;
+  color: #64748b;
+  margin-bottom: 1.5rem;
+}
+
+.browseLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+}
+
+.browseLink:hover {
+  background-color: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4);
+}
+
+/* 分页控件 */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2.5rem;
+}
+
+.pageButton {
+  padding: 0.5rem 1rem;
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.pageButton:hover:not(:disabled) {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  transform: translateY(-2px);
+}
+
+.pageButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pageInfo {
+  font-size: 0.9rem;
+  color: #64748b;
+  min-width: 4rem;
+  text-align: center;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .content {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
+    margin-bottom: 1.5rem;
+  }
+  
+  .moduleButton {
+    padding: 0.75rem 1rem;
+  }
+  
+  .workGrid,
+  .nftGrid,
+  .historyGrid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  .container {
+    padding: 1rem;
+    margin-top: 100px;
+  }
+  
+  .mainContent {
+    padding: 1.5rem;
+  }
+  
+  .historyCardLink {
+    flex-direction: column;
+  }
+  
+  .historyCoverWrapper {
+    width: 100%;
+    margin-right: 0;
+  }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .pageBackground {
+    background-color: #111827;
+  }
+  
+  .container {
+    color: #e5e7eb;
+  }
+
+  .title {
+    background: linear-gradient(90deg, #60a5fa, #818cf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .sidebar,
+  .mainContent {
+    background-color:#e5e7eb;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  }
+  
+  .moduleButton {
+    color: #9ca3af;
+  }
+  
+  .moduleButton:hover {
+    background: #374151;
+    color: #60a5fa;
+  }
+  
+  .moduleButton.active {
+    background: #3b82f6;
+  }
+  
+  .title {
+    color: #e5e7eb;
+  }
+  
+  .author {
+    color: #9ca3af;
+  }
+  
+  .lastRead {
+    color: #9ca3af;
+  }
+  
+  .historyItem,
+  .transactionItem {
+    background: #1f2937;
+    border-color: #374151;
+  }
+  
+  .historyItem:hover,
+  .transactionItem:hover {
+    background: #2d3748;
+    border-color: #3b82f6;
+  }
+  
+  .historyTitle,
+  .nftTitle,
+  .transactionTitle {
+    color: #e5e7eb;
+  }
+  
+  .historyAuthor,
+  .nftCreator {
+    color: #9ca3af;
+  }
+  
+  .historyMeta,
+  .nftMeta,
+  .transactionMeta {
+    color: #9ca3af;
+  }
+  
+  .nftInfo {
+    background: #1f2937;
+  }
+  
+  .settingGroup {
+    background-color: #2d3748;
+  }
+  
+  .settingTitle {
+    color: #e5e7eb;
+    border-bottom-color: #4b5563;
+  }
+  
+  .settingItem label {
+    color: #9ca3af;
+  }
+  
+  .settingItem input,
+  .settingItem select {
+    background-color: #1f2937;
+    border-color: #4b5563;
+    color: #e5e7eb;
+  }
+  
+  .settingItem input:focus,
+  .settingItem select:focus {
+    border-color: #3b82f6;
+  }
+  
+  .emptyState {
+    background-color: #2d3748;
+    border-color: #4b5563;
+  }
+  
+  .emptyState p {
+    color: #9ca3af;
+  }
+  
+  .pageButton {
+    background-color: #1f2937;
+    border-color: #4b5563;
+    color: #9ca3af;
+  }
+  
+  .pageButton:hover:not(:disabled) {
+    border-color: #3b82f6;
+    color: #60a5fa;
+  }
+  
+  .pageInfo {
+    color: #9ca3af;
+  }
+  
+  .headerDescription {
+    color: #9ca3af;
+  }
+  
+  .sidebarHeader {
+    border-bottom-color: #374151;
+  }
+  
+  .userName {
+    color: #e5e7eb;
+  }
+  
+  .moduleTitle {
+    color: #e5e7eb;
+  }
+  
+  .moduleSubtitle {
+    color: #9ca3af;
+  }
+  
+  .emptyStateTitle {
+    color: #e5e7eb;
+  }
+  
+  .statusSuccess {
+    color: #34d399;
+  }
+  
+  .statusPending {
+    color: #fbbf24;
+  }
+}
+
+/* 头部描述文字 */
+.headerDescription {
+  font-size: 1.1rem;
+  color: #64748b;
+  margin-top: 0.5rem;
+}
+
+/* 侧边栏用户信息 */
+.sidebarHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.userAvatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+}
+
+.userName {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+/* 模块头部 */
+.moduleHeader {
+  margin-bottom: 2rem;
+}
+
+.moduleTitle {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 0.5rem;
+}
+
+.moduleSubtitle {
+  font-size: 1rem;
+  color: #64748b;
+}
+
+/* 空状态图标和标题 */
+.emptyStateIcon {
+  font-size: 3rem;
+  margin-bottom: 1.25rem;
+}
+
+.emptyStateTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 1rem;
+}
+
+/* 浏览链接箭头 */
+.browseLinkArrow {
+  display: inline-block;
+  margin-left: 0.5rem;
+  transition: transform 0.3s;
+}
+
+.browseLink:hover .browseLinkArrow {
+  transform: translateX(4px);
+}
+
+/* 上传按钮图标 */
+.uploadButtonIcon {
+  margin-right: 0.5rem;
+  font-size: 1.2rem;
+}
+
+/* 状态标签 */
+.statusSuccess {
+  color: #10b981;
+  font-weight: 500;
+}
+
+.statusPending {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+/* 历史容器 */
+.historyContainer, 
+.nftContainer, 
+.transactionsContainer {
+  width: 100%;
+}
+
+/* 书架容器 */
+.bookshelfContainer {
+  width: 100%;
+}
+
+/* 确保所有容器类型都有一致的样式 */
+.bookshelfContainer,
+.historyContainer, 
+.nftContainer, 
+.transactionsContainer {
+  width: 100%;
+}
+
+/* Bookmark styles */
+.bookmark {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+}
+
+.bookmark button {
+  background-color: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.bookmarkActions {
+  padding: 8px 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  background-color: #f9fafb;
+  display: flex;
+  justify-content: center;
+}
+
+.removeBookmarkButton {
+  width: 100%;
+  justify-content: center;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.removeBookmarkButton:hover {
+  background-color: rgba(239, 68, 68, 0.05) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  color: #ef4444 !important;
+}
+
+.removeBookmarkButton:hover svg {
+  fill: #ef4444 !important;
+}
+
+/* 新版阅读历史样式 */
+.historyGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2rem;
+}
+
+.historyCard {
+  display: flex;
+  flex-direction: column;
+  background-color: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.historyCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.historyCardLink {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  text-decoration: none;
+  color: inherit;
+}
+
+.historyCoverWrapper {
+  position: relative;
+  overflow: hidden;
+}
+
+.historyCover {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  transition: all 0.5s;
+}
+
+.historyCard:hover .historyCover {
+  transform: scale(1.05);
+}
+
+.readingProgress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0.5rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+}
+
+.readingIndicator {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  background-color: rgba(59, 130, 246, 0.9);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.readingDate {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.readingDate:before {
+  content: '📅';
+  font-size: 0.8rem;
+}
+
+.historyInfo {
+  flex: 1;
+  padding: 0.75rem 1rem;
+}
+
+.historyTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #0f172a;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.historyActions {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  background-color: #f9fafb;
+  display: flex;
+  justify-content: center;
+}
+
+.continueButton {
+  width: 100%;
+  padding: 0.5rem;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.continueButton:hover {
+  background-color: #2563eb;
+}
+
+/* 添加未登录状态的样式 */
+.notLoggedInContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 400px;
+  padding: 2rem;
+}
+
+.loginPrompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background-color: white;
+  border-radius: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  padding: 3rem 2rem;
+  width: 100%;
+  max-width: 500px;
+}
+
+.loginIcon {
+  font-size: 3rem;
+  color: #6366f1;
+  margin-bottom: 1.5rem;
+}
+
+.loginTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1rem;
+}
+
+.loginDescription {
+  font-size: 1rem;
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+  max-width: 80%;
+}
+
+.loginButton {
+  padding: 0.75rem 2rem;
+  background-color: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.loginButton:hover {
+  background-color: #4f46e5;
+}
+
+/* 通用的加载、错误和空状态样式 */
+.loadingContainer, .errorState, .emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  text-align: center;
+  background-color: #fff;
+  border-radius: 12px;
+  min-height: 300px;
+  margin: 0 auto;
+}
+
+/* 错误状态特有样式 - 完全居中显示 */
+.errorState {
+  height: 80%;
+  width: 100%;
+  margin: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  min-height: 400px;
+}
+
+.emptyStateIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.7;
+}
+
+.emptyStateTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.errorIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: #e53e3e;
+}
+
+.errorTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #e53e3e;
+}
+
+.retryButton {
+  margin-top: 16px;
+  padding: 10px 20px;
+  background-color: #4a6cf7;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.retryButton:hover {
+  background-color: #3451b2;
+}
+
+.browseLink {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 16px;
+  padding: 10px 20px;
+  background-color: #4a6cf7;
+  color: white;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.browseLink:hover {
+  background-color: #3451b2;
+  transform: translateY(-2px);
+}
+
+.browseLinkArrow {
+  margin-left: 8px;
+  transition: transform 0.2s;
+}
+
+.browseLink:hover .browseLinkArrow {
+  transform: translateX(3px);
+}
+
+/* 评论历史样式 */
+.commentsContainer {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.commentsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.commentItem {
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+  padding: 16px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.commentItem:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+.commentMeta {
+  display: flex;
+  margin-bottom: 12px;
+}
+
+.storyInfo {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+}
+
+.storyCover {
+  flex: 0 0 60px;
+  height: 80px;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.coverImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.storyDetails {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.storyTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  text-decoration: none;
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: color 0.2s ease;
+}
+
+.storyTitle:hover {
+  color: #4a6cf7;
+}
+
+.chapterInfo {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.commentTime {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.commentContent {
+  margin-bottom: 16px;
+  line-height: 1.6;
+  color: #444;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  font-size: 0.95rem;
+}
+
+.commentActions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #eee;
+  padding-top: 12px;
+}
+
+.likeButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #666;
+  transition: all 0.2s ease;
+}
+
+.likeButton:hover {
+  background-color: #f5f5f5;
+}
+
+.likeButton.liked {
+  color: #f56565;
+}
+
+.viewButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: #4a6cf7;
+  font-size: 0.9rem;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.viewButton:hover {
+  background-color: #eef2ff;
+}
+
+/* 状态徽章样式 */
+.statusBadge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+
+.statusBadge.confirmed {
+  background-color: #c6f6d5;
+  color: #22543d;
+}
+
+.statusBadge.pending {
+  background-color: #feebc8;
+  color: #7b341e;
+}
+
+.statusBadge.mock {
+  background-color: #e9d8fd;
+  color: #553c9a;
+}
+
+.statusBadge.failed {
+  background-color: #fed7d7;
+  color: #822727;
+}
+
+/* 响应式调整 */
+@media (max-width: 640px) {
+  .storyInfo {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .storyCover {
+    width: 100%;
+    max-width: 120px;
+    height: 160px;
+    margin: 0 auto;
+  }
+  
+  .commentActions {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  
+  .viewButton {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* 错误居中容器 */
+.errorCenterContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  width: 100%;
+} 
+
+/* 共享样式 */
+.historyContainer, 
+.bookshelfContainer,
+.commentsContainer,
+.likesContainer,
+.followingContainer {
+  width: 100%;
+}
+
+/* 点赞列表样式 */
+.likesList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.likeItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: white;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.likeItem:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-color: #3b82f6;
+}
+
+.likeMeta {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.likeTime {
+  display: flex;
+  align-items: center;
+  color: #6b7280;
+  font-size: 0.875rem;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.likeActions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.unlikeButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: #fff1f2;
+  color: #f43f5e;
+  border: 1px solid #fecdd3;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.unlikeButton:hover {
+  background-color: #fecdd3;
+}
+
+/* 关注列表样式 */
+.followingList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.followingItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: white;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.followingItem:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-color: #3b82f6;
+}
+
+.authorInfo {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.authorAvatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin-right: 1rem;
+  flex-shrink: 0;
+}
+
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.defaultAvatar {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  color: white;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.authorDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.authorName {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #1f2937;
+  text-decoration: none;
+}
+
+.authorName:hover {
+  color: #3b82f6;
+  text-decoration: underline;
+}
+
+.authorBadge {
+  display: inline-block;
+  background-color: #e0f2fe;
+  color: #0369a1;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-right: 8px;
+}
+
+.followTime {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.followingActions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.unfollowButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.unfollowButton:hover {
+  background-color: #fecaca;
+}
+
+.viewAuthorButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: #4a6cf7;
+  font-size: 0.9rem;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.viewAuthorButton:hover {
+  background-color: #eef2ff;
+} 

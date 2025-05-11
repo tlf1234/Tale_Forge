@@ -1,0 +1,821 @@
+/* 阅读器根容器 */
+.reader {
+  min-height: 100vh;
+  position: relative;
+  background: #f8f9fa;
+  overflow-x: hidden;
+  line-height: 1.8;
+  letter-spacing: 0.5px;
+  color: #333;
+  transition: all 0.3s ease;
+  /* 优化滚动性能 */
+  overscroll-behavior: none; /* 防止iOS回弹效果 */
+}
+
+/* 阅读器顶部导航 */
+.readerHeader {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  background: white;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.leftNav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.rightNav {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.actionButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  color: #666;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.actionButton:hover {
+  color: #ed4259;
+}
+
+.actionButton.liked {
+  color: #ed4259;
+}
+
+.actionButton svg {
+  font-size: 16px;
+}
+
+/* 工具栏 */
+.toolbar {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.toolbarButton {
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  color: #4b5563;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbarButton:hover {
+  background: #f3f4f6;
+  color: #2563eb;
+}
+
+.toolbarButton svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* 内容区域 */
+.content {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: inherit;
+  min-height: calc(100vh - 64px);
+  position: relative;
+  transition: all 0.3s ease;
+  /* 优化滚动性能 */
+  scroll-behavior: auto; /* 确保使用默认滚动行为 */
+}
+
+.contentWrapper {
+  white-space: pre-wrap !important;
+  word-wrap: break-word;
+  line-height: inherit;
+  text-align: justify;
+  hyphens: auto;
+}
+
+/* 强制应用字体大小到所有子元素，但排除标题区域 */
+.contentWrapper * {
+  font-size: var(--content-font-size, inherit) !important;
+}
+
+/* 确保标题区域不受内容区域字体大小影响，但允许内联样式生效 */
+.chapterHeader {
+  font-size: var(--header-font-size, initial);
+}
+
+/* 改进段落样式 */
+.contentWrapper :global(p) {
+  margin: 0;
+  padding: 0.3em 0;
+  line-height: inherit;
+  text-align: justify;
+  transition: all 0.3s ease;
+}
+
+/* 支持特殊格式段落 */
+.contentWrapper :global(p.empty-line) {
+  display: block;
+  height: 1em;
+  margin: 0.5em 0;
+  content: "";
+}
+
+/* 改进标题段落 */
+.contentWrapper :global(p[style*="font-weight: bold"]) {
+  margin: 1.5em 0;
+  color: #222;
+}
+
+/* 图片基础样式 */
+.contentWrapper :global(img) {
+  max-width: 100%;
+  height: auto;
+  margin: 1em auto;
+  display: block;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 可点击的图片样式 */
+.contentWrapper :global(.clickable-image) {
+  cursor: zoom-in;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.contentWrapper :global(.clickable-image:hover) {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 图片预览样式增强 - 通过组件类作用域 */
+.imagePreviewBackdrop {
+  background-color: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(2px);
+}
+
+.imagePreviewContainer img {
+  max-height: 90vh;
+  max-width: 90vw;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.imagePreviewClose {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: white;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.imagePreviewClose:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+/* 改进对话段落 */
+.contentWrapper :global(p[style*="text-indent: 0"]:first-letter) {
+  font-weight: 400;
+}
+
+/* 保持段落的缩进和对齐 */
+.contentWrapper :global([style*="text-align: center"]) {
+  text-align: center !important;
+  text-indent: 0 !important;
+}
+
+.contentWrapper :global([style*="text-align: right"]) {
+  text-align: right !important;
+  text-indent: 0 !important;
+}
+
+.contentWrapper :global([style*="text-align: left"]) {
+  text-align: left !important;
+}
+
+.contentWrapper :global([style*="text-indent: 2em"]) {
+  text-indent: 2em !important;
+}
+
+/* 章节标题样式 */
+.chapterHeader {
+  margin-bottom: 32px;
+  text-align: center;
+  position: relative;
+  padding-bottom: 20px;
+}
+
+.chapterHeader::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 2px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.chapterTitle {
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: #333;
+  line-height: 1.3;
+}
+
+.wordCount {
+  color: #666;
+  margin-left: 8px;
+}
+
+.chapterInfo {
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  /* 确保作者和时间字体大小在React DevTools中可覆盖 */
+  font-size: unset;
+}
+
+.chapterInfo span {
+  /* 确保作者和时间字体大小在React DevTools中可覆盖 */
+  font-size: inherit;
+}
+
+/* 互动区域 */
+.contentFooter {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid #eee;
+}
+
+.interactionButtons {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.interactionButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 9999px;
+  background: inherit;
+  color: #666;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.interactionButton:hover:not(:disabled) {
+  border-color: #ed4259;
+  color: #ed4259;
+}
+
+.interactionButton.liked {
+  background: #ed4259;
+  border-color: #ed4259;
+  color: white;
+}
+
+.interactionButton.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.interactionButton svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* 底部导航 */
+.footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  padding: 16px;
+  background: white;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  margin-top: 2rem;
+}
+
+/* 章节跳转容器 */
+.jumpContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  min-width: 120px;
+}
+
+.jumpInputWrapper {
+  display: flex;
+  align-items: center;
+  position: relative;
+  margin-left: 16px;
+}
+
+.jumpInput {
+  width: 70px;
+  height: 36px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px 0 0 8px;
+  padding: 0 12px;
+  font-size: 14px;
+  text-align: center;
+  outline: none;
+  transition: all 0.2s;
+  background: inherit;
+  color: inherit;
+}
+
+.jumpInput:focus {
+  border-color: #7877C6;
+  box-shadow: 0 0 0 2px rgba(120, 119, 198, 0.2);
+}
+
+.jumpGoButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #e5e7eb;
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  background: #f3f4f6;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.jumpGoButton:hover:not(:disabled) {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.jumpGoButton:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.jumpGoButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.jumpError {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.9);
+  color: white;
+  font-size: 12px;
+  z-index: 10;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* 主题下的样式 */
+.theme-dark .jumpInput {
+  background: #333;
+  border-color: #444;
+  color: #ddd;
+}
+
+.theme-dark .jumpInput:focus {
+  border-color: #7877C6;
+  box-shadow: 0 0 0 2px rgba(120, 119, 198, 0.4);
+}
+
+.theme-dark .jumpGoButton {
+  background: #444;
+  border-color: #444;
+  color: #ddd;
+}
+
+.theme-dark .jumpGoButton:hover:not(:disabled) {
+  background: #555;
+  color: white;
+}
+
+.theme-sepia .jumpInput {
+  background: #f5e8d3;
+  border-color: #e0d0b8;
+  color: #5d4037;
+}
+
+.theme-sepia .jumpGoButton {
+  background: #ede0cf;
+  border-color: #e0d0b8;
+  color: #5d4037;
+}
+
+.theme-eyeCare .jumpInput {
+  background: #f0f7e8;
+  border-color: #c8e6c9;
+  color: #3d4039;
+}
+
+.theme-eyeCare .jumpGoButton {
+  background: #e6f0de;
+  border-color: #c8e6c9;
+  color: #3d4039;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .footer {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .jumpInputWrapper {
+    margin-left: 0;
+    margin-top: 10px;
+    order: 4;
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .jumpInput {
+    width: 120px;
+  }
+}
+
+.navButton {
+  padding: 8px 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  background: inherit;
+  color: #666;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.navButton:hover:not(:disabled) {
+  background: #f3f4f6;
+  transform: translateY(-2px);
+}
+
+.navButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chapterStatus {
+  font-size: 14px;
+  color: #666;
+  min-width: 80px;
+  text-align: center;
+}
+
+/* 评论区样式更新 */
+.commentSection {
+  max-width: 800px;
+  margin: 0 auto 2rem;
+  padding: 1.5rem;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-top: 2rem;
+}
+
+/* 深色主题下的评论区 */
+.theme-dark .commentSection {
+  background-color: #1e1e1e;
+  border-color: #333;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* 暖色主题下的评论区 */
+.theme-sepia .commentSection {
+  background-color: #f5e8d3;
+  border-color: #e0d0b8;
+}
+
+/* 护眼主题下的评论区 */
+.theme-eyeCare .commentSection {
+  background-color: #e8f5e9;
+  border-color: #c8e6c9;
+}
+
+/* 设置面板 */
+.settingsOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 40;
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* 主题样式 - 默认 */
+.theme-default {
+  background: #fff;
+  color: #333;
+}
+
+.theme-default .content {
+  background: #fff;
+}
+
+/* 主题样式 - 护眼 */
+.theme-eyeCare {
+  background: #f0f7e8;
+  color: #3d4039;
+}
+
+.theme-eyeCare .content {
+  background: #f0f7e8;
+}
+
+/* 主题样式 - 暗黑模式 */
+.theme-dark {
+  background: #121212;
+  color: #e0e0e0;
+}
+
+.theme-dark .content {
+  background: #121212;
+  color: #e0e0e0;
+}
+
+.theme-dark .contentWrapper {
+  color: #e0e0e0;
+}
+
+.theme-dark .contentWrapper * {
+  color: #e0e0e0 !important;
+}
+
+.theme-dark .contentWrapper :global(p) {
+  color: #e0e0e0;
+}
+
+.theme-dark .contentWrapper :global(p[style*="font-weight: bold"]) {
+  color: #ffffff;
+}
+
+.theme-dark .chapterTitle {
+  color: #ffffff;
+}
+
+.theme-dark .wordCount {
+  color: #aaa;
+}
+
+.theme-dark .chapterInfo {
+  color: #aaa;
+}
+
+.theme-dark .chapterInfo span {
+  color: #aaa;
+}
+
+.theme-dark .chapterHeader::after {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.theme-dark .readerHeader {
+  background: #222;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.theme-dark .actionButton,
+.theme-dark .toolbarButton {
+  color: #aaa;
+}
+
+.theme-dark .actionButton:hover,
+.theme-dark .toolbarButton:hover {
+  color: #ed4259;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.theme-dark .contentFooter {
+  border-top: 1px solid #333;
+}
+
+.theme-dark .interactionButton {
+  background: #222;
+  border-color: #444;
+  color: #ccc;
+}
+
+.theme-dark .interactionButton:hover:not(:disabled) {
+  border-color: #ed4259;
+  color: #ed4259;
+  background: rgba(237, 66, 89, 0.1);
+}
+
+.theme-dark .footer {
+  background: #222;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.theme-dark .navButton {
+  background: #333;
+  color: #ddd;
+  border-color: #444;
+}
+
+.theme-dark .navButton:hover:not(:disabled) {
+  background: #444;
+}
+
+.theme-dark .navButton:disabled {
+  color: #666;
+  background: #2a2a2a;
+}
+
+.theme-dark .chapterStatus {
+  color: #999;
+}
+
+/* 设置覆盖层深色主题样式 */
+.theme-dark .settingsOverlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* 图片相关深色主题样式 */
+.theme-dark .contentWrapper :global(img) {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.theme-dark .contentWrapper :global(.clickable-image:hover) {
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.15);
+}
+
+@media (max-width: 768px) {
+  .theme-dark .toolbar {
+    background: #222;
+    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* 字体大小 */
+.fontSize-small {
+  font-size: 15px;
+}
+
+.fontSize-normal {
+  font-size: 17px;
+}
+
+.fontSize-large {
+  font-size: 19px;
+}
+
+.fontSize-xlarge {
+  font-size: 21px;
+}
+
+/* 行间距 */
+.lineHeight-compact {
+  line-height: 1.6;
+}
+
+.lineHeight-normal {
+  line-height: 1.8;
+}
+
+.lineHeight-loose {
+  line-height: 2.0;
+}
+
+/* 动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .readerHeader {
+    padding: 8px 16px;
+  }
+
+  .rightNav {
+    gap: 16px;
+  }
+
+  .actionButton {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .content {
+    padding: 1rem;
+  }
+
+  .chapterTitle {
+    /* 移除固定字体大小 */
+  }
+
+  .toolbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+  background: white;
+    padding: 0.75rem;
+    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+    justify-content: space-around;
+    z-index: 30;
+  }
+
+  .toolbarButton {
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+  }
+
+  .toolbarButton svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .interactionButtons {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .footer {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .navButton {
+    padding: 6px 16px;
+    font-size: 12px;
+  }
+}
+
+/* 主题样式 - 复古 */
+.theme-sepia {
+  background: #f8f3e9;
+  color: #5b4636;
+}
+
+.theme-sepia .content {
+  background: #f8f3e9;
+}

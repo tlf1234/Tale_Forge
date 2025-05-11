@@ -1,0 +1,427 @@
+.container {
+  padding: 0;
+  margin: 0;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-top: 1px solid #eee;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.2s ease;
+}
+
+.header:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #333;
+  width: 100%;
+}
+
+.count {
+  margin-left: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: normal;
+  color: #666;
+  background-color: #f0f0f0;
+  padding: 0.2rem 0.5rem;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.expandButton {
+  margin-left: auto;
+  color: #999;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  transition: transform 0.2s ease;
+}
+
+.expandButton svg {
+  transition: transform 0.3s ease;
+}
+
+.commentGuide {
+  padding: 0.75rem 1rem;
+  background-color: #f9f9f9;
+  color: #666;
+  font-size: 0.875rem;
+  border-top: 1px solid #eee;
+  border-bottom: 1px solid #eee;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.list {
+  padding: 0 1rem;
+}
+
+.commentWrapper {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #eee;
+  transition: background-color 0.2s ease;
+  border-radius: 4px;
+  padding: 0.5rem;
+}
+
+.commentWrapper:hover {
+  background-color: rgba(0, 0, 0, 0.01);
+}
+
+.commentWrapper:last-child {
+  border-bottom: none;
+}
+
+.replyInput {
+  margin-left: 3rem;
+  margin-top: 0.5rem;
+  padding-left: 0.5rem;
+  border-left: 3px solid rgba(255, 107, 129, 0.3);
+}
+
+.loading {
+  padding: 1rem 0;
+}
+
+.error {
+  padding: 1.5rem;
+  text-align: center;
+  color: #dc2626;
+  background-color: #fee2e2;
+  border-radius: 8px;
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  animation: errorShake 0.4s ease-in-out;
+}
+
+@keyframes errorShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.error p {
+  margin: 0;
+  font-weight: 500;
+}
+
+.retryButton {
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background: none;
+  border: 1px solid #dc2626;
+  border-radius: 4px;
+  color: #dc2626;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.retryButton:hover {
+  background: #dc2626;
+  color: white;
+}
+
+.noMore,
+.empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: #999;
+  font-size: 0.875rem;
+  border-top: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.empty:before {
+  content: "";
+  display: block;
+  width: 60px;
+  height: 60px;
+  background-color: #f0f0f0;
+  mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><path d="M8 10h.01"></path><path d="M12 10h.01"></path><path d="M16 10h.01"></path></svg>') no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><path d="M8 10h.01"></path><path d="M12 10h.01"></path><path d="M16 10h.01"></path></svg>') no-repeat center;
+  -webkit-mask-size: contain;
+  opacity: 0.5;
+  border-radius: 50%;
+}
+
+.loadMoreButton {
+  display: block;
+  width: calc(100% - 2rem);
+  margin: 1rem;
+  padding: 0.75rem;
+  background-color: #f5f5f5;
+  border: none;
+  border-radius: 4px;
+  color: #666;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.loadMoreButton:hover {
+  background-color: #e5e5e5;
+  transform: translateY(-1px);
+}
+
+/* 主题相关样式 */
+:global(.theme-default) .container {
+  background: #f8f9fa;
+}
+
+:global(.theme-default) .title {
+  color: #333;
+}
+
+:global(.theme-eyeCare) .container {
+  background: #cce8cf;
+}
+
+:global(.theme-eyeCare) .title {
+  color: #333;
+}
+
+:global(.theme-eyeCare) .count {
+  background-color: #a5d6a7;
+}
+
+:global(.theme-eyeCare) .empty:before {
+  background-color: #a5d6a7;
+}
+
+:global(.theme-sepia) .container {
+  background: #f4ecd8;
+}
+
+:global(.theme-sepia) .title {
+  color: #5c4b37;
+}
+
+:global(.theme-sepia) .count {
+  background-color: #e8d9ba;
+}
+
+:global(.theme-sepia) .empty:before {
+  background-color: #e0cba8;
+}
+
+/* 深色主题下的评论列表样式增强 */
+:global(.dark-theme) .container,
+:global(.theme-dark) .container {
+  background: #1a1a1a;
+  border-top: 1px solid #333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+:global(.dark-theme) .header:hover,
+:global(.theme-dark) .header:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+:global(.dark-theme) .title,
+:global(.theme-dark) .title {
+  color: #e0e0e0;
+}
+
+:global(.dark-theme) .count,
+:global(.theme-dark) .count {
+  color: #e0e0e0;
+  background-color: #333;
+}
+
+:global(.dark-theme) .commentGuide,
+:global(.theme-dark) .commentGuide {
+  background-color: #222;
+  color: #aaa;
+  border-color: #333;
+}
+
+:global(.dark-theme) .loadMoreButton,
+:global(.theme-dark) .loadMoreButton {
+  background: #333;
+  color: #ccc;
+}
+
+:global(.dark-theme) .loadMoreButton:hover,
+:global(.theme-dark) .loadMoreButton:hover {
+  background: #444;
+}
+
+:global(.dark-theme) .noMore,
+:global(.dark-theme) .empty,
+:global(.theme-dark) .noMore,
+:global(.theme-dark) .empty {
+  color: #aaa;
+  border-color: #333;
+}
+
+:global(.dark-theme) .empty:before,
+:global(.theme-dark) .empty:before {
+  background-color: #555;
+}
+
+:global(.dark-theme) .commentWrapper,
+:global(.theme-dark) .commentWrapper {
+  border-color: #333;
+}
+
+:global(.dark-theme) .commentWrapper:hover,
+:global(.theme-dark) .commentWrapper:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+:global(.dark-theme) .error,
+:global(.theme-dark) .error {
+  background-color: rgba(220, 38, 38, 0.1);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .container {
+    border-radius: 0;
+    box-shadow: none;
+  }
+  
+  .title {
+    font-size: 1rem;
+  }
+  
+  .list {
+    padding: 0 0.75rem;
+  }
+  
+  .commentGuide {
+    padding: 0.625rem 0.75rem;
+  }
+  
+  .replyInput {
+    margin-left: 2rem;
+  }
+}
+
+.initialLoading {
+  padding: 1rem 0;
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 评论分类标签样式 */
+.commentTabs {
+  display: flex;
+  margin: 16px 0;
+  border-bottom: 1px solid var(--border-color);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+}
+
+.commentTabs::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
+
+.commentTab {
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: var(--secondary-text-color);
+  cursor: pointer;
+  white-space: nowrap;
+  position: relative;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.commentTab:hover {
+  color: var(--accent-color);
+}
+
+.commentTab.active {
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.commentTab.active:after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background-color: var(--accent-color);
+  border-radius: 3px 3px 0 0;
+}
+
+.tabIcon {
+  font-size: 16px;
+}
+
+/* 热评标签 */
+.hotComment {
+  position: relative;
+}
+
+.hotComment:before {
+  content: '热';
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background-color: var(--accent-color);
+  color: white;
+  font-size: 10px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+/* 今日热评标签 */
+.todayHotComment {
+  position: relative;
+}
+
+.todayHotComment:before {
+  content: '今';
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background-color: #5d7df5;
+  color: white;
+  font-size: 10px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+} 
